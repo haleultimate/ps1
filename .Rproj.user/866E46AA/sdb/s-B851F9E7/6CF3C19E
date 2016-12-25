@@ -1,0 +1,20 @@
+{
+    "collab_server" : "",
+    "contents" : "#make into function\n#add in ordering logic\n#pass in sim_start_date, sim_end_date\n\n\n#sim Blotter\nprint (paste(\"Running Sim\",Sys.time()))\nshares <- matrix(nrow=length(com.env$sim_date_index),ncol=length(stx.symbols))\nfor (SimDate_i in 1:(length(com.env$sim_date_index))) {\n  SimDate <- com.env$sim_date_index[SimDate_i]\n  equity <- init_equity \n  #print(paste(\"DATE:\",SimDate,\"Equity:\",equity))\n  port.pos <- port_opt_lp(as.vector(MU[SimDate]),as.vector(VLTY[SimDate]),equity)\n  shares[SimDate_i,] <- port.pos\n  #print(port.pos)\n}\n\nADJRET.matrix <- as.matrix(ADJRET[com.env$sim_date_index])\nADJRET_shares <- ADJRET.matrix*shares\ndayprofit <- rowSums(ADJRET_shares)\nstockprofit <- colSums(ADJRET_shares)\ntotalprofit <- cumsum(dayprofit)\n\nplot(com.env$sim_date_index,totalprofit)\npoints(com.env$sim_date_index,dayprofit,col=\"red\")",
+    "created" : 1482433764627.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "3545363642",
+    "id" : "6CF3C19E",
+    "lastKnownWriteTime" : 1482521911,
+    "last_content_update" : 1482521911355,
+    "path" : "~/XLF/ps1/blotter_sim.R",
+    "project_path" : "blotter_sim.R",
+    "properties" : {
+    },
+    "relative_order" : 3,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_source"
+}

@@ -1,0 +1,21 @@
+{
+    "collab_server" : "",
+    "contents" : "# run_ps.R\nsource(\"init_session.R\")                        #clean environment, setup com parms\n\nsource(\"rnd_parms.R\")\nsource(\"rnd_lib.R\")\nsource(\"calc_lib.R\")                            \nsource(\"model_select.R\")                        \nsource(\"port_opt.R\")                            #function libraries\n\nsource(\"run_prediction.R\")                      #prediction model\nsource(\"make_mu.R\")                             #calc MU for each var.env xts object \nsource(\"blotter_sim.R\")                         #run sim, plot daily profit\n\nsource(\"close_session.R\")\n",
+    "created" : 1482432518870.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "922858051",
+    "id" : "D03A8D58",
+    "lastKnownWriteTime" : 1482521800,
+    "last_content_update" : 1482521800624,
+    "path" : "~/XLF/ps1/run_ps.R",
+    "project_path" : "run_ps.R",
+    "properties" : {
+        "tempName" : "Untitled1"
+    },
+    "relative_order" : 2,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_source"
+}

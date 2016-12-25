@@ -1,0 +1,21 @@
+{
+    "collab_server" : "",
+    "contents" : "#make_mu.R\n#make xts columns in var.env for MU, VLTY, ADJRET\n#accumulate into xts for MU, VLTY, ADJRET with stx as columns\nV1 <- NULL\nV1$col <- 1\nV1$name <- \"MU\"\nV1$tier <- 9999\nV1$requires <- NULL\nV1$ID <- 9999\nV1$type <- \"Ret\"\nV1$use <- \"sim\"\nV1$calc_cmn <- FALSE\nV1$math[1] <- \"calc_prediction,'model.stepwise'\"\n\ncom.env$v.com$MU <- V1\ncom.env$vcom_names <- c(com.env$vcom_names,V1$name)\ncom.env$mu_vcom_num <- length(com.env$v.com)\nrm(V1)\n\nV1 <- NULL\nV1$col <- 1\nV1$name <- \"ADJRET\"\nV1$tier <- 9999\nV1$requires <- NULL\nV1$ID <- 9999\nV1$type <- \"Ret\"\nV1$use <- \"sim\"\nV1$calc_cmn <- FALSE\nV1$math[1] <- \"calc_adjret,'.Adjusted'\"\n\ncom.env$v.com$ADJRET <- V1\ncom.env$vcom_names <- c(com.env$vcom_names,V1$name)\ncom.env$adjret_vcom_num <- length(com.env$v.com)\nrm(V1)\n\nV1 <- NULL\nV1$col <- 1\nV1$name <- \"VLTY\"\nV1$tier <- 9999\nV1$requires <- \"ADJRET\"\nV1$ID <- 9999\nV1$type <- \"Vlt\"\nV1$use <- \"sim\"\nV1$calc_cmn <- FALSE\nV1$math[1] <- \"calc_vlty,'ADJRET',window=250\"\n\ncom.env$v.com$VLTY <- V1\ncom.env$vcom_names <- c(com.env$vcom_names,V1$name)\ncom.env$vlty_vcom_num <- length(com.env$v.com)\nrm(V1)\n\n\nfor (stk in 1:(stx+cmns)) {\n  ticker <- stx_list[stk]\n  #print(paste(\"Getting data for:\",ticker))\n  is.cmn <- (cmn_lookup[[ticker]] == 'cmn')\n  if (is.cmn) next                           #nothing to compute in cmn\n  ve.xts <- paste(\"var.env$\",ticker,sep=\"\")\n  for (v in c(com.env$mu_vcom_num,com.env$adjret_vcom_num,com.env$vlty_vcom_num)) {\n    \n    cmd_string <- paste(\"c <- ncol(\",ve.xts,\") + 1\",sep=\"\")      \n    eval(parse(text=cmd_string))                               #get column number\n    com.env$v.com[[v]]$col <- c\n    \n    vd <- com.env$v.com[[v]]\n    coln <- vd$col\n    for (m in 1:length(vd$math)) {\n      math <- strsplit(vd$math[m],split=\",\")[[1]]\n      parms <- gsub(\"^[^,]*,\",\"\",vd$math[m])\n      fun_call <- paste(math[1],\"('\",ve.xts,\"',\",coln,\",\",parms,\")\",sep=\"\")\n      #print(fun_call)\n      eval(parse(text=fun_call))\n    }\n    name.var(ve.xts,(coln:(coln-1+length(vd$name))),vd$name)\n  }\n}\n\nMU <- NULL\nVLTY <- NULL\nADJRET <- NULL\n\nfor (stk in 1:(stx+cmns)) {\n  ticker <- stx_list[stk]\n  #print(paste(\"Getting data for:\",ticker))\n  is.cmn <- (cmn_lookup[[ticker]] == 'cmn')\n  if (is.cmn) next                           #nothing to compute in cmn\n  ve.xts <- paste(\"var.env$\",ticker,sep=\"\")\n  cmd_string <- paste(\"MU <- cbind(MU,\",ve.xts,\"[,'MU'])\",sep=\"\")\n  eval(parse(text=cmd_string))\n  colnames(MU)[ncol(MU)] <- ticker\n  cmd_string <- paste(\"VLTY <- cbind(VLTY,\",ve.xts,\"[,'VLTY'])\",sep=\"\")\n  eval(parse(text=cmd_string))\n  colnames(VLTY)[ncol(VLTY)] <- ticker\n  cmd_string <- paste(\"ADJRET <- cbind(ADJRET,\",ve.xts,\"[,'ADJRET'])\",sep=\"\")\n  eval(parse(text=cmd_string))\n  colnames(ADJRET)[ncol(ADJRET)] <- ticker\n}\n\n",
+    "created" : 1482440731098.000,
+    "dirty" : true,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "4245801367",
+    "id" : "CAAD5F32",
+    "lastKnownWriteTime" : 1482520649,
+    "last_content_update" : 1482520669178,
+    "path" : "~/XLF/ps1/make_mu.R",
+    "project_path" : "make_mu.R",
+    "properties" : {
+        "tempName" : "Untitled1"
+    },
+    "relative_order" : 7,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_source"
+}

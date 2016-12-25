@@ -1,0 +1,20 @@
+{
+    "collab_server" : "",
+    "contents" : "source(\"sample_vars.R\")\nsource(\"define_vars.R\")                         #define predictor var, setup initial v.com\n\nfor (l in 1:com.env$model_loops) {              #start model loop\n  print(paste(\"model loop:\",l))\n\n  for (i in 1:com.env$add_vars) rnd_var()       #add new vars to v.com\n  source(\"make_vars.R\")                         #make vars in var.env\n  source(\"collect_data.R\")                      #get regression data frame\n  print(paste(\"Data Collected:\",Sys.time()))\n  source(\"run_regression.R\")                    #run regression\n  #if (summary(model.stepwise)$adj.r.squared > 0.10) break\n  source(\"clean_vcom.R\")                        #delete useless variables\n\n}                                               #end model loop\n",
+    "created" : 1482432465646.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "1595455607",
+    "id" : "3B01D5D3",
+    "lastKnownWriteTime" : 1482432706,
+    "last_content_update" : 1482432706514,
+    "path" : "~/XLF/ps1/run_prediction.R",
+    "project_path" : "run_prediction.R",
+    "properties" : {
+    },
+    "relative_order" : 4,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_source"
+}
