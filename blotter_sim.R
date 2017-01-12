@@ -20,6 +20,7 @@ ADJRET_shares <- ADJRET.matrix*shares
 dayprofit <- rowSums(ADJRET_shares)
 stockprofit <- colSums(ADJRET_shares)
 totalprofit <- cumsum(dayprofit)
+print(paste("total profit:",totalprofit[length(totalprofit)]))
 
 plot(com.env$sim_date_index,totalprofit)
 points(com.env$sim_date_index,dayprofit,col="red")

@@ -1,6 +1,6 @@
 #calc_lib
 
-name.var <- function(ve.xts,col_num,new_name) { #always name last column
+name.var <- function(ve.xts,col_num,new_name) { #always name col_num, may have two names for bin vars
   for (n in 1:length(new_name)) {
     nn <- new_name[n]
     cn <- col_num[n]
@@ -61,7 +61,9 @@ calc_look_forward <- function(ve.xts,coln,lf=-1) {
   #print(cmd_string)
   eval(parse(text=cmd_string))
   tmp <- stats::lag(tmp,lf)
-  cmd_string <- paste(ve.xts," <- cbind(",ve.xts,",log(tmp/",ve.xts,"[,'C']))",sep="")
+  cmd_string <- ifelse(lf<0,
+                       paste(ve.xts," <- cbind(",ve.xts,",log(tmp/",ve.xts,"[,'C']))",sep=""),
+                       paste(ve.xts," <- cbind(",ve.xts,",log(",ve.xts,"[,'C']/tmp))",sep=""))
   #print(cmd_string)
   eval(parse(text=cmd_string))
 }
@@ -84,7 +86,8 @@ calc_ret <- function(ve.xts,coln,start_price,end_price) {
 calc_cap <- function(ve.xts,coln,abscap=NULL,lcap=NULL,hcap=NULL,
                      cap_pct=NULL,lcp=NULL,hcp=NULL,zcap=NULL,lz=NULL,hz=NULL) {  #always cap coln
   if (verbose) print(paste("calc_cap:","ve.xts=",ve.xts,"coln=",coln,"abscap=",abscap,"cap_pct=",cap_pct,"zcap=",zcap))
-  data_string <- paste(ve.xts,"[,",coln,"]",sep="")
+  data_string <- paste(ve.xts,"[com.env$reg_date_range,",coln,"]",sep="")
+  out_string <- paste(ve.xts,"[,",coln,"]",sep="")
   if (!is.null(abscap)) {
     lcap <- -abscap
     hcap <- abscap
@@ -98,20 +101,22 @@ calc_cap <- function(ve.xts,coln,abscap=NULL,lcap=NULL,hcap=NULL,
     hz <- zcap
   }
   if (!is.null(lcp)) {
-    cmd_string <- paste("lcap <- quantile(",ve.xts,"[com.env$reg_data_range,",coln,"],lcp,na.rm=TRUE)",sep="")
+    cmd_string <- paste("lcap <- quantile(",data_string,",lcp,na.rm=TRUE)",sep="")
     eval(parse(text=cmd_string))
-    cmd_string <- paste("hcap <- quantile(",ve.xts,"[com.env$reg_data_range,",coln,"],hcp,na.rm=TRUE)",sep="")
+    cmd_string <- paste("hcap <- quantile(",data_string,",hcp,na.rm=TRUE)",sep="")
     eval(parse(text=cmd_string))
   }
   if (!is.null(lz)) {
-    cmd_string <- paste("sd <- sd(",ve.xts,"[com.env$reg_data_range,",coln,"],na.rm=TRUE)",sep="")
+    cmd_string <- paste("sd_val <- sd(",data_string,",na.rm=TRUE)",sep="")
     eval(parse(text=cmd_string))
-    lcap <- lz*sd
-    hcap <- hz*sd
+    cmd_string <- paste("mean_val <- mean(",data_string,",na.rm=TRUE)",sep="")
+    eval(parse(text=cmd_string))
+    lcap <- mean_val + lz*sd_val
+    hcap <- mean_val + hz*sd_val
   }
-  cmd_string <- paste(data_string,"[",data_string," < ",lcap,"] <- ",lcap,sep="")
+  cmd_string <- paste(out_string,"[",out_string," < ",lcap,"] <- ",lcap,sep="")
   eval(parse(text=cmd_string))
-  cmd_string <- paste(data_string,"[",data_string," > ",hcap,"] <- ",hcap,sep="")
+  cmd_string <- paste(out_string,"[",out_string," > ",hcap,"] <- ",hcap,sep="")
   eval(parse(text=cmd_string))
 }
 
@@ -159,27 +164,27 @@ calc_z <- function(ve.xts,coln,ma=TRUE) { #compute zscore/zscale on coln
   cmd_string <- paste("sd_val <- sd(",data_string,",na.rm=TRUE)",sep="")
   #print(cmd_string)
   eval(parse(text=cmd_string))
-  mean_val <- 1
+  mean_val <- 0
   if (ma) {
     cmd_string <- paste("mean_val <- mean(",data_string,",na.rm=TRUE)",sep="")
     #print(cmd_string)
     eval(parse(text=cmd_string))
   }
   #print(paste("mean_val=",mean_val,"sd_val=",sd_val))
-  cmd_string <- paste(out_string," <- (",out_string," - sd_val)/mean_val",sep="")
+  cmd_string <- paste(out_string," <- (",out_string," - mean_val)/sd_val",sep="")
   #print (cmd_string)
   eval(parse(text=cmd_string))
   #df.zscore <- scale(df,center=ma)
 }
 
 calc_decay <- function(ve.xts,coln,decay) { #compute decay on coln
-  #if (verbose) print(paste("ve.xts=",ve.xts,"decay=",decay))
+  #print(paste("ve.xts=",ve.xts,"decay=",decay))
   #ve.xts <- paste("var.env$",ticker,sep="")
   #cmd_string <- paste("col <- ncol(",ve.xts,")",sep="")
   #eval(parse(text=cmd_string))
   data_string <- paste(ve.xts,"[,",coln,"]",sep="")
   cmd_string <- paste("tmp.xts <-",data_string,sep="")
-  #if (verbose) print(cmd_string)
+  #print(cmd_string)
   eval(parse(text=cmd_string))
   tmp.xts[is.na(tmp.xts)] <- 0   #replace missing with 0
   tmp.ses <- ses(tmp.xts,alpha=decay)
@@ -240,16 +245,24 @@ calc_adv <- function(ve.xts,coln,window=20,logv=TRUE,subtract=18.5)  {
   #logadv.z <- logadv.z - 18.5 #create logadv.z, lb=20, assumed 18.5 as mean
 }
 
-calc_dol <- function(ve.xts,coln,price="M") {
+calc_dol <- function(ve.xts,coln,price="T") {
   ticker <- sub("var.env$","",ve.xts,fixed=TRUE)
   v.de <- paste("data.env$",ticker,"[,'",ticker,".Volume']",sep="")
+  cmd_string <- paste("tmp.xts <- data.env$",ticker,"[,'",ticker,".Volume']",sep="")
+  eval(parse(text=cmd_string))
+  tmp.xts[tmp.xts <= 0] <- 1
   if (price == "M") {
     h.de <- paste("data.env$",ticker,"[,'",ticker,".High']",sep="")
     l.de <- paste("data.env$",ticker,"[,'",ticker,".Low']",sep="")
-    cmd_string <- paste(ve.xts," <- cbind(",ve.xts,",sqrt(",h.de,"*",l.de,")*",v.de,")",sep="")
+    cmd_string <- paste(ve.xts," <- cbind(",ve.xts,",sqrt(",h.de,"*",l.de,")*tmp.xts)",sep="")
+  } else if (price == "T") {
+    h.de <- paste("data.env$",ticker,"[,'",ticker,".High']",sep="")
+    l.de <- paste("data.env$",ticker,"[,'",ticker,".Low']",sep="")
+    c.de <- paste("data.env$",ticker,"[,'",ticker,".Close']",sep="")
+    cmd_string <- paste(ve.xts," <- cbind(",ve.xts,",tmp.xts*(",h.de,"*",l.de,"*",c.de,")^(1/3))",sep="")
   } else if (price == "C") {
     c.de <- paste("data.env$",ticker,"[,'",ticker,".Close']",sep="")
-    cmd_string <- paste(ve.xts," <- cbind(",ve.xts,",",c.de,"*",v.de,")",sep="")
+    cmd_string <- paste(ve.xts," <- cbind(",ve.xts,",",c.de,"*tmp.xts)",sep="")
   }
   #if (verbose) print(cmd_string)
   eval(parse(text=cmd_string))
@@ -263,9 +276,11 @@ calc_res <- function(ve.xts,coln,field) {
   f.xts <- paste(ve.xts,"[,'",field,"']",sep="")
   ticker <- sub("var.env$","",ve.xts,fixed=TRUE)
   cmn <- cmn_lookup[ticker]
-  cmn.xts <- paste("var.env$",cmn,"[,'",field,"']",sep="")
-  cmd_string <- paste(ve.xts," <- cbind(",ve.xts,",(",f.xts,"-",cmn.xts,"))",sep="")
-  #if (verbose) print(cmd_string)
+  cmd_string <- paste("cmn.xts <- var.env$",cmn,"[,'",field,"']",sep="")
+  eval(parse(text=cmd_string))
+  cmn.xts[is.na(cmn.xts)] <- 0        #set cmn value to zero if missing (cmn not started yet)
+  cmd_string <- paste(ve.xts," <- cbind(",ve.xts,",(",f.xts,"-cmn.xts))",sep="")
+  #print(cmd_string)
   eval(parse(text=cmd_string))
 }
 
@@ -303,4 +318,26 @@ calc_bin <- function(ve.xts,coln,field=NULL,bin_field,b1=-2.,b2=2.) {
     #vl <- v.temp[,names(var)]*approx(x,y,v.temp[,names(bin_var)],yleft=1,yright=0)$y
     #y <- c(0,1)
     #vh <- v.temp[,names(var)]*approx(x,y,v.temp[,names(bin_var)],yleft=0,yright=1)$y
+}
+
+calc_dm <- function(ve.xts,coln,ret1,ret2) {
+  #print(paste("calc_dm:","ve.xts=",ve.xts,"ret1=",ret1,"ret2=",ret2))
+  if (ret1 == "YHHraw") {
+    cmd_string <- paste("r1.xts <- ",ve.xts,"$",ret1,sep="")
+    eval(parse(text=cmd_string))
+    cmd_string <- paste("r2.xts <- -",ve.xts,"$",ret2,sep="")
+    eval(parse(text=cmd_string))
+  } else if (ret1 == "YLLraw") {
+    cmd_string <- paste("r1.xts <- -",ve.xts,"$",ret1,sep="")
+    eval(parse(text=cmd_string))
+    cmd_string <- paste("r2.xts <- ",ve.xts,"$",ret2,sep="")
+    eval(parse(text=cmd_string))
+  } else {
+    print(paste("Error in calc_dm, no valid return",ret1,ret2,sep=""))
+    stop()
+  }
+  tmp.xts <- ifelse(r1.xts>r2.xts & r1.xts>0,r1.xts,0)
+  cmd_string <- paste(ve.xts," <- cbind(",ve.xts,",tmp.xts)",sep="")
+  #if (verbose) print(cmd_string)
+  eval(parse(text=cmd_string))
 }

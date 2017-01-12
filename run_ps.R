@@ -8,7 +8,13 @@ source("model_select.R")
 source("port_opt.R")                            #function libraries
 
 source("run_prediction.R")                      #prediction model
-source("make_mu.R")                             #calc MU for each var.env xts object 
-source("blotter_sim.R")                         #run sim, plot daily profit
-
+#source("make_mu.R")                             #calc MU,VLTY,ADJRET for each var.env xts object 
+#for (alpha_wt in c(4000,8000,16000,32000)) {
+#  com.env$alpha_wt <- alpha_wt
+#  print(paste("alpha_wt:",com.env$alpha_wt))
+#  source("blotter_sim.R")                         #run sim, plot daily profit
+#}
+#MU <- -MU
+#print("reversing MU")
+#source("blotter_sim.R")
 source("close_session.R")

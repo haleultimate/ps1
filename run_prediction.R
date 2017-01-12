@@ -10,6 +10,6 @@ for (l in 1:com.env$model_loops) {              #start model loop
   print(paste("Data Collected:",Sys.time()))
   source("run_regression.R")                    #run regression
   #if (summary(model.stepwise)$adj.r.squared > 0.10) break
-  source("clean_vcom.R")                        #delete useless variables
+  if (l<com.env$model_loops) source("clean_vcom.R")                        #delete useless variables
 
 }                                               #end model loop

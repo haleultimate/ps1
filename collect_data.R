@@ -32,7 +32,17 @@ reg_data.df <- NULL
 OOS_data.df <- NULL
 for (i in 1:stx) {
   ticker <- stx.symbols[i]
-  subset_string <- paste("var.env$",ticker,"[com.env$reg_date_range,allmodelvars]",sep="")
+  cmn_ticker <- cmn_lookup[ticker]
+  cmd_string <- paste("cmn_start_date <- index(data.env$",cmn_ticker,"[",com.env$days2remove,",])",sep="")
+  eval(parse(text=cmd_string))
+  cmd_string <- paste("stk_start_date <- index(data.env$",ticker,"[",com.env$days2remove,",])",sep="")
+  eval(parse(text=cmd_string))
+  max_start_date <- max(c(cmn_start_date,stk_start_date,com.env$reg_start_date))
+  cmd_string <- paste("start_idx <- which(max_start_date == index(var.env$",ticker,"))",sep="")
+  eval(parse(text=cmd_string))
+  cmd_string <- paste("end_idx <- which(com.env$reg_end_date == index(var.env$",ticker,"))",sep="")
+  eval(parse(text=cmd_string))
+  subset_string <- paste("var.env$",ticker,"[",start_idx,":",end_idx,",allmodelvars]",sep="")
   cmd_string <- paste("reg_data.df <- bind_rows(reg_data.df,as.data.frame(",subset_string,"))",sep="")
   #if (verbose) print(cmd_string)
   eval(parse(text=cmd_string))
@@ -42,9 +52,9 @@ for (i in 1:stx) {
   eval(parse(text=cmd_string))
 }
 #str(reg_data.df)
-print(com.env$vcom_names)
+if (verbose) print(com.env$vcom_names)
 #com.env$ind_names
 #com.env$bin_names
-print(allmodelvars)
+if (verbose) print(allmodelvars)
 
 

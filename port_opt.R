@@ -10,7 +10,7 @@ port_opt_lp <- function (lp.mu, lp.vlty, lp.port_size) {
     lp.stx <- length(lp.mu)
     if (lp.stx != length(lp.vlty)) print ("ERROR: MU and VLTY must have same number of stocks")
     
-    lp.vlty_bounds <- c(0,10000,15000,25000)
+    lp.vlty_bounds <- c(0,15000,30000,45000)
     vb_n <- length(lp.vlty_bounds)    #number of vlty bounds
     lp.vbs <- vb_n - 2                #number of vlty bound segments needing variables
     max_vb <- lp.vlty_bounds[vb_n]    #upper positions size constraint
@@ -20,7 +20,7 @@ port_opt_lp <- function (lp.mu, lp.vlty, lp.port_size) {
     #vlty <- rnorm(lp.stx,0.015,.0025)
     #vlty <- vlty*vlty
     
-    lp.alpha_wt <- 2000.
+    lp.alpha_wt <- com.env$alpha_wt
     lp.vlty_wt <- rep(-1.,vb_n-1)
     
     pos_vars <- lp.stx                #position (only var allowed to go negative)

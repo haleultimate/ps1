@@ -1,79 +1,13 @@
-symbols <- c(
-  "XLF", # Financial sector ETF
-  #"BRK-B",    not valid name
-  "JPM",
-  "WFC",
-  "BAC",
-  "C",
-  "USB",
-  "GS",
-  "AIG",
-  "CB",
-  "AXP",
-  "MET",
-  "MS",
-  "BLK",
-  "PNC",
-  "BK",
-  "SCHW",
-  "CME",
-  "COF",
-  "MMC",
-  "PRU",
-  "TRV",
-  "SPGI",
-  "ICE",
-  "BBT",
-  "AON",
-  "AFL",
-  "STT",
-  "ALL",
-  "DFS",
-  "STI",
-  "PGR",
-  "MTB",
-  "HIG",
-  "TROW",
-  "AMP",
-  "FITB",
-  "NTRS",
-  "PFG",
-  "KEY",
-  "IVZ",
-  "BEN",
-  "RF",
-  "CINF",
-  "L",
-  "HBAN",
-  "LNC",
-  "XL",
-  "AJG",
-  "UNM",
-  "CMA",
-  "NDAQ",
-  "AMG",
-  "ETFC",
-  "TMK",
-  "ZION",
-  "LUK",
-  "AIZ",
-  "LM"
-)
-stx_n <- c(2:length(symbols)) #c(2:length(symbols))  c(2:length(symbols))  #c(5:10) #
-stx.symbols <- symbols[stx_n]      #list of stx to trade
-stx <- length(stx_n)
-#load mktdata
-stx_list <- append(1,stx_n)
-stx_list <- symbols[stx_list]      #cmn index + stx to trade
+source("stock_list.R")
 
 rm.list <- ls(all=TRUE)
-keep.list <- c(stx_list,"stx","stx_list","stx.symbols","stx_n","stx_list.old","data.env")
+keep.list <- c(stx_list,"stx","cmns","stx_list","stx.symbols","cmn.symbols","cmn_lookup","stx_list.old","data.env")
 isNameinKeep <- rm.list %in% keep.list
 rm.list <- c(rm.list[!isNameinKeep],"keep.list","isNameinKeep","rm.list")
 rm(list = rm.list)  #clear environment except for loaded stock data 
 
 #setup output to go to logfile
-original_wd <- getwd()
+#original_wd <- getwd()
 #logdir <- paste(original_wd,"/logs",sep="")
 #setwd(logdir)
 #logfile <- file("logfile.txt","w")
@@ -118,20 +52,15 @@ if (!exists("stx_list.old")) {         #only load if stx_list has changed
   stx_list.old <- stx_list
 }
 
-#create cmn lookup (stock contains etf used as cmn, cmn contains the word 'cmn')
-cmn_lookup <- rep('XLF',stx+1)
-names(cmn_lookup) <- stx_list
-cmn_lookup['XLF'] <- 'cmn'
-cmns <- 1
-
 verbose <- FALSE
-com.env$model_loops <- 20
-com.env$add_vars <- 20
+com.env$model_loops <- 10
+com.env$add_vars <- 60
 #run_type <- "add_vars"
 #insample.r2.threshold <- 0.02
 predict.ret <- "C2Clf1p"    #should be set up as first model_var in v.com (define_vars.R)
-com.env$reg_start_date <- "200407"
-com.env$reg_end_date <- "20111231"
+com.env$days2remove <- 60
+com.env$reg_start_date <- as.POSIXct("2004-07-01 UTC")
+com.env$reg_end_date <- as.POSIXct("2011-12-30 UTC")
 com.env$OOS_start_date <- "20120101"
 com.env$OOS_end_date <- "20121231"
 com.env$reg_date_range <- paste(com.env$reg_start_date,"/",com.env$reg_end_date,sep="")
@@ -160,7 +89,7 @@ for (i in 1:stx) {
   cmd_string <- paste("not_enough_history <- nrow(data.env$",ticker,") < 320",sep="")
   eval(parse(text=cmd_string))
   if ( (not_enough_history) | (corr.val < corr.threshold) ) {
-    #if (verbose) print(paste("remove",ticker,"from stx list, not correlated with cmn",corr.val))
+    #print(paste("remove",ticker,"from stx list, not correlated with cmn",corr.val))
     stx.symbols <- stx.symbols[-which(stx.symbols == ticker)] #remove from stx list
     stx_list <- stx_list[-which(stx_list == ticker)]
   } #else print(corr.val)

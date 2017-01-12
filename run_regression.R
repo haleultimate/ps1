@@ -21,7 +21,7 @@ if (length(model.stepwise) == 0) {
   } else {
     print(summary(model.stepwise))
     oos_stats <- oos.r2(model.stepwise,OOS_data.df)
-    print(oos_stats)
+    print(paste("r2",oos_stats$rsq,"r20",oos_stats$rsq0,"cor",oos_stats$cor,"mse",oos_stats$mse,"wpct",oos_stats$winpct))
   }
 #print("r2cor")
 #r2cor <- oos.r2(model.stepwise,oos)

@@ -33,9 +33,10 @@ for (stk in 1:(stx+cmns)) {
       math <- strsplit(vd$math[m],split=",")[[1]]
       parms <- gsub("^[^,]*,","",vd$math[m])
       fun_call <- paste(math[1],"('",ve.xts,"',",coln,",",parms,")",sep="")
-      if (verbose) print(fun_call)
+      if (verbose) print(paste(fun_call,"m=",m,"v=",v))
       eval(parse(text=fun_call))
     }
+    if (vd$name[1] == "lD" & stk == 1) print(vd)
     name.var(ve.xts,(coln:(coln-1+length(vd$name))),vd$name)
   }
 }

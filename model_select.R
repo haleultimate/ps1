@@ -118,12 +118,18 @@ oos.r2 <- function(model,df.oos) {
   #SS.total - (SS.regression+SS.residual)
   test <- NULL
   test$rsq <- 1 - (SS.residual/SS.total)  
+  SS.total0 <- sum(test.y^2)
+  test$rsq0 <- 1 - (SS.residual/SS.total0)
   results <- cbind(predict.lm(model,newdata=df.oos),df.oos[,predict.ret])
   test$cor <- cor(results,use="complete.obs")[1,2]
   test$mse <- mean((test.y-predicted.model)^2)
-  cnt <- length(predicted.model)
+  cnt <- 0
+  #cnt <- length(predicted.model)
   wincnt <- 0
-  for (i in 1:length(predicted.model)) if (abs(test.y[i]-predicted.model[i]) < abs(test.y[i])) wincnt <- wincnt + 1
+  for (i in 1:length(predicted.model)) {
+    if (abs(test.y[i]-predicted.model[i]) < abs(test.y[i])) wincnt <- wincnt + 1
+    if (test.y[i] != 0) cnt <- cnt + 1
+  }
   test$winpct <- wincnt/cnt
   #print(test)
   return(test)
