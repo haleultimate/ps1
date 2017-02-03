@@ -1,3 +1,5 @@
+com.env <- new.env()
+
 symbols <- c(
   "XLF", # Financial sector ETF
   #"BRK-B",    not valid name
@@ -93,25 +95,26 @@ symbols <- c(
 )
 
 #create cmn lookup (stock contains etf used as cmn, cmn contains the word 'cmn')
-cmn.symbols <- c('XLF',
+com.env$cmn.symbols <- c('XLF',
               'GDX'
 )
 num_symbols <- length(symbols)
-cmns <- length(cmn.symbols)
-stx <- num_symbols - cmns
-cmn_num <- which(symbols %in% cmn.symbols)
-if (length(cmn_num) != cmns) stop()        #bug in ticker or cmn list
+com.env$cmns <- length(com.env$cmn.symbols)
+com.env$stx <- num_symbols - com.env$cmns
+cmn_num <- which(symbols %in% com.env$cmn.symbols)
+if (length(cmn_num) != com.env$cmns) stop()        #bug in ticker or cmn list
 
-cmn_lookup <- rep('cmn',num_symbols)
-for (i in 1:cmns) {
+com.env$cmn_lookup <- rep('cmn',num_symbols)
+for (i in 1:com.env$cmns) {
   start_idx <- cmn_num[i] + 1
-  end_idx <- ifelse(i < cmns,cmn_num[i+1]-1,num_symbols)
-  cmn_lookup[start_idx:end_idx] <- cmn.symbols[i]
+  end_idx <- ifelse(i < com.env$cmns,cmn_num[i+1]-1,num_symbols)
+  com.env$cmn_lookup[start_idx:end_idx] <- com.env$cmn.symbols[i]
 }
-names(cmn_lookup) <- symbols
+names(com.env$cmn_lookup) <- symbols
 
-stx.symbols <- symbols[!(symbols %in% cmn.symbols)]
-stx_list <- symbols
+com.env$stx.symbols <- symbols[!(symbols %in% com.env$cmn.symbols)]
+com.env$stx_list <- symbols
+
 #stx_n <- c(2:length(symbols)) #c(2:length(symbols))  c(2:length(symbols))  #c(5:10) #
 #stx.symbols <- symbols[stx_n]      #list of stx to trade
 #load mktdata

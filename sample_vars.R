@@ -288,7 +288,7 @@ V1$col <- 1
 V1$name <- "DI"  #directional indicator
 V1$type <- "ti"
 V1$tier <- 4
-V1$requires <- c('H','YH','YHHraw','L','YL','YLLraw')
+V1$requires <- c('H','YH','YHHraw','L','YL','YLLraw','C','YC')
 V1$ID <- rnd.env$nameID[V1$name]
 V1$use <- "calc"
 V1$calc_cmn <- TRUE
@@ -303,7 +303,7 @@ V1$col <- 1
 V1$name <- "MF"  #money flow
 V1$type <- "ti"
 V1$tier <- 4
-V1$requires <- c('T','YT','YTTraw','D')
+V1$requires <- c('H','L','C','T','YT','YTTraw','D')
 V1$ID <- rnd.env$nameID[V1$name]
 V1$use <- "calc"
 V1$calc_cmn <- TRUE

@@ -5,10 +5,10 @@
 
 #sim Blotter
 print (paste("Running Sim",Sys.time()))
-shares <- matrix(nrow=length(com.env$sim_date_index),ncol=length(stx.symbols))
+shares <- matrix(nrow=length(com.env$sim_date_index),ncol=length(com.env$stx.symbols))
 for (SimDate_i in 1:(length(com.env$sim_date_index))) {
   SimDate <- com.env$sim_date_index[SimDate_i]
-  equity <- init_equity 
+  equity <- com.env$init_equity 
   #print(paste("DATE:",SimDate,"Equity:",equity))
   port.pos <- port_opt_lp(as.vector(MU[SimDate]),as.vector(VLTY[SimDate]),equity)
   shares[SimDate_i,] <- port.pos

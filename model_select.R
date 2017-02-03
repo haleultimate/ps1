@@ -108,9 +108,13 @@ model.select <- function(model,keep,sig=0.05,verbose=F){
 }
 
 #out of sample r2 calculation, returns test (contains $rsq,$cor)
-oos.r2 <- function(model,df.oos) {
-  predicted.model <- predict.lm(model,newdata=df.oos)
-  test.y <- df.oos[,predict.ret]
+oos.r2 <- function(model,df.oos,reverse=FALSE) {
+  if (reverse) {
+    predicted.model <- -predict.lm(model,newdata=df.oos)
+  } else {
+    predicted.model <- predict.lm(model,newdata=df.oos)
+  }
+  test.y <- df.oos[,com.env$predict.ret]
   mean.test.y <- mean(test.y)
   SS.total      <- sum((test.y - mean.test.y)^2)
   SS.residual   <- sum((test.y - predicted.model)^2)
@@ -120,9 +124,10 @@ oos.r2 <- function(model,df.oos) {
   test$rsq <- 1 - (SS.residual/SS.total)  
   SS.total0 <- sum(test.y^2)
   test$rsq0 <- 1 - (SS.residual/SS.total0)
-  results <- cbind(predict.lm(model,newdata=df.oos),df.oos[,predict.ret])
+  results <- cbind(predicted.model,df.oos[,com.env$predict.ret])
   test$cor <- cor(results,use="complete.obs")[1,2]
-  test$mse <- mean((test.y-predicted.model)^2)
+  test$mse <- sqrt(mean((test.y-predicted.model)^2))
+  test$mean <- mean(abs(test.y))
   cnt <- 0
   #cnt <- length(predicted.model)
   wincnt <- 0

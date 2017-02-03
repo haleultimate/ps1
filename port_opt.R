@@ -112,12 +112,12 @@ port_opt_lp <- function (lp.mu, lp.vlty, lp.port_size) {
     set.rhs(lp.port.model,b=lp.port_size,constraints=1) #can I use the constraint name = "port_size" here?
   }
   
-  if (verbose) write.lp(lp.port.model,filename="test_lp",type="lp")
+  if (com.env$verbose) write.lp(lp.port.model,filename="test_lp",type="lp")
   
   solve(lp.port.model)
   lp.positions <- get.variables(lp.port.model)[1:lp.stx]
 
-  if(verbose) {
+  if(com.env$verbose) {
     pos_sqr <- lp.positions*lp.positions
   
     calc_mu <- lp.positions*lp.mu*lp.alpha_wt

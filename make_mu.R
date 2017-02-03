@@ -10,7 +10,7 @@ V1$ID <- 9999
 V1$type <- "Ret"
 V1$use <- "sim"
 V1$calc_cmn <- FALSE
-V1$math[1] <- "calc_prediction,'model.stepwise'"
+V1$math[1] <- "calc_prediction,'com.env$model.stepwise'"
 
 com.env$v.com$MU <- V1
 com.env$vcom_names <- c(com.env$vcom_names,V1$name)
@@ -50,10 +50,10 @@ com.env$vlty_vcom_num <- length(com.env$v.com)
 rm(V1)
 
 
-for (stk in 1:(stx+cmns)) {
-  ticker <- stx_list[stk]
+for (stk in 1:(com.env$stx+com.env$cmns)) {
+  ticker <- com.env$stx_list[stk]
   #print(paste("Getting data for:",ticker))
-  is.cmn <- (cmn_lookup[[ticker]] == 'cmn')
+  is.cmn <- (com.env$cmn_lookup[[ticker]] == 'cmn')
   if (is.cmn) next                           #nothing to compute in cmn
   ve.xts <- paste("var.env$",ticker,sep="")
   for (v in c(com.env$mu_vcom_num,com.env$adjret_vcom_num,com.env$vlty_vcom_num)) {
@@ -79,10 +79,10 @@ MU <- NULL
 VLTY <- NULL
 ADJRET <- NULL
 
-for (stk in 1:(stx+cmns)) {
-  ticker <- stx_list[stk]
+for (stk in 1:(com.env$stx+com.env$cmns)) {
+  ticker <- com.env$stx_list[stk]
   #print(paste("Getting data for:",ticker))
-  is.cmn <- (cmn_lookup[[ticker]] == 'cmn')
+  is.cmn <- (com.env$cmn_lookup[[ticker]] == 'cmn')
   if (is.cmn) next                           #nothing to compute in cmn
   ve.xts <- paste("var.env$",ticker,sep="")
   cmd_string <- paste("MU <- cbind(MU,",ve.xts,"[,'MU'])",sep="")

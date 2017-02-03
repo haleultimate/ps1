@@ -7,6 +7,8 @@ get_id <- function(math.list) {
     if (length(fun_id) > 0 & length(id) > 0) id <- paste(id,fun_id,sep="")
     if (length(fun_id) > 0 & length(id) == 0) id <- fun_id
     parms <- gsub("^[^,]*,","",math_str) #get everything after first comma (parameters)
+    parms <- sub("TRUE","8",parms)
+    parms <- sub("FALSE","9",parms)
     parms <- gsub("[^0-9]","",parms)     #remove all non-numeric characters
     if (length(parms) > 0 & length(id) > 0) id <- paste(id,parms,sep="")
     if (length(parms) > 0 & length(id) == 0) id <- parms
@@ -34,13 +36,14 @@ scom2vcom <- function(V1) {
       }
     }
     cmd_string <- paste("com.env$v.com$",V1$name," <- V1",sep="")
-    #print(cmd_string)
+    #print(paste("scom2vcom",cmd_string))
     eval(parse(text=cmd_string))
     com.env$vcom_names <- c(com.env$vcom_names,V1$name)
   }
 } 
 
 rnd_val <- function(choice,type="model") {
+  #print(paste("type",type,"choice",choice))
   if (type == "model") {
     cmd_string <- paste("return(sample(rnd.env$prob$",choice,",size=1,prob=rnd.env$prob$",choice,".wts))",sep="")
   } else if (type == "bin") {
@@ -59,6 +62,7 @@ unique_name <- function(name,id,first=TRUE) {
       }
     }  
     #print(paste("id",id,"old_id",old_id,which(name==com.env$vcom_names),com.env$v.com[[11]]$ID))
+    if (is.null(old_id)) return(-1)
     if (id == old_id) return(-1)
     if (first) {
       new_name <- paste(name,"2",sep="")
@@ -104,11 +108,11 @@ select_rnd_raw <- function() {
            d <- rnd_val("decay")
            if (d>=1) d <- 0.10
            type <- sample(rnd.env$prob$raw_var.ti.type,size=1,prob=rnd.env$prob$raw_var.ti.wts)
-           print(paste("ti raw,type=",type,"d=",d))
+           #print(paste("ti raw,type=",type,"d=",d))
            switch(type,
                   "adx" = {
                     for (raw in c('PDM','NDM','TR')) {
-                      print(paste("adx,raw=",raw))
+                      #print(paste("adx,raw=",raw))
                       nam <- paste(raw,'d',100*d,sep="")
                       if (!(nam %in% names(com.env$v.com))) {
                         vs.nam <- ifelse(raw=='TR','TRraw','DM') 
@@ -147,7 +151,7 @@ select_rnd_raw <- function() {
                   },
                   "mf" = {
                     raw <- sample(c('PMF','NMF'),size=1)
-                    print(paste("mf,raw=",raw))
+                    #print(paste("mf,raw=",raw))
                     mf.nam <- paste(raw,'d',100*d,sep="")
                     if (!(mf.nam %in% names(com.env$v.com))) {
                       V1 <- rnd.env$vs.com[[which('MF' == names(rnd.env$vs.com))]]
@@ -181,9 +185,9 @@ select_rnd_raw <- function() {
                   },
                   "fi" = {
                     fi.nam <- paste('FId',100*d,sep="")
-                    print(paste("fi,fi.nam=",fi.nam))
+                    #print(paste("fi,fi.nam=",fi.nam))
                     if (!(fi.nam %in% names(com.env$v.com))) {
-                      V1 <- rnd.env$vs.com[[which('MF' == names(rnd.env$vs.com))]]
+                      V1 <- rnd.env$vs.com[[which('FI' == names(rnd.env$vs.com))]]
                       V1$name <- fi.nam
                       V1$ID <- 100*(V1$ID+d)
                       V1$math[2] <- paste("calc_decay,decay=",d,sep="")
@@ -208,7 +212,7 @@ select_rnd_raw <- function() {
            )
          }
   )
-  print(paste("select_rnd_raw",V1$name))
+  #print(paste("select_rnd_raw",V1$name))
   #print(V1)
   scom2vcom(V1)                        #insert selected raw into vcom (if not already there)
   return(V1)
@@ -243,12 +247,21 @@ rnd_var <- function(var_type='model') {
           "res" = {
             #raw <- sample(rnd.env$raw_list,1)          #select a random raw
             V1 <- select_rnd_raw()
-            #scom2vcom(V1$name)                        #insert selected raw into vcom (if not already there)
             V1$use <- var_type
             V1$requires <- c(V1$requires,V1$name)
             V1$tier <- V1$tier + 1
             V1$math[1] <- paste("calc_res,'",V1$name,"'",sep="")
             V1$name <- sub("raw","res",V1$name)
+            V1$calc_cmn <- FALSE 
+          },
+          "cmn" = {
+            #raw <- sample(rnd.env$raw_list,1)          #select a random raw
+            V1 <- select_rnd_raw()
+            V1$use <- var_type
+            V1$requires <- c(V1$requires,V1$name)
+            V1$tier <- V1$tier + 1
+            V1$math[1] <- paste("calc_cmn,'",V1$name,"'",sep="")
+            V1$name <- sub("raw","cmn",V1$name)
             V1$calc_cmn <- FALSE 
           },
           "vlt" = {
@@ -276,7 +289,7 @@ rnd_var <- function(var_type='model') {
             scom2vcom(V1)                        #insert selected raw into vcom (if not already there)
             V1$use <- var_type
             V1$requires <- c(V1$requires,V1$name)
-            V1$math[2] <- paste("calc_res,'",V1$name,"'",sep="")
+            V1$math[1] <- paste("calc_res,'",V1$name,"'",sep="")
             V1$tier <- V1$tier + 1
             V1$calc_cmn <- FALSE
             V1$ID <- V1$ID + 1
@@ -309,10 +322,10 @@ rnd_var <- function(var_type='model') {
         }
         switch(s,
           "zscale" = {
-            V1$math[length(V1$math)+1] <- "calc_z,ma=TRUE"     
+            V1$math[length(V1$math)+1] <- "calc_z,ma=FALSE"     
           },
           "zscore" = {
-            V1$math[length(V1$math)+1] <- "calc_z,ma=FALSE"     
+            V1$math[length(V1$math)+1] <- "calc_z,ma=TRUE"     
           })
       },
       "decay" = {
@@ -345,14 +358,14 @@ rnd_var <- function(var_type='model') {
             return(-1)
           })
       }
-      )
-  }
+      )  #end choice switch
+  } #end loop over choice list
   binning <- FALSE
-  if (choice == "bin") {
+  if (choice == "bin") {  #assumes last choice is binning
     if ((b == "new_var") & (b1 < b2)) {
       binning <- TRUE
       b12 <- paste(gsub("[^0-9]","",b1),gsub("[^0-9]","",b2),sep="")
-      V1$ID <- paste(V1$ID,b12,sep="")
+      V1$ID <- paste(V1$ID,get_id(V1$math),sep="")      
       n1 <- paste(V1$name,"b",b12,"l",sep="")
       n2 <- paste(V1$name,"b",b12,"h",sep="")
       n1 <- unique_name(n1,V1$ID)
@@ -366,7 +379,7 @@ rnd_var <- function(var_type='model') {
     }
   } 
   if (!binning) {
-    V1$ID <- paste(V1$ID,get_id(V1$math),sep="")
+    V1$ID <- paste(V1$ID,get_id(V1$math),sep="")  #loop over all math functions to create id
     V1$name <- unique_name(V1$name,V1$ID)
     vcom.name <- V1$name
   }
@@ -377,7 +390,8 @@ rnd_var <- function(var_type='model') {
     return(-1)
   } else {
     cmd_string <- paste("com.env$v.com$",vcom.name," <- V1",sep="")
-    if (var_type == "model" & verbose) print(cmd_string)
+    #if (var_type == "model") 
+    #print(paste("rnd_var",cmd_string))
     #if (vcom.name == "CCret") print(V1)
     eval(parse(text=cmd_string))
     com.env$vcom_names <- c(com.env$vcom_names,V1$name)
@@ -387,9 +401,278 @@ rnd_var <- function(var_type='model') {
   }
 }
 
-# take vnames from regression and delete any com.env$v.com not used 
-delete_vcom <- function(keep_list) {
-  vcom.keep <- NULL  #list of v.com names to keep
-  
-  com.env$namelu
+#mod_var returns a variable definition structure (vd) to try in place of an existing variable
+#calling routine needs to trap for a return of -1 (unable to mod any variable)
+#LEFT TO DO: need to figure out how to change names of variables, currently names are left as is
+rnd_mod <- function(reg_names=NULL,vcom_num=0) {
+  #print(paste("mod_var",vcom_num))
+  if (vcom_num==0 & is.null(reg_names)) {
+    print("Error: mod_var called without vcom_num and without list of potential vars to mod")
+    return(-1)
+  }
+  math.list <- NULL
+  loop_num <- 0
+  while ((is.null(math.list) & loop_num < 10) | (loop_num < 1 & is.null(reg_names))) {
+    loop_num <- loop_num + 1
+    if (!is.null(reg_names)) {
+      vcom_name <- sample(reg_names,size=1)
+      vcom_name <- paste("^",vcom_name,"$",sep="")
+      vcom_num <- grep(vcom_name,names(com.env$v.com))
+      print(paste("vcom_num=",vcom_num,vcom_name))
+    }
+    vd <- com.env$v.com[[vcom_num]]
+    vd$vcom_num <- vcom_num
+    for (m in 1:length(vd$math)) {
+      math <- strsplit(vd$math[m],split=",")[[1]]
+      if (math[1] %in% names(rnd.env$known_mod_fun)) math.list <- c(math.list,m)
+    }
+  }
+  if (is.null(math.list)) {
+    if (loop_num == 1) {
+      print(paste("Error: given vcom_num,",vcom_num,", has no modifiable functions"))
+    } else {
+      print("Error: No modifiable regression variable found")
+    }
+    return(-1)
+  }
+  current_math_id <- 0
+  orig_math_id <- 0
+  loop_num <- 0
+  while ((current_math_id == orig_math_id) & (loop_num < 10)) {
+    loop_num <- loop_num + 1
+    math_num <- ifelse(length(math.list)==1,math.list,sample(math.list,size=1))
+    orig_math <- vd$math[math_num]
+    math <- strsplit(vd$math[math_num],split=",")[[1]]
+    switch(math[1],
+           'calc_cap' = {
+             c <- rnd_val("cap")
+             switch(c,
+                    "abscap" = {
+                      p <- rnd_val(c)
+                      vd$math[math_num] <- paste("calc_cap,abscap=",p,sep="")
+                    },
+                    "cap_pct" = {
+                      p <- rnd_val(c)
+                      vd$math[math_num] <- paste("calc_cap,cap_pct=",p,sep="")
+                    },
+                    "zcap" = {
+                      p <- rnd_val(c)
+                      vd$math[math_num] <- paste("calc_cap,zcap=",p,sep="")
+                    },
+                    "none" = {
+                      vd$math <- vd$math[-math_num]
+                    })
+           },
+           'calc_z' = {
+             p <- rnd_val("scale")
+             if (p == "none") {
+               vd$math <- vd$math[-math_num]
+             } else {
+               vd$math[math_num] <- ifelse(grepl("TRUE",vd$math[math_num]),
+                                           sub("TRUE","FALSE",vd$math[math_num]),
+                                           sub("FALSE","TRUE",vd$math[math_num])) 
+             }
+           },
+           'calc_decay' = {
+             d <- rnd_val("decay")
+             if (d >= 1) {  #lag
+               vd$math[math_num] <- paste("calc_lag,lag=",d,sep="")
+               #if (d == 2) V1$name <- paste(V1$name,"L2",sep="")
+             } else {       #decay
+               vd$math[math_num] <- paste("calc_decay,decay=",d,sep="")
+               #V1$name <- paste(V1$name,"d",as.character(trunc(100*d)),sep="")
+             }
+           },
+           'calc_lag' = {
+             d <- rnd_val("decay")
+             if (d >= 1) {  #lag
+               vd$math[math_num] <- paste("calc_lag,lag=",d,sep="")
+               #if (d == 2) V1$name <- paste(V1$name,"L2",sep="")
+             } else {       #decay
+               vd$math[math_num] <- paste("calc_decay,decay=",d,sep="")
+               #V1$name <- paste(V1$name,"d",as.character(trunc(100*d)),sep="")
+             }
+             if (com.env$verbose) print(paste("calc_lag, decay:",d,vd$math[math_num]))
+             },
+            'calc_bin' = { 
+               b <- rnd_val("mod_bin")
+               if (b == "none") {
+                 vd$math <- vd$math[-math_num]
+                 vd$name <- sub("b.*$","",vd$name[1])
+               } else {
+                 bin_name <- gsub(".*=","",math[2])
+                 b1 <- gsub(".*=","",math[3])
+                 b2 <- gsub(".*=","",math[4])
+                 b1_n <- which(b1==rnd.env$mod$bins)
+                 b2_n <- which(b2==rnd.env$mod$bins)
+                 new_b1_n <- b1_n
+                 new_b2_n <- b2_n
+                 while((new_b1_n==b1_n)&(new_b2_n==b2_n)) {
+                   new_b1_n <- sample(1:(b2_n-1),size=1)
+                   new_b2_n <- sample((new_b1_n+1):length(rnd.env$mod$bins),size=1)
+                 }
+                 new_b1 <- rnd.env$mod$bins[new_b1_n]
+                 new_b2 <- rnd.env$mod$bins[new_b2_n]
+                 vd$math[math_num] <- paste("calc_bin,bin_field=",bin_name,",b1=",new_b1,",b2=",new_b2,sep="")
+                 if (com.env$verbose) print(vd$math[math_num])
+               }
+           }
+    )
+    orig_math_id <- get_id(com.env$v.com[[vcom_num]]$math)
+    current_math_id <- get_id(vd$math)
+  }
+  vd$ID <- sub(orig_math_id,current_math_id,vd$ID)
+  print(paste("orig:",orig_math,"try:",vd$math[math_num]))
+  return(vd)
+}
+
+get_sample_idx <- function(orig_idx,new_idx,idx_size,direction) {
+  sample_idx <- min(max(new_idx+direction,1),idx_size)
+  if (com.env$verbose) print(paste("get_sample_idx",orig_idx,new_idx,idx_size,sample_idx,direction))
+  return(sample_idx)
+}
+
+create_vd_list <- function(orig_vd,new_vd,try_num) {
+  vd_list <- NULL
+  if (length(orig_vd$math) != length(new_vd$math)) { #mod was a deletion or addition, nothing to optimize
+    print(paste("mod was deletion, nothing to optimize",length(orig_vd$math),length(new_vd$math)))
+    vd_list$ID <- 0
+    return(vd_list)
+  }
+  i <- 1
+  while ((orig_vd$math[i] == new_vd$math[i]) & (i <= length(orig_vd$math))) {
+    i <- i + 1
+  }
+  if (i > length(orig_vd$math)) {
+    print("Warning: All math the same in orig_vd and new_vd")
+    print(orig_vd)
+    print(new_vd)
+    vd_list$ID <- 0
+    return(vd_list)
+  }
+  if (com.env$verbose) print(paste(orig_vd$math[i],new_vd$math[i]))
+  orig_math <- strsplit(orig_vd$math[i],split=",")[[1]]
+  new_math <- strsplit(new_vd$math[i],split=",")[[1]]
+  orig_parm <- strsplit(orig_math[2],split="=")[[1]]
+  new_parm <- strsplit(new_math[2],split="=")[[1]]
+  if (com.env$verbose) print(paste(orig_parm,new_parm,orig_math[1],"switch----------------"))
+  direction <- 1
+  switch(new_math[1],
+         'calc_cap' = {
+           if (try_num > 2) {
+             vd_list$ID <- 0
+             return(vd_list)
+           }
+           cmd_string <- paste("orig_idx <- which(orig_parm[2]==rnd.env$mod$",orig_parm[1],")",sep="")
+           eval(parse(text=cmd_string))
+           cmd_string <- paste("new_idx <- which(new_parm[2]==rnd.env$mod$",new_parm[1],")",sep="")
+           eval(parse(text=cmd_string))
+           cmd_string <- paste("idx_size <- length(rnd.env$mod$",new_parm[1],")",sep="")
+           eval(parse(text=cmd_string))
+           if ((orig_parm[2] < new_parm[2]) & (try_num == 1)) direction <- (-1) 
+           sample_idx <- get_sample_idx(orig_idx,new_idx,idx_size,direction)
+           vd_list <- new_vd
+           cmd_string <- paste("parm <- rnd.env$mod$",new_parm[1],"[",sample_idx,"]",sep="")
+           eval(parse(text=cmd_string))
+           cmd_string <- paste("vd_list$math[",i,"] <- \"calc_cap,",new_parm[1],"=",parm,"\"",sep="")
+           if (com.env$verbose) print(cmd_string)
+           eval(parse(text=cmd_string))
+           if ((vd_list$math[i] == orig_vd$math[i]) | (vd_list$math[i] == new_vd$math[i])) vd_list <- NULL
+         },
+         'calc_z' = {
+           print("nothing to optimize in calc_z")
+           vd_list$ID <- 0
+           return(vd_list)
+         },
+         'calc_decay' = {
+           if (try_num > 2) {
+             vd_list$ID <- 0
+             return(vd_list)
+           }
+           orig_idx <- which(orig_parm[2]==rnd.env$mod$decay)
+           new_idx <- which(new_parm[2]==rnd.env$mod$decay)
+           idx_size <- length(rnd.env$mod$decay)
+           if ((orig_parm[2] < new_parm[2]) & (try_num == 1)) direction <- (-1) 
+           sample_idx <- get_sample_idx(orig_idx,new_idx,idx_size,direction)
+           vd_list <- new_vd
+           cmd_string <- paste("parm <- rnd.env$mod$decay[",sample_idx,"]",sep="")
+           eval(parse(text=cmd_string))
+           cmd_string <- paste("vd_list$math[",i,"] <- \"calc_decay,decay=",parm,"\"",sep="")
+           if (com.env$verbose) print(cmd_string)
+           eval(parse(text=cmd_string))
+           if ((vd_list$math[i] == orig_vd$math[i]) | (vd_list$math[i] == new_vd$math[i])) vd_list <- NULL
+         },
+         'calc_lag' = {
+           print("nothing to optimize in calc_lag")
+           vd_list$ID <- 0
+           return(vd_list)
+         },
+         'calc_bin' = { 
+           if (try_num > 2) {
+             vd_list$ID <- 0
+             return(vd_list)
+           }
+           orig_b1 <- gsub(".*=","",orig_math[3])
+           orig_b2 <- gsub(".*=","",orig_math[4])
+           new_b1 <- gsub(".*=","",new_math[3])
+           new_b2 <- gsub(".*=","",new_math[4])
+           orig_idx_b1 <- which(orig_b1==rnd.env$mod$bins)
+           orig_idx_b2 <- which(orig_b2==rnd.env$mod$bins)
+           new_idx_b1 <- which(new_b1==rnd.env$mod$bins)
+           new_idx_b2 <- which(new_b2==rnd.env$mod$bins)
+           idx_size <- length(rnd.env$mod$bins)
+           switch(try_num,
+                  '1' = {
+                    direction <- 1
+                  },
+                  '2' = {
+                    direction <- (-1)
+                  }
+           )
+           sample_idx_b1 <- get_sample_idx(orig_idx_b1,new_idx_b1,idx_size,direction)
+           sample_idx_b2 <- get_sample_idx(orig_idx_b1,new_idx_b2,idx_size,direction)
+           if (sample_idx_b1>=sample_idx_b2) {
+             vd_list <- NULL
+             return(vd_list)
+           }
+           vd_list <- new_vd
+           cmd_string <- paste("parmb1 <- rnd.env$mod$bins[",sample_idx_b1,"]",sep="")
+           eval(parse(text=cmd_string))
+           cmd_string <- paste("parmb2 <- rnd.env$mod$bins[",sample_idx_b2,"]",sep="")
+           eval(parse(text=cmd_string))
+           cmd_string <- paste("vd_list$math[",i,"] <- \"calc_bin,",new_math[2],",b1=",parmb1,",b2=",parmb2,"\"",sep="")
+           if (com.env$verbose) print(cmd_string)
+           eval(parse(text=cmd_string))
+           if ((vd_list$math[i] == orig_vd$math[i]) | (vd_list$math[i] == new_vd$math[i])) vd_list <- NULL
+         }
+  )
+  print(paste("orig:",orig_vd$math[i],"new:",new_vd$math[i],"try:",vd_list$math[i]))
+  return(vd_list)
+}
+
+optimize_mod <- function(orig_vd,new_vd,orig_adj_r2,new_adj_r2,try_num=NULL,improve=FALSE) {
+  if (new_adj_r2 <= orig_adj_r2) {
+    print("error: new_vd not better than original vd")
+    return(orig_vd)
+  }
+  if (is.null(try_num)) try_num <- 1
+  vd_list <- create_vd_list(orig_vd,new_vd,try_num)
+  if (com.env$verbose) print(paste("try_num,ID,improve:",try_num,vd_list$ID,improve))
+  adj_r2 <- 0
+  if (!is.null(vd_list)) { 
+    if (vd_list$ID == 0) return(new_vd) 
+    if (com.env$verbose) print("evaluating new vd")
+    adj_r2 <- eval_adj_r2(vd_list)
+  }
+  if (adj_r2 > new_adj_r2) {
+    print(paste("optimize model improved",adj_r2,new_adj_r2))
+    best_vd <- vd_list
+    max_adj_r2 <- adj_r2
+    return(optimize_mod(new_vd,best_vd,new_adj_r2,max_adj_r2,try_num,improve=TRUE))
+  } else {
+    print(paste("optimize model did not improve",adj_r2,new_adj_r2,improve,try_num))
+    if (improve) return(new_vd)
+    try_num <- try_num + 1
+    return(optimize_mod(orig_vd,new_vd,orig_adj_r2,new_adj_r2,try_num))
+  }
 }

@@ -1,5 +1,5 @@
 #define_vars.R
-if (verbose) print("calling define_vars.R")
+if (com.env$verbose) print("calling define_vars.R")
 
 com.env$v.com <- NULL
 com.env$vcom_names <- NULL
