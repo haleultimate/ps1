@@ -34,6 +34,7 @@ V2$math[2] <- "calc_cap,abscap=0.05"
 
 com.env$v.com$C2Clf1p <- V2
 com.env$vcom_names <- c(com.env$vcom_names,V2$name)
+com.env$ID_tried <- V2$ID
 rm(V2)
 
 # V2 <- NULL

@@ -33,6 +33,17 @@ run_regression <- function(oos_data = FALSE) {
   }
 }
 
+run_mod_regression <- function(reg_vars) {
+  #print(paste("Run_mod_regression",Sys.time()))
+  #print(reg_vars)
+  f <- as.formula(paste(colnames(var.env$reg_data.df)[1],paste(reg_vars,collapse=" + "),sep=" ~ "))
+  #print(f)
+  com.env$model.stepwise <- lm(formula=f,data=var.env$reg_data.df)
+  #print(summary(com.env$model.stepwise)$adj.r.squared)
+  #print(Sys.time())
+  return(summary(com.env$model.stepwise)$adj.r.squared)
+}
+
 collect_data <- function (oos_data = FALSE) {
   #determine columns used in regression
   vvars <- NULL
@@ -60,7 +71,7 @@ collect_data <- function (oos_data = FALSE) {
     allmodelvars <- append(allmodelvars,clist)
   }
   if (com.env$verbose) {
-    print("allmodelvars")
+    print("collect data: allmodelvars")
     print(allmodelvars)
   }
   
@@ -98,22 +109,38 @@ collect_data <- function (oos_data = FALSE) {
   
 }
 
-get_reg_names <- function(reg_model_vars) {
-  if (com.env$verbose) print(reg_model_vars)
+get_reg_names <- function(reg_model_vars,return_num=FALSE) { #take a list of variable names and return vcom names or vcom nums
+  #print(paste(reg_model_vars,return_num))
   reg_names <- NULL
   for (v in 1:length(com.env$v.com)) {  #create list of model variables as candidates to modify
     vd <- com.env$v.com[[v]]
+    #print(paste(v,vd$name))
     if (length(vd$name) == 1) {
       if ( (vd$name %in% reg_model_vars) ) {
-        reg_names <- append(reg_names,vd$name)
+        #print(v)
+        if (return_num) {
+          reg_names <- append(reg_names,v)
+        } else {
+          reg_names <- append(reg_names,vd$name)
+        }
+        #reg_names <- ifelse(return_num,append(reg_names,v),append(reg_names,vd$name))
+        #print(reg_names)
       }
     } else {
       if ((vd$name[1] %in% reg_model_vars) | (vd$name[2] %in% reg_model_vars)) {
-        reg_names <- append(reg_names,substr(vd$name[1],1,(nchar(vd$name[1])-1)))
+        #print(v)
+        if (return_num) {
+          reg_names <- append(reg_names,v)
+        } else {
+          reg_names <- append(reg_names,substr(vd$name[1],1,(nchar(vd$name[1])-1)))
+        }
+        #reg_names <- ifelse(return_num,append(reg_names,v),)
+        #print(reg_names)
       }
     }
   }  #end for v loop
   #return (rnd_mod(reg_names=reg_names))    #select vd from reg_names and modify it
+  reg_names <- unique(reg_names)
   return(reg_names)
 }
 
@@ -122,6 +149,7 @@ get_reg_names <- function(reg_model_vars) {
 clean_vcom <- function() {
   keep_vcom_name <- names(com.env$model.stepwise$coefficients)[-1]
   keep_vcom_name <- append(colnames(var.env$reg_data.df)[1],keep_vcom_name)
+  print(paste("#reg vars:",length(keep_vcom_name)))
   more_vcom_names <- NULL
   for (nam in keep_vcom_name) {
     vcom_num <- com.env$name2vcomnum[nam]
@@ -158,25 +186,70 @@ clean_vcom <- function() {
     eval(parse(text=cmd_string))
   }
   #com.env$vcom_names <- com.env$vcom_names[-(which(com.env$vcom_names %in% delete_vcom_name))]
-  if (com.env$verbose) print(paste("after vcom cleaning vars=",length(com.env$v.com)))
+  print(paste("after vcom cleaning vars=",length(com.env$v.com)))
 }
 
-eval_adj_r2 <- function(vd=NULL,old_adj_r2=0,oos_data=FALSE) {
+eval_adj_r2 <- function(vd=NULL,orig_vd=NULL,old_adj_r2=0,oos_data=FALSE) {
+  #print("make_vars")
   vd <- make_vars(vd)                   #make modified variable & update columns in vd (for all stock in var.env)
   if (!is.null(vd)) { #insert modified vd into com.env$v.com
     old.v.com <- com.env$v.com
-    #print(vd)
-    vd_tmp <- com.env$v.com[[vd$vcom_num]]
+    #orig_vd <- com.env$v.com[[vd$vcom_num]]
     com.env$v.com[[vd$vcom_num]] <- vd                                  #replace modified vd in v.com
-    if (length(vd_tmp$name) > length(vd$name)) {                        #if deleted bin change vd$name in names(v.com)
+    if (length(orig_vd$name) > length(vd$name)) {                        #if deleted bin change vd$name in names(v.com)
       names(com.env$v.com)[vd$vcom_num] <- vd$name
-      print(paste("changing bin name",vd_tmp$name,vd$name,vd$vcom_num))
+      print(paste("changing bin name",orig_vd$name,vd$name,vd$vcom_num))
     }
   }
-  if (com.env$verbose) print("collect_data")
+  #print("collect_data")
   collect_data(oos_data)
-  if (com.env$verbose) print("run_regression")
-  run_regression(oos_data)
+  #print("run_regression")
+  if (is.null(vd)) {
+    run_regression(oos_data)
+  } else {                           #run_mod_regression        #only works for bin length <= 2, ticker BAC hardcoded
+    if (!(length(orig_vd$name) == length(vd$name))) {
+      print("bin var name lengths not the same, must run full regression")
+      run_regression(oos_data)
+    } else {
+      #print("eval_adj_r2 with mod variable")
+      #print(orig_vd$name)
+      #print(vd$name)
+      orig_col <- orig_vd$col
+      if (!is.null(com.env$override_col)) orig_col <- com.env$override_col
+      new_col <- vd$col
+      com.env$mod_col <- new_col
+      #print(paste(orig_col,new_col))
+      reg_names <- com.env$reg_names
+      #print(reg_names)
+      if ((length(orig_vd$name) > 1) & (length(orig_vd$name)==length(vd$name))) {
+        #print("dealing with bin_var")
+        #print(paste(length(orig_vd$name),length(vd$name)))
+        #orig_names_used <- (orig_vd$name %in% reg_names)
+        #print(orig_names_used)
+        new_name <- NULL
+        orig_name <- NULL
+        for (i in 1:length(orig_vd$name)) {
+          name2remove <- names(var.env$BAC)[orig_col+i-1]
+          #print(paste("check:",name2remove))
+          if (name2remove %in% reg_names) {
+            orig_name <- c(orig_name,name2remove)
+            new_name <- c(new_name,names(var.env$BAC)[new_col + i - 1])
+            #print(paste("add:",names(var.env$BAC)[new_col+i-1]))
+          }
+        }
+        #print(orig_name)
+        #print(new_name)
+      } else {
+        orig_name <- names(var.env$BAC)[orig_col]
+        new_name <- names(var.env$BAC)[new_col]
+        #print(paste("single name replacement:",orig_name,new_name))
+      }
+      new_reg_names <- reg_names[!(reg_names %in% orig_name)]
+      new_reg_names <- c(new_reg_names,new_name)
+      #print(new_reg_names)
+      run_mod_regression(new_reg_names)
+    }
+  }
   new_adj_r2 <- 0
   if (length(com.env$model.stepwise) > 3) new_adj_r2 <- summary(com.env$model.stepwise)$adj.r.squared
   if (!is.null(vd) & new_adj_r2 <= old_adj_r2) { #revert to original com.env$v.com  #do we need to clean up var.env?

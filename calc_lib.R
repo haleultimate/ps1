@@ -361,6 +361,7 @@ calc_dm <- function(ve.xts,coln,ret1,ret2,first_pass=FALSE) {
 
 #make_vars.R
 make_vars <- function(vd = NULL) {
+  if (!is.null(vd)) if (vd$ID <= 0) vd <- NULL 
   make_vcom <- is.null(vd)
   first_pass <- TRUE
   #if (com.env$verbose) 
@@ -409,9 +410,9 @@ make_vars <- function(vd = NULL) {
       } #end make var loop
     } else { #vd passed in, mod var
       if (is.cmn & !vd$calc_cmn) next          #nothing to compute in cmn
-      cmd_string <- paste("coln <- ncol(",ve.xts,")",sep="")
+      cmd_string <- paste("coln <- ncol(",ve.xts,") + 1",sep="")
       eval(parse(text=cmd_string))
-      if (first_pass) print(paste('mod_var',vd$vcom_num,coln))
+      if (first_pass & com.env$verbose) print(paste('mod_var',vd$vcom_num,coln))
       if (is.cmn) {
         vd$cmn_col <- coln
       } else {
@@ -424,8 +425,8 @@ make_vars <- function(vd = NULL) {
         if (first_pass & com.env$verbose) print(paste(fun_call,"m=",m,"v=",vd$vcom_num))
         eval(parse(text=fun_call))
       }
-      if (first_pass) {
-        cmd_string <- paste("print(colnames(",ve.xts,"))",sep="")
+      if (first_pass & com.env$verbose) {
+        cmd_string <- paste("print(length(colnames(",ve.xts,")))",sep="")
         print(cmd_string)
         eval(parse(text=cmd_string))
       }

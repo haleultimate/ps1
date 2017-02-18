@@ -16,14 +16,31 @@ get_id <- function(math.list) {
   return(id)
 }
 
+check_ids <- function(id_list) {
+  for (i in 1:length(id_list)) {
+    if (gsub("[^0-9]","",id_list[i]) != id_list[i]) {
+      print(paste("non-numeric character in id:",i,id_list[i]))
+      return(-1)
+      print(names(com.env$v.com))
+      for (i in 1:length(com.env$v.com)) {
+        print(paste(i,com.env$v.com[[i]]$ID))
+        if (gsub("[^0-9]","",com.env$v.com[[i]]$ID) != com.env$v.com[[i]]$ID) {
+          print(com.env$v.com[[i]])
+        }
+      }
+    }
+  }
+  return(0)
+}
+
 #insert sample var into v.com given its name
 scom2vcom <- function(V1) {
   #print(paste("scom2vcom",V1$name,V1$requires))
-  if (!(V1$name %in% com.env$vcom_names)) {
+  if (!(V1$name %in% names(com.env$v.com))) {
     if (length(V1$requires) > 0) {
       for (i in 1:length(V1$requires)) {
-        if (V1$requires[i] %in% rnd.env$namelu) {
-          n <- which(rnd.env$namelu == V1$requires[i])
+        if (V1$requires[i] %in% names(rnd.env$vs.com)) {
+          n <- which(names(rnd.env$vs.com) == V1$requires[i])
           V2 <- rnd.env$vs.com[[n]]
           scom2vcom(V2)                 #recursive call
         } else {
@@ -34,11 +51,20 @@ scom2vcom <- function(V1) {
         }
         #print(paste("inner loop scom2vcom:",n,V1$name,V2$name))
       }
+    } else {
+      #print(paste("no requirements in",V1$name,"requires:",V1$requires))
     }
     cmd_string <- paste("com.env$v.com$",V1$name," <- V1",sep="")
     #print(paste("scom2vcom",cmd_string))
     eval(parse(text=cmd_string))
     com.env$vcom_names <- c(com.env$vcom_names,V1$name)
+    if (!all(V1$requires %in% names(com.env$v.com))) {
+      print(paste("ERROR",V1$name,"Missing required var in com.env$v.com in scom2vcom"))
+      print(V1$requires)
+      print(names(com.env$v.com))
+    }
+  } else {
+    #print(paste("V1$name",V1$name," already in v.com"))
   }
 } 
 
@@ -54,6 +80,7 @@ rnd_val <- function(choice,type="model") {
 
 unique_name <- function(name,id,first=TRUE) {
   #print(paste("name=",name,"id=",id,"first=",first))
+  old_id <-  NULL
   if (name %in% com.env$vcom_names) {
     for (i in 1:length(com.env$v.com)) {
       if (name %in% com.env$v.com[[i]]$name) {
@@ -82,6 +109,7 @@ select_rnd_raw <- function() {
   switch(choice,
          "retrange" = {
            V1 <- rnd.env$vs.com[[sample(rnd.env$raw_list,1)]]
+           #print(paste("retrange",V1$name,"requires",V1$requires))
          },
          "ccd" = {
            V1 <- rnd.env$vs.com[[which("CCraw" == names(rnd.env$vs.com))]]
@@ -164,6 +192,7 @@ select_rnd_raw <- function() {
                         V1$ID <- 10*V1$ID + 200                     
                       }
                       V1$math[2] <- paste("calc_decay,decay=",d,sep="")
+                      #print(paste("mf",V1$name,"requires",V1$requires))
                       scom2vcom(V1)
                     }
                     d.nam <- paste('Dd',100*d,sep="")
@@ -215,6 +244,11 @@ select_rnd_raw <- function() {
   #print(paste("select_rnd_raw",V1$name))
   #print(V1)
   scom2vcom(V1)                        #insert selected raw into vcom (if not already there)
+  #if (!all(V1$requires %in% names(com.env$v.com))) {
+  #  print(paste("ERROR",V1$name,"Missing required var in com.env$v.com in select_rnd_raw"))
+  #  print(V1$requires)
+  #  print(names(com.env$v.com))
+  #}
   return(V1)
   #rnd.env$prob$raw_var <- c('retrange','ccd','c2c')
   #rnd.env$prob$raw_var.wts <- c(0.4,0.3,0.3)
@@ -257,6 +291,11 @@ rnd_var <- function(var_type='model') {
           "cmn" = {
             #raw <- sample(rnd.env$raw_list,1)          #select a random raw
             V1 <- select_rnd_raw()
+            if (!all(V1$requires %in% names(com.env$v.com))) {
+              print(paste("ERROR",V1$name,"Missing required var in com.env$v.com"))
+              print(V1$requires)
+              print(com.env$v.com)
+            }
             V1$use <- var_type
             V1$requires <- c(V1$requires,V1$name)
             V1$tier <- V1$tier + 1
@@ -294,6 +333,15 @@ rnd_var <- function(var_type='model') {
             V1$calc_cmn <- FALSE
             V1$ID <- V1$ID + 1
             V1$name <- "Drs"
+          },
+          "file" = {
+            status <- load_rnd_var()
+            if (status==0) {
+              return(0)
+            } else {
+              print("problem loading var from file")
+              return(-1)
+            }
           }
           )
       },
@@ -339,6 +387,13 @@ rnd_var <- function(var_type='model') {
         }
       },
       "bin" = {
+        if (var_type=='bin') {
+          print("Warning: Can't use bin var to bin yet **********************")
+          print(var_type)
+          print(choice)
+          print(loop_list)
+          stop()
+        }
         b <- rnd_val(choice)
         b1 <- rnd_val("bin_pt1")
         b2 <- rnd_val("bin_pt2")
@@ -348,10 +403,17 @@ rnd_var <- function(var_type='model') {
             status <- rnd_var(var_type="bin")
             if (status == -1) return(status)
             V2 <- com.env$v.com[[length(com.env$v.com)]]
+            if (length(V2$name)>1) {
+              print("Warning: Can't use bin var to bin yet **********************")
+              return(-1)
+            }
             V1$requires <- unique(c(V1$requires,V2$requires,V2$name))
             V1$tier <- max( V1$tier,(V2$tier+1) )
             V1$calc_cmn <- (V1$calc_cmn & V2$calc_cmn)
+            if (length(V1$math) <= 0) print(paste("V1$math length:",length(V1$math)))
             V1$math[length(V1$math)+1] <- paste("calc_bin,bin_field='",V2$name,"',b1=",b1,",b2=",b2,sep="")
+            #print(paste("calc_bin,bin_field='",V2$name,"',b1=",b1,",b2=",b2,sep=""))
+            #print(V1$math[length(V1$math)])
           },
           "existing_var" = {
             print("not coded yet")
@@ -388,7 +450,12 @@ rnd_var <- function(var_type='model') {
   if (newvar.error) {
     print(paste("warning:created identical variable",V1$name,V1$ID))
     return(-1)
+  } else if (V1$ID %in% com.env$ID_tried) {
+    print(paste("warning:trying to create variable already tried",V1$name,V1$ID))
+    if (com.env$verbose) print(com.env$ID_tried)
+    return(-2)
   } else {
+    com.env$ID_tried <- c(com.env$ID_tried,V1$ID)
     cmd_string <- paste("com.env$v.com$",vcom.name," <- V1",sep="")
     #if (var_type == "model") 
     #print(paste("rnd_var",cmd_string))
@@ -397,6 +464,11 @@ rnd_var <- function(var_type='model') {
     com.env$vcom_names <- c(com.env$vcom_names,V1$name)
     #if (var_type == "model") com.env$ind_names <- c(com.env$ind_names,V1$name)
     #if (var_type == "bin") com.env$bin_names <- c(com.env$bin_names,V1$name)
+    #if (!all(V1$requires %in% names(com.env$v.com))) {
+    #  print(paste("ERROR",V1$name,"Missing required var in com.env$v.com in rnd_var"))
+    #  print(V1$requires)
+    #  print(names(com.env$v.com))
+    #}
     return(0)
   }
 }
@@ -418,7 +490,7 @@ rnd_mod <- function(reg_names=NULL,vcom_num=0) {
       vcom_name <- sample(reg_names,size=1)
       vcom_name <- paste("^",vcom_name,"$",sep="")
       vcom_num <- grep(vcom_name,names(com.env$v.com))
-      print(paste("vcom_num=",vcom_num,vcom_name))
+      #print(paste("vcom_num=",vcom_num,vcom_name))
     }
     vd <- com.env$v.com[[vcom_num]]
     vd$vcom_num <- vcom_num
@@ -442,6 +514,7 @@ rnd_mod <- function(reg_names=NULL,vcom_num=0) {
     loop_num <- loop_num + 1
     math_num <- ifelse(length(math.list)==1,math.list,sample(math.list,size=1))
     orig_math <- vd$math[math_num]
+    length_orig_math <- length(vd$math)
     math <- strsplit(vd$math[math_num],split=",")[[1]]
     switch(math[1],
            'calc_cap' = {
@@ -501,6 +574,12 @@ rnd_mod <- function(reg_names=NULL,vcom_num=0) {
                  vd$name <- sub("b.*$","",vd$name[1])
                } else {
                  bin_name <- gsub(".*=","",math[2])
+                 if (substr(bin_name,nchar(bin_name),nchar(bin_name)) == "l") {
+                   print("Can't use bin as binning variable")
+                   print(bin_name)
+                   print(orig_math)
+                   stop()
+                 }
                  b1 <- gsub(".*=","",math[3])
                  b2 <- gsub(".*=","",math[4])
                  b1_n <- which(b1==rnd.env$mod$bins)
@@ -522,7 +601,19 @@ rnd_mod <- function(reg_names=NULL,vcom_num=0) {
     current_math_id <- get_id(vd$math)
   }
   vd$ID <- sub(orig_math_id,current_math_id,vd$ID)
-  print(paste("orig:",orig_math,"try:",vd$math[math_num]))
+  if (vd$ID %in% com.env$ID_tried) {
+    print(paste("warning:trying to mod a var already tried",vd$name,vd$ID))
+    if (com.env$verbose) print(com.env$ID_tried)
+    vd$ID <- -1
+    return(vd)
+  } else {
+    com.env$ID_tried <- c(com.env$ID_tried,vd$ID)
+  }
+  if (length_orig_math == length(vd$math)) {
+    print(paste("orig:",orig_math,"try:",vd$math[math_num]))
+  } else {
+    print(paste("orig:",orig_math,"try: delete math"))
+  }
   return(vd)
 }
 
@@ -536,7 +627,7 @@ create_vd_list <- function(orig_vd,new_vd,try_num) {
   vd_list <- NULL
   if (length(orig_vd$math) != length(new_vd$math)) { #mod was a deletion or addition, nothing to optimize
     print(paste("mod was deletion, nothing to optimize",length(orig_vd$math),length(new_vd$math)))
-    vd_list$ID <- 0
+    vd_list$ID <- -1
     return(vd_list)
   }
   i <- 1
@@ -547,10 +638,12 @@ create_vd_list <- function(orig_vd,new_vd,try_num) {
     print("Warning: All math the same in orig_vd and new_vd")
     print(orig_vd)
     print(new_vd)
-    vd_list$ID <- 0
+    vd_list$ID <- -1
     return(vd_list)
   }
   if (com.env$verbose) print(paste(orig_vd$math[i],new_vd$math[i]))
+  new_math_id <- get_id(new_vd$math)
+  if (com.env$verbose) print(paste("new math id:",new_math_id,new_vd$ID))
   orig_math <- strsplit(orig_vd$math[i],split=",")[[1]]
   new_math <- strsplit(new_vd$math[i],split=",")[[1]]
   orig_parm <- strsplit(orig_math[2],split="=")[[1]]
@@ -560,7 +653,7 @@ create_vd_list <- function(orig_vd,new_vd,try_num) {
   switch(new_math[1],
          'calc_cap' = {
            if (try_num > 2) {
-             vd_list$ID <- 0
+             vd_list$ID <- -1
              return(vd_list)
            }
            cmd_string <- paste("orig_idx <- which(orig_parm[2]==rnd.env$mod$",orig_parm[1],")",sep="")
@@ -581,12 +674,12 @@ create_vd_list <- function(orig_vd,new_vd,try_num) {
          },
          'calc_z' = {
            print("nothing to optimize in calc_z")
-           vd_list$ID <- 0
+           vd_list$ID <- -1
            return(vd_list)
          },
          'calc_decay' = {
            if (try_num > 2) {
-             vd_list$ID <- 0
+             vd_list$ID <- -1
              return(vd_list)
            }
            orig_idx <- which(orig_parm[2]==rnd.env$mod$decay)
@@ -604,12 +697,12 @@ create_vd_list <- function(orig_vd,new_vd,try_num) {
          },
          'calc_lag' = {
            print("nothing to optimize in calc_lag")
-           vd_list$ID <- 0
+           vd_list$ID <- -1
            return(vd_list)
          },
          'calc_bin' = { 
            if (try_num > 2) {
-             vd_list$ID <- 0
+             vd_list$ID <- -1
              return(vd_list)
            }
            orig_b1 <- gsub(".*=","",orig_math[3])
@@ -646,6 +739,22 @@ create_vd_list <- function(orig_vd,new_vd,try_num) {
            if ((vd_list$math[i] == orig_vd$math[i]) | (vd_list$math[i] == new_vd$math[i])) vd_list <- NULL
          }
   )
+  current_math_id <- get_id(vd_list$math)
+  if (com.env$verbose) print(paste("opt var",current_math_id))
+  if (is.null(current_math_id)) {
+    print(paste("current_math_id missing",vd_list))
+    vd_list$ID <- -1
+    return(vd_list)
+  }
+  vd_list$ID <- sub(new_math_id,current_math_id,new_vd$ID)
+  if (vd_list$ID %in% com.env$ID_tried) {
+    print(paste("warning:trying to optimize a var already tried",vd_list$name,vd_list$ID))
+    if (com.env$verbose) print(com.env$ID_tried)
+    vd_list$ID <- -1
+    return(vd_list)
+  } else {
+    com.env$ID_tried <- c(com.env$ID_tried,vd_list$ID)
+  }
   print(paste("orig:",orig_vd$math[i],"new:",new_vd$math[i],"try:",vd_list$math[i]))
   return(vd_list)
 }
@@ -660,15 +769,20 @@ optimize_mod <- function(orig_vd,new_vd,orig_adj_r2,new_adj_r2,try_num=NULL,impr
   if (com.env$verbose) print(paste("try_num,ID,improve:",try_num,vd_list$ID,improve))
   adj_r2 <- 0
   if (!is.null(vd_list)) { 
-    if (vd_list$ID == 0) return(new_vd) 
-    if (com.env$verbose) print("evaluating new vd")
-    adj_r2 <- eval_adj_r2(vd_list)
+    if (vd_list$ID == -1) return(new_vd) 
+    #print("evaluating new vd")
+    #print(paste(vd_list$name,orig_vd$name))
+    com.env$override_col <- com.env$mod_col
+    com.env$reg_names <- names(com.env$model.stepwise$coefficients)[-1]
+    adj_r2 <- eval_adj_r2(vd=vd_list,orig_vd=orig_vd)
   }
   if (adj_r2 > new_adj_r2) {
     print(paste("optimize model improved",adj_r2,new_adj_r2))
     best_vd <- vd_list
-    max_adj_r2 <- adj_r2
-    return(optimize_mod(new_vd,best_vd,new_adj_r2,max_adj_r2,try_num,improve=TRUE))
+    com.env$best_adj_r2 <- adj_r2
+    com.env$override_col <- com.env$mod_col
+    com.env$reg_names <- names(com.env$model.stepwise$coefficients)[-1]
+    return(optimize_mod(new_vd,best_vd,new_adj_r2,com.env$best_adj_r2,try_num,improve=TRUE))
   } else {
     print(paste("optimize model did not improve",adj_r2,new_adj_r2,improve,try_num))
     if (improve) return(new_vd)

@@ -7,18 +7,21 @@ rm.list <- c(rm.list[!isNameinKeep],"keep.list","isNameinKeep","rm.list")
 rm(list = rm.list)  #clear environment except for loaded stock data and some com.env variables
 
 #setup output to go to logfile
-#original_wd <- getwd()
-#logdir <- paste(original_wd,"/logs",sep="")
+com.env$original_wd <- getwd()
+com.env$logdir <- paste(com.env$original_wd,"/logs",sep="")
+com.env$vardir <- paste(com.env$original_wd,"/vars",sep="")
 #setwd(logdir)
-#logfile <- file("logfile.txt","w")
-#sink(file=logfile,type="output")
+com.env$logfile <- paste(com.env$logdir,"/logfile.txt",sep="")
+sink(file=com.env$logfile,type="output",split=TRUE)
+on.exit(sink())
 print(paste("Start time:",Sys.time()))
 #setwd(original_wd)
 
-require(lpSolveAPI)
-require(quantmod)
-require(dplyr)
-require(forecast)
+library(lpSolveAPI)
+library(quantmod)
+library(dplyr)
+library(forecast)
+library(leaps)
 if (!exists("data.env")) data.env <- new.env()
 var.env <- new.env()
 rnd.env <- new.env()
@@ -52,9 +55,10 @@ if (!exists("stx_list.old")) {         #only load if stx_list has changed
 }
 
 com.env$verbose <- FALSE
-com.env$model_loops <- 5
-com.env$add_vars <- 5
-com.env$mod_var_loops <- 10
+com.env$model_loops <- 60
+com.env$add_vars <- 3
+com.env$mod_var_loops <- 20
+com.env$save_var_n <- 10
 #run_type <- "add_vars"
 #insample.r2.threshold <- 0.02
 com.env$predict.ret <- "C2Clf1p"    #should be set up as first model_var in v.com (define_vars.R)
@@ -68,6 +72,7 @@ com.env$OOS_date_range <- paste(com.env$OOS_start_date,"/",com.env$OOS_end_date,
 com.env$sim_date_index <- index(data.env$XLF[com.env$OOS_date_range])
 
 com.env$corr.threshold <- 0.6
+com.env$var_files_tried <- NULL
 #v.com <- NULL
 #load(file="cores50.Rdata")
 #if (verbose & exists("store.data")) print(store.data[length(store.data)])
