@@ -132,8 +132,9 @@ oos.r2 <- function(model,df.oos,reverse=FALSE) {
   #cnt <- length(predicted.model)
   wincnt <- 0
   for (i in 1:length(predicted.model)) {
-    if (abs(test.y[i]-predicted.model[i]) < abs(test.y[i])) wincnt <- wincnt + 1
-    if (test.y[i] != 0) cnt <- cnt + 1
+    if ((sign(test.y[i]) == sign(predicted.model[i])) & 
+       ((test.y[i]!=0) & (predicted.model[i]!=0))) wincnt <- wincnt + 1
+    if ((test.y[i] != 0) & (predicted.model[i]!=0)) cnt <- cnt + 1
   }
   test$winpct <- wincnt/cnt
   #print(test)

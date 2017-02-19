@@ -527,4 +527,16 @@ load_rnd_var <- function() {
   }
 }
 
-
+check_dependencies <- function() {
+  for (i in 1:length(com.env$v.com)) {
+    if (length(com.env$v.com[[i]]$requires) > 0) {
+      for (var_name in com.env$v.com[[i]]$requires) {
+        if (!(var_name %in% names(com.env$v.com)[1:(i-1)])) {
+          print(paste("WARNING:",var_name,"does not come before",com.env$v.com[[i]]$name))
+          return(FALSE)
+        }
+      }
+    } 
+  }
+  return(TRUE)
+}

@@ -7,6 +7,13 @@ for (l in 1:com.env$model_loops) {              #start model loop
   for (i in 1:com.env$add_vars) rnd_var()       #add new vars to v.com
   #print("eval_adj_r2 add var loop")
   #print(names(com.env$v.com))
+  if (!check_dependencies()) {
+    print("Dependency problem when adding new vars, removing var env and reverting to old v.com")
+    print(names(com.env$v.com))
+    com.env$v.com <- com.env$best_vcom
+    var.env <- new.env()
+    next
+  }
   orig_adj_r2 <- eval_adj_r2()
   if (com.env$best_adj_r2 > orig_adj_r2) {
     print(paste("Adj_r2 got worse when adding vars",orig_adj_r2,com.env$best_adj_r2))
@@ -46,7 +53,16 @@ for (l in 1:com.env$model_loops) {              #start model loop
     while (new_vd$ID == -1) new_vd <- rnd_mod(reg_names=com.env$reg_vcom_names)
     orig_vd <- com.env$v.com[[new_vd$vcom_num]]                              #store away original variable definition in vd_tmp
     if (com.env$verbose) print("eval_adj_r2 mod var loop")
-    new_adj_r2 <- eval_adj_r2(vd=new_vd,orig_vd=orig_vd,old_adj_r2=orig_adj_r2)
+    if (!check_dependencies()) {
+      print("Dependency problem when modding var")
+      print(names(com.env$v.com))
+      model_worse <- FALSE
+      com.env$best_adj_r2 <- 0
+      new_adj_r2 <- 0
+      break
+    } else {
+      new_adj_r2 <- eval_adj_r2(vd=new_vd,orig_vd=orig_vd,old_adj_r2=orig_adj_r2)
+    }
     if (new_adj_r2 > orig_adj_r2) {
       model_worse <- FALSE
       print(paste("model improved",new_adj_r2,orig_adj_r2))
@@ -80,21 +96,22 @@ orig_adj_r2 <- eval_adj_r2(oos_data=TRUE)
 print("clean_vcom")
 clean_vcom()
 
-#get top 5 vars
-f1 <- as.formula(paste(com.env$predict.ret,"~.",sep=""))
-if (length(colnames(var.env$reg_data.df)) > 50) {
-  model.subsets <- regsubsets(f1,data=var.env$reg_data.df,nbest=com.env$save_var_n,nvmax=1,really.big=TRUE)
-} else {
-  model.subsets <- regsubsets(f1,data=var.env$reg_data.df,nbest=com.env$save_var_n,nvmax=1)
+#get top vars
+if (com.env$save_var_n > 0) {
+  f1 <- as.formula(paste(com.env$predict.ret,"~.",sep=""))
+  if (length(colnames(var.env$reg_data.df)) > 50) {
+    model.subsets <- regsubsets(f1,data=var.env$reg_data.df,nbest=com.env$save_var_n,nvmax=1,really.big=TRUE)
+  } else {
+    model.subsets <- regsubsets(f1,data=var.env$reg_data.df,nbest=com.env$save_var_n,nvmax=1)
+  }
+  var_names <- NULL
+  for (i in 1:com.env$save_var_n) {
+    var_names <- append(var_names,names(coef(model.subsets,i))[2])
+  }
+  print(var_names)
+  save_vcoms <- get_reg_names(var_names,return_num=TRUE)
+  print(save_vcoms)
+  save_vcom_vars(save_vcoms)
 }
-var_names <- NULL
-for (i in 1:com.env$save_var_n) {
-  var_names <- append(var_names,names(coef(model.subsets,i))[2])
-}
-print(var_names)
-save_vcoms <- get_reg_names(var_names,return_num=TRUE)
-print(save_vcoms)
-save_vcom_vars(save_vcoms)
-
 
 

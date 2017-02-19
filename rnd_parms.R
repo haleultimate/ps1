@@ -26,7 +26,7 @@ rnd.env$prob$raw_var.c2c.lags <- c(3,5,8,13,21,34,55,89,144)
 rnd.env$prob$raw_var.ti.type <- c('adx','mf','fi')
 rnd.env$prob$raw_var.ti.wts <- c(0.3,0.5,0.2)
 rnd.env$prob$type <- c('ret','res','cmn','vlt','vol','vrs','file') #keep 'file' hard coded as last entry
-rnd.env$prob$type.wts <- c(0.9,0.9,0.1,0.3,0.3,0.1,1)
+rnd.env$prob$type.wts <- c(0.9,0.9,0.1,0.3,0.3,0.1,.5)
 rnd.env$prob$type.bv <- rnd.env$prob$type
 rnd.env$prob$type.bv.wts <- c(0.1,0.1,0.1,0.02,0.1,0.1,0)
 rnd.env$prob$cap <- c('abscap','cap_pct','zcap','none')
