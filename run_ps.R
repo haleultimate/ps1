@@ -16,7 +16,7 @@ for (alpha_wt in c(16000)) {
   print(paste("alpha_wt:",com.env$alpha_wt))
   source("blotter_sim.R")                         #run sim, plot daily profit
 }
-MU <- -MU
+var.env$MU <- -var.env$MU
 print("reversing MU")
 source("blotter_sim.R")
 source("close_session.R")

@@ -10,10 +10,11 @@ rm(list = rm.list)  #clear environment except for loaded stock data and some com
 com.env$original_wd <- getwd()
 com.env$logdir <- paste(com.env$original_wd,"/logs",sep="")
 com.env$vardir <- paste(com.env$original_wd,"/vars",sep="")
+com.env$modeldir <- paste(com.env$original_wd,"/models",sep="")
 #setwd(logdir)
-com.env$logfile <- paste(com.env$logdir,"/logfile.txt",sep="")
+com.env$logfile <- paste(com.env$logdir,"/lf",gsub("[^0-9]","",Sys.time()),".txt",sep="")
 sink(file=com.env$logfile,type="output",split=TRUE)
-on.exit(sink())
+#on.exit(sink())
 print(paste("Start time:",Sys.time()))
 #setwd(original_wd)
 
@@ -55,10 +56,13 @@ if (!exists("stx_list.old")) {         #only load if stx_list has changed
 }
 
 com.env$verbose <- FALSE
-com.env$model_loops <- 60
-com.env$add_vars <- 3
+com.env$load_model <- FALSE
+com.env$model_loops <- 5
+com.env$add_vars <- 5
 com.env$mod_var_loops <- 20
-com.env$save_var_n <- 10
+com.env$save_var_n <- 0
+com.env$save_model <- FALSE
+com.env$model_filename <- "lf1_feb22.vcom"
 #run_type <- "add_vars"
 #insample.r2.threshold <- 0.02
 com.env$predict.ret <- "C2Clf1p"    #should be set up as first model_var in v.com (define_vars.R)

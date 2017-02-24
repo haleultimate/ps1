@@ -10,12 +10,12 @@ for (SimDate_i in 1:(length(com.env$sim_date_index))) {
   SimDate <- com.env$sim_date_index[SimDate_i]
   equity <- com.env$init_equity 
   #print(paste("DATE:",SimDate,"Equity:",equity))
-  port.pos <- port_opt_lp(as.vector(MU[SimDate]),as.vector(VLTY[SimDate]),equity)
+  port.pos <- port_opt_lp(as.vector(var.env$MU[SimDate]),as.vector(var.env$VLTY[SimDate]),equity)
   shares[SimDate_i,] <- port.pos
   #print(port.pos)
 }
 
-ADJRET.matrix <- as.matrix(ADJRET[com.env$sim_date_index])
+ADJRET.matrix <- as.matrix(var.env$ADJRET[com.env$sim_date_index])
 ADJRET_shares <- ADJRET.matrix*shares
 dayprofit <- rowSums(ADJRET_shares)
 stockprofit <- colSums(ADJRET_shares)

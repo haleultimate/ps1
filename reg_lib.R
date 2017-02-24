@@ -2,6 +2,7 @@
 
 #remove all colinear dependent variables 
 run_regression <- function(oos_data = FALSE) {
+  print(paste("run full regression",Sys.time()))
   if (ncol(var.env$reg_data.df) > 2) {
     keep.dat <- vif_func(var.env$reg_data.df[,-1],thresh=10,trace=FALSE) #don't include predict.ret
     keep.dat <- append(colnames(var.env$reg_data.df)[1],keep.dat)
@@ -190,7 +191,7 @@ clean_vcom <- function() {
 }
 
 eval_adj_r2 <- function(vd=NULL,orig_vd=NULL,old_adj_r2=0,oos_data=FALSE) {
-  #print("make_vars")
+  #print(paste("make_vars",Sys.time()))
   vd <- make_vars(vd)                   #make modified variable & update columns in vd (for all stock in var.env)
   if (!is.null(vd)) { #insert modified vd into com.env$v.com
     old.v.com <- com.env$v.com
@@ -201,9 +202,9 @@ eval_adj_r2 <- function(vd=NULL,orig_vd=NULL,old_adj_r2=0,oos_data=FALSE) {
       print(paste("changing bin name",orig_vd$name,vd$name,vd$vcom_num))
     }
   }
-  #print("collect_data")
+  #print(paste("collect_data",Sys.time()))
   collect_data(oos_data)
-  #print("run_regression")
+  #print(paste("run_regression",Sys.time()))
   if (is.null(vd)) {
     run_regression(oos_data)
   } else {                           #run_mod_regression        #only works for bin length <= 2, ticker BAC hardcoded
@@ -256,4 +257,5 @@ eval_adj_r2 <- function(vd=NULL,orig_vd=NULL,old_adj_r2=0,oos_data=FALSE) {
     com.env$v.com <- old.v.com
   }
   return(new_adj_r2)
+  #print(paste("Done with regression,",Sys.time()))
 }

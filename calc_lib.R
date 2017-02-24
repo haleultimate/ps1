@@ -436,30 +436,54 @@ make_vars <- function(vd = NULL) {
   if (!make_vcom) return(vd)
 }
 
-mod_var_restore <- function(vd,worse=TRUE) {
-  for (stk in 1:(com.env$stx + com.env$cmns)) {
+calc_vd <- function(vd) { #for use in computing MU,ADJRET,VLTY  #appended to each var.env$ticker xts object
+  #print("calc VD")
+  print(paste("calc_vd",vd$name,vd$math[1]))
+  #print("starting stk loop")
+  for (stk in 1:(com.env$stx+com.env$cmns)) {
+    #print(stk)
     ticker <- com.env$stx_list[stk]
-    if (com.env$verbose) print(paste("Getting data for:",ticker))
+    #print(paste("Getting data for:",ticker))
     is.cmn <- (com.env$cmn_lookup[[ticker]] == 'cmn')
-    if (is.cmn & !vd$calc_cmn) next          #nothing to compute in cmn
+    if (is.cmn) next                           #nothing to compute in cmn
     ve.xts <- paste("var.env$",ticker,sep="")
-    if (worse) {
-      if (is.cmn) {
-        cmd_string <- paste("colnames(",ve.xts,")[",vd$cmn_col,":",vd$cmn_col-1+length(vd$name),"] <- vd$name" ,sep="")
-      } else {
-        cmd_string <- paste("colnames(",ve.xts,")[",vd$col,":",vd$col-1+length(vd$name),"] <- vd$name" ,sep="")
-      }
-      #print(cmd_string)
-      eval(parse(text=cmd_string))
-      com.env$v.com[vd$vcom_num]$use <- "model"
-      cmd_string <- paste("coln <- ncol(",ve.xts,") - length(vd$name) + 1",sep="")
-      #print(cmd_string)
-      eval(parse(text=cmd_string))
-      cmd_string <- paste(ve.xts," <- ",ve.xts,"[,-",coln,":-ncol(",ve.xts,")]",sep="")
-      #print(cmd_string)
-      eval(parse(text=cmd_string))
+    cmd_string <- paste("c <- ncol(",ve.xts,") + 1",sep="")      
+    eval(parse(text=cmd_string))                               #get column number
+    vd$col <- c
+    
+    coln <- vd$col
+    for (m in 1:length(vd$math)) {
+      math <- strsplit(vd$math[m],split=",")[[1]]
+      parms <- gsub("^[^,]*,","",vd$math[m])
+      fun_call <- paste(math[1],"('",ve.xts,"',",coln,",",parms,")",sep="")
+      #print(fun_call)
+      eval(parse(text=fun_call))
     }
-  }    
+    name.var(ve.xts,(coln:(coln-1+length(vd$name))),vd$name)
+  }
 }
 
+stk_matrix <- function(type,index=0) {
+  print(paste("stk_oos_matrix",type,index))
+  col_lu <- type
+  if (index != 0) {type = paste0(type,index)}
+  type <- paste0("var.env$",type)
+  cmd_string <- paste0(type," <- NULL")
+  #print(cmd_string)
+  eval(parse(text=cmd_string))
 
+  for (stk in 1:(com.env$stx+com.env$cmns)) {
+    ticker <- com.env$stx_list[stk]
+    #print(paste("Getting data for:",ticker))
+    is.cmn <- (com.env$cmn_lookup[[ticker]] == 'cmn')
+    if (is.cmn) next                           #nothing to compute in cmn
+    ve.xts <- paste("var.env$",ticker,sep="")
+    cmd_string <- paste0(type," <- cbind(",type,",",ve.xts,"[,'",col_lu,"'])")
+    #print(cmd_string)
+    eval(parse(text=cmd_string))
+    cmd_string <- paste0("colnames(",type,")[ncol(",type,")] <- '",ticker,"'")
+    #colnames(MU)[ncol(MU)] <- ticker
+    #print(cmd_string)
+    eval(parse(text=cmd_string))
+  }
+}
