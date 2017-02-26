@@ -13,7 +13,7 @@ com.env$vardir <- paste(com.env$original_wd,"/vars",sep="")
 com.env$modeldir <- paste(com.env$original_wd,"/models",sep="")
 #setwd(logdir)
 com.env$logfile <- paste(com.env$logdir,"/lf",gsub("[^0-9]","",Sys.time()),".txt",sep="")
-sink(file=com.env$logfile,type="output",split=TRUE)
+#sink(file=com.env$logfile,type="output",split=TRUE)
 #on.exit(sink())
 print(paste("Start time:",Sys.time()))
 #setwd(original_wd)
@@ -57,7 +57,7 @@ if (!exists("stx_list.old")) {         #only load if stx_list has changed
 
 com.env$verbose <- FALSE
 com.env$load_model <- FALSE
-com.env$model_loops <- 5
+com.env$model_loops <- 2
 com.env$add_vars <- 5
 com.env$mod_var_loops <- 20
 com.env$save_var_n <- 0

@@ -10,14 +10,13 @@ V1 <- NULL
 V1$col <- 1
 V1$name <- "C"
 V1$tier <- 1
-V1$ID <- 1
 V1$use <- "calc"
 V1$calc_cmn <- TRUE
 V1$type <- "Price"
 V1$math[1] <- "from.data.env,'.Adjusted'"
-
-com.env$v.com$C <- V1
-com.env$vcom_names <- c(com.env$vcom_names,V1$name)
+V1 <- set_name(V1)
+cmd_string <- paste0("com.env$v.com$",V1$var_name," <- V1")
+eval(parse(text=cmd_string))
 rm(V1)
 
 V2 <- NULL
@@ -31,10 +30,9 @@ V2$use <- "model"
 V2$calc_cmn <- TRUE
 V2$math[1] <- "calc_look_forward,-1"
 V2$math[2] <- "calc_cap,abscap=0.05"
-
-com.env$v.com$C2Clf1p <- V2
-com.env$vcom_names <- c(com.env$vcom_names,V2$name)
-com.env$ID_tried <- V2$ID
+V2 <- set_name(V2)
+cmd_string <- paste0("com.env$v.com$",V2$var_name," <- V2")
+eval(parse(text=cmd_string))
 rm(V2)
 
 # V2 <- NULL
@@ -231,3 +229,5 @@ rm(V2)
 
 #v.com$CCresbadv <- V14
 #rm(V14)
+
+print("End of Define Vars")

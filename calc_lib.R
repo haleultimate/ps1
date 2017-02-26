@@ -339,12 +339,12 @@ calc_bin <- function(ve.xts,coln,field=NULL,bin_field,b1=-2.,b2=2.,first_pass=FA
 
 calc_dm <- function(ve.xts,coln,ret1,ret2,first_pass=FALSE) {
   #print(paste("calc_dm:","ve.xts=",ve.xts,"ret1=",ret1,"ret2=",ret2))
-  if (ret1 == "YHHraw") {
+  if (ret1 == "GH") { #positive directional move
     cmd_string <- paste("r1.xts <- ",ve.xts,"$",ret1,sep="")
     eval(parse(text=cmd_string))
     cmd_string <- paste("r2.xts <- -",ve.xts,"$",ret2,sep="")
     eval(parse(text=cmd_string))
-  } else if (ret1 == "YLLraw") {
+  } else if (ret1 == "KL") { #negative directional move
     cmd_string <- paste("r1.xts <- -",ve.xts,"$",ret1,sep="")
     eval(parse(text=cmd_string))
     cmd_string <- paste("r2.xts <- ",ve.xts,"$",ret2,sep="")

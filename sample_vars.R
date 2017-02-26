@@ -1,191 +1,164 @@
 #sample vars
 V1 <- NULL
 V1$col <- 1
-V1$name <- "O"
-V1$type <- "prc"
 V1$tier <- 1
-V1$requires <- NULL
-V1$ID <- which(rnd.env$priceID==V1$name)
 V1$use <- "calc"
 V1$calc_cmn <- TRUE
-V1$math[1] <- "calc_adj,'Open'"
-
-cmd_string <- paste("rnd.env$vs.com$",V1$name," <- V1",sep="")
+V1$type <- "Price"
+V1$math[1] <- "from.data.env,'.Adjusted'"
+V1 <- set_name(V1)
+cmd_string <- paste0("rnd.env$vs.com$",V1$var_name," <- V1")   
 eval(parse(text=cmd_string))
 
 V1 <- NULL
 V1$col <- 1
-V1$name <- "H"
 V1$type <- "prc"
 V1$tier <- 1
 V1$requires <- NULL
-V1$ID <- which(rnd.env$priceID==V1$name)
 V1$use <- "calc"
 V1$calc_cmn <- TRUE
 V1$math[1] <- "calc_adj,'High'"
-
-cmd_string <- paste("rnd.env$vs.com$",V1$name," <- V1",sep="")
+V1 <- set_name(V1)
+cmd_string <- paste0("rnd.env$vs.com$",V1$var_name," <- V1")   
 eval(parse(text=cmd_string))
 
 V1 <- NULL
 V1$col <- 1
-V1$name <- "L"
 V1$type <- "prc"
 V1$tier <- 1
 V1$requires <- NULL
-V1$ID <- which(rnd.env$priceID==V1$name)
 V1$use <- "calc"
 V1$calc_cmn <- TRUE
 V1$math[1] <- "calc_adj,'Low'"
-
-cmd_string <- paste("rnd.env$vs.com$",V1$name," <- V1",sep="")
+V1 <- set_name(V1)
+cmd_string <- paste0("rnd.env$vs.com$",V1$var_name," <- V1")   
 eval(parse(text=cmd_string))
 
 V1 <- NULL
 V1$col <- 1
-V1$name <- "C"
-V1$type <- "prc"
-V1$tier <- 1
-V1$requires <- NULL
-V1$ID <- which(rnd.env$priceID==V1$name)
-V1$use <- "calc"
-V1$calc_cmn <- TRUE
-V1$math[1] <- "from.data.env,'.Adjusted'"
-
-cmd_string <- paste("rnd.env$vs.com$",V1$name," <- V1",sep="")
-eval(parse(text=cmd_string))
-
-V1 <- NULL
-V1$col <- 1
-V1$name <- "M"
-V1$type <- "prc"
-V1$tier <- 2
-V1$requires <- c('H','L')
-V1$ID <- which(rnd.env$priceID==V1$name)
-V1$use <- "calc"
-V1$calc_cmn <- TRUE
-V1$math[1] <- "calc_math,c('H','L'),'XX0N <- sqrt(XX1*XX2)'"
-
-cmd_string <- paste("rnd.env$vs.com$",V1$name," <- V1",sep="")
-eval(parse(text=cmd_string))
-
-V1 <- NULL
-V1$col <- 1
-V1$name <- "T"
 V1$type <- "prc"
 V1$tier <- 2
 V1$requires <- c('H','L','C')
-V1$ID <- which(rnd.env$priceID==V1$name)
 V1$use <- "calc"
 V1$calc_cmn <- TRUE
 V1$math[1] <- "calc_math,c('H','L','C'),'XX0N <- (XX1*XX2*XX3)^(1/3)'"
-
-cmd_string <- paste("rnd.env$vs.com$",V1$name," <- V1",sep="")
+V1 <- set_name(V1)
+cmd_string <- paste0("rnd.env$vs.com$",V1$var_name," <- V1")   
 eval(parse(text=cmd_string))
 
 V1 <- NULL
 V1$col <- 1
-V1$name <- "YC"
+V1$type <- "prc"
+V1$tier <- 2
+V1$requires <- c('H','L')
+V1$use <- "calc"
+V1$calc_cmn <- TRUE
+V1$math[1] <- "calc_math,c('H','L'),'XX0N <- sqrt(XX1*XX2)'"
+V1 <- set_name(V1)
+cmd_string <- paste0("rnd.env$vs.com$",V1$var_name," <- V1")   
+eval(parse(text=cmd_string))
+
+V1 <- NULL
+V1$col <- 1
+V1$type <- "prc"
+V1$tier <- 1
+V1$requires <- NULL
+V1$use <- "calc"
+V1$calc_cmn <- TRUE
+V1$math[1] <- "calc_adj,'Open'"
+V1 <- set_name(V1)
+cmd_string <- paste0("rnd.env$vs.com$",V1$var_name," <- V1")   
+eval(parse(text=cmd_string))
+
+V1 <- NULL
+V1$col <- 1
 V1$type <- "prc"
 V1$tier <- 2
 V1$requires <- "C"
-V1$ID <- 10 + which(rnd.env$priceID==V1$requires)
 V1$use <- "calc"
 V1$calc_cmn <- TRUE
 V1$math[1] <- "from.var.env,'C'"
 V1$math[2] <- "calc_lag,1"
-
-cmd_string <- paste("rnd.env$vs.com$",V1$name," <- V1",sep="")
+V1 <- set_name(V1)
+cmd_string <- paste0("rnd.env$vs.com$",V1$var_name," <- V1")   
 eval(parse(text=cmd_string))
 
 V1 <- NULL
 V1$col <- 1
-V1$name <- "YO"
-V1$type <- "prc"
-V1$tier <- 2
-V1$requires <- "O"
-V1$ID <- 10 + which(rnd.env$priceID==V1$requires)
-V1$use <- "calc"
-V1$calc_cmn <- TRUE
-V1$math[1] <- "from.var.env,'O'"
-V1$math[2] <- "calc_lag,1"
-
-cmd_string <- paste("rnd.env$vs.com$",V1$name," <- V1",sep="")
-eval(parse(text=cmd_string))
-
-V1 <- NULL
-V1$col <- 1
-V1$name <- "YH"
 V1$type <- "prc"
 V1$tier <- 2
 V1$requires <- "H"
-V1$ID <- 10 + which(rnd.env$priceID==V1$requires)
 V1$use <- "calc"
 V1$calc_cmn <- TRUE
 V1$math[1] <- "from.var.env,'H'"
 V1$math[2] <- "calc_lag,1"
-
-cmd_string <- paste("rnd.env$vs.com$",V1$name," <- V1",sep="")
+V1 <- set_name(V1)
+cmd_string <- paste0("rnd.env$vs.com$",V1$var_name," <- V1")   
 eval(parse(text=cmd_string))
 
 V1 <- NULL
 V1$col <- 1
-V1$name <- "YL"
 V1$type <- "prc"
 V1$tier <- 2
 V1$requires <- "L"
-V1$ID <- 10 + which(rnd.env$priceID==V1$requires)
 V1$use <- "calc"
 V1$calc_cmn <- TRUE
 V1$math[1] <- "from.var.env,'L'"
 V1$math[2] <- "calc_lag,1"
-
-cmd_string <- paste("rnd.env$vs.com$",V1$name," <- V1",sep="")
+V1 <- set_name(V1)
+cmd_string <- paste0("rnd.env$vs.com$",V1$var_name," <- V1")   
 eval(parse(text=cmd_string))
 
 V1 <- NULL
 V1$col <- 1
-V1$name <- "YM"
 V1$type <- "prc"
 V1$tier <- 3
-V1$requires <- c('H','L','M')
-V1$ID <- 10 + which(rnd.env$priceID==V1$requires[3])
+V1$requires <- c('H','L','C','R')
 V1$use <- "calc"
 V1$calc_cmn <- TRUE
-V1$math[1] <- "from.var.env,'M'"
+V1$math[1] <- "from.var.env,'R'"
 V1$math[2] <- "calc_lag,1"
-
-cmd_string <- paste("rnd.env$vs.com$",V1$name," <- V1",sep="")
+V1 <- set_name(V1)
+cmd_string <- paste0("rnd.env$vs.com$",V1$var_name," <- V1")   
 eval(parse(text=cmd_string))
 
 V1 <- NULL
 V1$col <- 1
-V1$name <- "YT"
 V1$type <- "prc"
 V1$tier <- 3
-V1$requires <- c('H','L','C','T')
-V1$ID <- 10 + which(rnd.env$priceID==V1$requires[4])
+V1$requires <- c('H','L','J')
 V1$use <- "calc"
 V1$calc_cmn <- TRUE
-V1$math[1] <- "from.var.env,'T'"
+V1$math[1] <- "from.var.env,'J'"
 V1$math[2] <- "calc_lag,1"
-
-cmd_string <- paste("rnd.env$vs.com$",V1$name," <- V1",sep="")
+V1 <- set_name(V1)
+cmd_string <- paste0("rnd.env$vs.com$",V1$var_name," <- V1")   
 eval(parse(text=cmd_string))
 
 V1 <- NULL
 V1$col <- 1
-V1$name <- "C2"
+V1$type <- "prc"
+V1$tier <- 2
+V1$requires <- "O"
+V1$use <- "calc"
+V1$calc_cmn <- TRUE
+V1$math[1] <- "from.var.env,'O'"
+V1$math[2] <- "calc_lag,1"
+V1 <- set_name(V1)
+cmd_string <- paste0("rnd.env$vs.com$",V1$var_name," <- V1")   
+eval(parse(text=cmd_string))
+
+V1 <- NULL
+V1$col <- 1
 V1$type <- "prc"
 V1$tier <- 2
 V1$requires <- "C"
-V1$ID <- 100 + 10 + which(rnd.env$priceID==V1$requires)
 V1$use <- "calc"
 V1$calc_cmn <- TRUE
 V1$math[1] <- "from.var.env,'C'"
 V1$math[2] <- "calc_lag,2"
-
-cmd_string <- paste("rnd.env$vs.com$",V1$name," <- V1",sep="")
+V1 <- set_name(V1)
+cmd_string <- paste0("rnd.env$vs.com$",V1$var_name," <- V1")   
 eval(parse(text=cmd_string))
 
 #data to calculate raw returns
@@ -194,122 +167,112 @@ for (i in 1:length(rnd.env$vs.com)) {
   rnd.env$prclu[i] <- rnd.env$vs.com[[i]]$name
 }
 
-V1 <- NULL
-V1$col <- 1
-V1$use <- "calc"
-V1$calc_cmn <- TRUE
-for (i in 1:5) {
-  end_price <- names(rnd.env$prcorder[i])
-  ep_num <- which(rnd.env$prclu == end_price)
-  vs_end <- rnd.env$vs.com[[ep_num]]
-  for (j in (i+1):length(rnd.env$prcorder)) {
-    start_price <- names(rnd.env$prcorder[j])
-    sp_num <- which(rnd.env$prclu == start_price)
-    vs_start <- rnd.env$vs.com[[sp_num]]
-    V1$name <- ifelse( (start_price == 'YC'), paste('C',end_price,"raw",sep=""), paste(start_price,end_price,"raw",sep="")) 
-    V1$type <- ifelse( (rnd.env$prcorder[[end_price]] == rnd.env$prcorder[[start_price]]),"rng","ret")
-    V1$tier <- max(vs_end$tier,vs_start$tier) + 1
-    V1$requires <- unique(c(vs_end$requires,vs_start$requires,start_price,end_price))
-    V1$ID <- ifelse(start_price == 'Y2C', 2410 + vs_end$ID, 100*vs_start$ID + 10 + vs_end$ID)
-    V1$math[1] <- paste("calc_ret,'",start_price,"','",end_price,"'",sep="")
-
-    cmd_string <- paste("rnd.env$vs.com$",V1$name," <- V1",sep="")
+max_j <- length(rnd.env$vs.com)
+for (i in 1:6) {
+  print(i)
+  vd_end_price <- rnd.env$vs.com[[i]]
+  for (j in (i+1):max_j) {
+    V1 <- NULL
+    V1$col <- 1
+    V1$use <- "calc"
+    V1$calc_cmn <- TRUE
+    print(paste(j,vd_end_price$name))
+    vd_start_price <- rnd.env$vs.com[[j]]
+    print(vd_start_price$name)
+    V1$type <- "ret"
+    V1$tier <- 4
+    V1$requires <- unique(c(vd_end_price$requires,vd_start_price$requires,vd_start_price$name,vd_end_price$name))
+    V1$math[1] <- paste0("calc_ret,'",vd_start_price$name,"','",vd_end_price$name,"'")
+    V1 <- set_name(V1)
+    cmd_string <- paste0("rnd.env$vs.com$",V1$var_name," <- V1")   
     eval(parse(text=cmd_string))
+    print(V1$var_name)
     rnd.env$raw_list <- c(rnd.env$raw_list,length(rnd.env$vs.com))
   }
 }
 #rnd.env$ccraw_num <- which("CCraw" == names(rnd.env$vs.com))
-rm(end_price,ep_num,vs_end,start_price,sp_num,vs_start)
+rm(vd_end_price,vd_start_price)
 
 
 V1 <- NULL
 V1$col <- 1
-V1$name <- "D"
 V1$tier <- 1
 V1$requires <- NULL
-V1$ID <- which(rnd.env$priceID==V1$name)
 V1$type <- "Vol"
 V1$use <- "calc"
 V1$calc_cmn <- TRUE
-V1$math[1] <- "calc_dol,price='T'"
-
-cmd_string <- paste("rnd.env$vs.com$",V1$name," <- V1",sep="")
+V1$math[1] <- "calc_dol,price='R'"
+V1 <- set_name(V1)
+cmd_string <- paste0("rnd.env$vs.com$",V1$var_name," <- V1")   
 eval(parse(text=cmd_string))
 
 V1 <- NULL
 V1$col <- 1
-V1$name <- "lD"
 V1$tier <- 2
 V1$requires <- "D"
-V1$ID <- 10*rnd.env$vs.com$D$ID + 1
 V1$type <- "Vol"
 V1$use <- "calc"
 V1$calc_cmn <- TRUE
 #V1$math[1] <- "from.var.env,field='D'"
 V1$math[1] <- "calc_math,c('D'),math_str='XX0N <- log(XX1) - 18.5'"
-
-cmd_string <- paste("rnd.env$vs.com$",V1$name," <- V1",sep="")
+V1 <- set_name(V1)
+cmd_string <- paste0("rnd.env$vs.com$",V1$var_name," <- V1")   
 eval(parse(text=cmd_string))
 rnd.env$vol_raw <- length(rnd.env$vs.com)
 #rnd.env$vol_list <- c(rnd.env$vol_list,length(rnd.env$vs.com))
 
 V1 <- NULL
 V1$col <- 1
-V1$name <- "TRraw"  #true range
 V1$type <- "rng"
 V1$tier <- 3
-V1$requires <- c('H','L','C','YC')
-V1$ID <- rnd.env$nameID[V1$name]
+V1$requires <- c('H','L','C','B')
 V1$use <- "calc"
 V1$calc_cmn <- TRUE
-V1$math[1] <- "calc_math,c('H','L','YC'),'XX0N <- pmax(log(XX1/XX2),abs(log(XX1/XX3)),abs(log(XX2/XX3)))'"
-
-cmd_string <- paste("rnd.env$vs.com$",V1$name," <- V1",sep="")
+V1$math[1] <- "calc_math,c('H','L','B'),'XX0N <- pmax(log(XX1/XX2),abs(log(XX1/XX3)),abs(log(XX2/XX3)))'"
+V1 <- set_name(V1)
+cmd_string <- paste0("rnd.env$vs.com$",V1$var_name," <- V1")   
 eval(parse(text=cmd_string))
 rnd.env$raw_list <- c(rnd.env$raw_list,length(rnd.env$vs.com))
 
 V1 <- NULL
 V1$col <- 1
-V1$name <- "DM"  #directional movement
+#directional movement
 V1$type <- "ti"
 V1$tier <- 4
-V1$requires <- c('H','YH','YHHraw','L','YL','YLLraw')
-V1$ID <- rnd.env$nameID[V1$name]
+V1$requires <- c('H','G','GH','L','K','KL')
 V1$use <- "calc"
 V1$calc_cmn <- TRUE
-V1$math[1] <- "calc_dm,'YHHraw','YLLraw'"
-
-cmd_string <- paste("rnd.env$vs.com$",V1$name," <- V1",sep="")
+V1$math[1] <- "calc_dm,'GH','KL'"
+V1 <- set_name(V1)
+cmd_string <- paste0("rnd.env$vs.com$",V1$var_name," <- V1")   
 eval(parse(text=cmd_string))
 #rnd.env$raw_list <- c(rnd.env$raw_list,length(rnd.env$vs.com))
 
 V1 <- NULL
 V1$col <- 1
-V1$name <- "DI"  #directional indicator
+#directional indicator
 V1$type <- "ti"
 V1$tier <- 4
-V1$requires <- c('H','YH','YHHraw','L','YL','YLLraw','C','YC')
-V1$ID <- rnd.env$nameID[V1$name]
+V1$requires <- c('H','G','GH','L','K','KL','C','B')
 V1$use <- "calc"
 V1$calc_cmn <- TRUE
-V1$math[1] <- "calc_math,c('DMd','TRd'),'XX0N <- XX1/XX2'"
-
-cmd_string <- paste("rnd.env$vs.com$",V1$name," <- V1",sep="")
+V1$math[1] <- "calc_math,c('DMd','TRd'),'XX0N <- XX1/XX2'" #DMd and TRd likely not correct. COME BACK
+V1 <- set_name(V1)
+cmd_string <- paste0("rnd.env$vs.com$",V1$var_name," <- V1")   
 eval(parse(text=cmd_string))
 #rnd.env$raw_list <- c(rnd.env$raw_list,length(rnd.env$vs.com))
 
 V1 <- NULL
 V1$col <- 1
-V1$name <- "MF"  #money flow
+#money flow
 V1$type <- "ti"
 V1$tier <- 4
-V1$requires <- c('H','L','C','T','YT','YTTraw','D')
-V1$ID <- rnd.env$nameID[V1$name]
+V1$requires <- c('H','L','C','R','Q','QR','D')
 V1$use <- "calc"
 V1$calc_cmn <- TRUE
-V1$math[1] <- "calc_math,c('YTTraw','D'),math_str='XX0N <- ifelse(XX1>0,XX2,0)'"
-
-cmd_string <- paste("rnd.env$vs.com$",V1$name," <- V1",sep="")
+V1$math[1] <- "calc_math,c('QR','D'),math_str='XX0N <- ifelse(XX1>0,XX2,0)'"
+V1 <- set_name(V1)
+cmd_string <- paste0("rnd.env$vs.com$",V1$var_name," <- V1")   
 eval(parse(text=cmd_string))
 #rnd.env$raw_list <- c(rnd.env$raw_list,length(rnd.env$vs.com))
 
@@ -330,16 +293,15 @@ eval(parse(text=cmd_string))
 
 V1 <- NULL
 V1$col <- 1
-V1$name <- "FI"  #Force Index = return * Dollars
+#Force Index = return * Dollars
 V1$type <- "ti"
 V1$tier <- 4
-V1$requires <- c('C','YC','CCraw','D')
-V1$ID <- rnd.env$nameID[V1$name]
+V1$requires <- c('C','B','BC','D')
 V1$use <- "calc"
 V1$calc_cmn <- TRUE
-V1$math[1] <- "calc_math,c('CCraw','D'),math_str='XX0N <- XX1*XX2'"
-
-cmd_string <- paste("rnd.env$vs.com$",V1$name," <- V1",sep="")
+V1$math[1] <- "calc_math,c('BC','D'),math_str='XX0N <- XX1*XX2'"
+V1 <- set_name(V1)
+cmd_string <- paste0("rnd.env$vs.com$",V1$var_name," <- V1")   
 eval(parse(text=cmd_string))
 #rnd.env$raw_list <- c(rnd.env$raw_list,length(rnd.env$vs.com))
 
@@ -454,4 +416,4 @@ eval(parse(text=cmd_string))
 # 
 # com.env$v.com$VLTY <- V1
 
-
+print("End of Sample Vars")
