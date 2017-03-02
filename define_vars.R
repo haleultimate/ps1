@@ -21,18 +21,17 @@ rm(V1)
 
 V2 <- NULL
 V2$col <- 2
-V2$name <- "C2Clf1p"
 V2$tier <- 2
 V2$requires <- "C"
-V2$ID <- 1205
 V2$type <- "Ret"
 V2$use <- "model"
 V2$calc_cmn <- TRUE
-V2$math[1] <- "calc_look_forward,-1"
+V2$math[1] <- paste0("calc_look_forward,-",com.env$look_forward)
 V2$math[2] <- "calc_cap,abscap=0.05"
 V2 <- set_name(V2)
 cmd_string <- paste0("com.env$v.com$",V2$var_name," <- V2")
 eval(parse(text=cmd_string))
+com.env$predict.ret <- V2$var_name #always second variable [hard coded when loading model]
 rm(V2)
 
 # V2 <- NULL
@@ -230,4 +229,4 @@ rm(V2)
 #v.com$CCresbadv <- V14
 #rm(V14)
 
-print("End of Define Vars")
+#print("End of Define Vars")

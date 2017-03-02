@@ -1,11 +1,11 @@
 #rnd_parms.R
 # list of settings for constructing and modifying variables
-rnd.env <- new.env()
+rnd.env <- new.env(parent=globalenv())
 rnd.env$vs.com <- NULL
 rnd.env$raw_list <- NULL
 
-rnd.env$nameID <- c(1412,2323,3735,16168,14148,53,54,55,56,57,58,59,60)
-names(rnd.env$nameID) <- c('TRraw','DM','DI','MF','FI','ld','tr','di','dd','fi','ti','pdm','ndm')
+rnd.env$nameID <- c(1412,2323,3735,16168,14148,53,54,55,56,57,58,59,60,61)
+names(rnd.env$nameID) <- c('TRraw','DM','DI','MF','FI','ld','tr','di','pmf','nmf','fi','ti','pdm','ndm')
 
 rnd.env$fun_id <- c(1:6)  #any undefined function will be mapped to zero
 names(rnd.env$fun_id) <- c('calc_cap','calc_z','calc_res','calc_decay','calc_vlty','calc_bin')
@@ -13,17 +13,17 @@ rnd.env$known_mod_fun <- c(1:5)
 names(rnd.env$known_mod_fun) <- c('calc_cap','calc_z','calc_decay','calc_lag','calc_bin')
 
 rnd.env$prob$choices <- c('type','cap','math','scale','decay','bin')
-rnd.env$prob$choices.wts <- c(0.1,0.3,0.0,0.3,0.3,0.4) 
+rnd.env$prob$choices.wts <- c(0.1,0.3,0.0,0.3,0.2,0.4) 
 rnd.env$prob$choices.bv <- c('type','cap','scale','decay')
 rnd.env$prob$choices.bv.wts <- c(0.1,0.2,0.,0.2)
 rnd.env$prob$raw_var <- c('retrange','ccd','c2c','ti')
-rnd.env$prob$raw_var.wts <- c(0.4,0.3,0.3,5)
-#rnd.env$prob$raw_var.wts <- c(0.4,0.3,0.3,1)
+rnd.env$prob$raw_var.wts <- c(0.4,0.2,0.2,0.2)
+#rnd.env$prob$raw_var.wts <- c(0.4,0.3,0.3,0)
 rnd.env$prob$raw_var.c2c.lags <- c(3,5,8,13,21,34,55,89,144)
 rnd.env$prob$raw_var.ti.type <- c('adx','mf','fi')
 rnd.env$prob$raw_var.ti.wts <- c(0.3,0.5,0.2)
 rnd.env$prob$type <- c('ret','res','cmn','vlt','vol','vrs','file') #keep 'file' hard coded as last entry
-rnd.env$prob$type.wts <- c(0.9,0.9,0.1,0.3,0.3,0.1,.5)
+rnd.env$prob$type.wts <- c(0.9,0.9,0.1,0.3,0.3,0.1,0)
 rnd.env$prob$type.bv <- rnd.env$prob$type
 rnd.env$prob$type.bv.wts <- c(0.1,0.1,0.1,0.02,0.1,0.1,0)
 rnd.env$prob$cap <- c('abscap','cap_pct','zcap','none')

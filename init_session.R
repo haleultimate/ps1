@@ -23,9 +23,9 @@ library(quantmod)
 library(dplyr)
 library(forecast)
 library(leaps)
-if (!exists("data.env")) data.env <- new.env()
-var.env <- new.env()
-rnd.env <- new.env()
+if (!exists("data.env")) data.env <- new.env(parent=globalenv())
+var.env <- new.env(parent=globalenv())
+rnd.env <- new.env(parent=globalenv())
 
 #Init data_load vars
 Sys.setenv(TZ = "UTC")
@@ -55,17 +55,19 @@ if (!exists("stx_list.old")) {         #only load if stx_list has changed
   stx_list.old <- com.env$stx_list
 }
 
-com.env$verbose <- FALSE
 com.env$load_model <- FALSE
-com.env$model_loops <- 2
-com.env$add_vars <- 5
+com.env$save_model <- TRUE
+com.env$model_filename <- "lf5_feb28.vcom"
+com.env$look_forward <- 5
+com.env$save_var_n <- 5
+com.env$opt_model <- TRUE
+com.env$model_loops <- 40
+com.env$add_vars <- 3
 com.env$mod_var_loops <- 20
-com.env$save_var_n <- 0
-com.env$save_model <- FALSE
-com.env$model_filename <- "lf1_feb22.vcom"
+com.env$run_sim <- TRUE
 #run_type <- "add_vars"
 #insample.r2.threshold <- 0.02
-com.env$predict.ret <- "C2Clf1p"    #should be set up as first model_var in v.com (define_vars.R)
+#com.env$predict.ret <- "C2Clf1p"    #should be set up as first model_var in v.com (define_vars.R)
 com.env$days2remove <- 60
 com.env$reg_start_date <- as.POSIXct("2004-07-01 UTC")
 com.env$reg_end_date <- as.POSIXct("2011-12-30 UTC")
@@ -75,6 +77,7 @@ com.env$reg_date_range <- paste(com.env$reg_start_date,"/",com.env$reg_end_date,
 com.env$OOS_date_range <- paste(com.env$OOS_start_date,"/",com.env$OOS_end_date,sep="")
 com.env$sim_date_index <- index(data.env$XLF[com.env$OOS_date_range])
 
+com.env$verbose <- FALSE
 com.env$corr.threshold <- 0.6
 com.env$var_files_tried <- NULL
 #v.com <- NULL

@@ -1,15 +1,17 @@
 #rnd_lib.R
-fdeList <- c("C")
-names(fdeList) <- c("'.Adjusted'")
 adjList <- c("H", "L","O","V")
 names(adjList) <- c("'High'", "'Low'","'Open'","'Volume'")
-lagList <- c()
 
 #returns vd$name and vd$ID given a variable's math.list
 set_name = function(V1) {
-  if(V1$type == "ti"){
-    print("In set_name:")
-    print(V1)
+  if (is.null(V1)) {
+    print("Warning:V1 is null, no name/ID given")
+    return(V1)
+  }
+  orig_name <- NULL
+  if(!is.null(V1$var_name)){
+    orig_name <- V1$var_name
+    #print(paste("Entering set name with var_name ==",orig_name))
   }
   V1$var_name <- NULL
   V1$ID <- NULL
@@ -22,7 +24,7 @@ set_name = function(V1) {
     parms <- gsub("^[^,]*,","",math_str) #get everything after first comma (parameters) 
     switch(math, 
            "from.data.env" = {
-             V1$var_name <- fdeList[which(parms == names(fdeList))]
+             V1$var_name <- "C"
              V1$ID <- which(V1$var_name == LETTERS)
              V1$ID <- formatC(V1$ID, width = 2, format = "d", flag = "0")
              break
@@ -30,15 +32,16 @@ set_name = function(V1) {
            "calc_look_forward" = {
              if(parms < 0){
                V1$var_name <- paste0("C2Clf", -as.numeric(parms), "p")
-               V1$ID <- 9999
+               V1$ID <- "9999"
                break
              } else {
                namePart <- paste0("C2C", parms)
+               IDPart <- paste0("0303",parms)
              }
            },
            "calc_dol" = {
              namePart <- "D"
-             IDPart <- which(V1$var_name == LETTERS)
+             IDPart <- which(namePart == LETTERS)
              IDPart <- formatC(IDPart, width = 2, format = "d", flag = "0")
            },
            "calc_math" = {
@@ -55,43 +58,59 @@ set_name = function(V1) {
                     },
                     "c('D'),math_str='XX0N <- log(XX1) - 18.5'" = {
                       namePart <- "ld"
-                      IDPart <- rnd.env$nameId[which(namePart == names(rnd.env$nameID))]
+                      #IDPart <- rnd.env$nameId[[which(namePart == names(rnd.env$nameID))]]
+                      IDPart <- "53"
                     },
                     "c('H','L','B'),'XX0N <- pmax(log(XX1/XX2),abs(log(XX1/XX3)),abs(log(XX2/XX3)))'" = {
                       namePart <- "tr"
-                      IDPart <- rnd.env$nameId[which(namePart == names(rnd.env$nameID))]
+                      #IDPart <- rnd.env$nameId[[which(namePart == names(rnd.env$nameID))]]
+                      IDPart <- "54"
                     },
                     "c('DMd','TRd'),'XX0N <- XX1/XX2'" = {
                       namePart <- "di"
-                      IDPart <- rnd.env$nameId[which(namePart == names(rnd.env$nameID))]
+                      #IDPart <- rnd.env$nameId[[which(namePart == names(rnd.env$nameID))]]
+                      IDPart <- "55"
                     },
                     "c('QR','D'),math_str='XX0N <- ifelse(XX1>0,XX2,0)'" = {
-                      namePart <- "dd"
-                      IDPart <- rnd.env$nameId[which(namePart == names(rnd.env$nameID))]
+                      namePart <- "pmf"
+                      #IDPart <- rnd.env$nameId[[which(namePart == names(rnd.env$nameID))]]
+                      IDPart <- "56"
+                    },
+                    "c('QR','D'),math_str='XX0N <- ifelse(XX1<0,XX2,0)'" = {
+                      namePart <- "nmf"
+                      #IDPart <- rnd.env$nameId[[which(namePart == names(rnd.env$nameID))]]
+                      IDPart <- "57"
                     },
                     "c('BC','D'),math_str='XX0N <- XX1*XX2'" = {
                       namePart <- "fi"
-                      IDPart <- rnd.env$nameId[which(namePart == names(rnd.env$nameID))]
+                      #IDPart <- rnd.env$nameId[[which(namePart == names(rnd.env$nameID))]]
+                      IDPart <- "58"
                     },
                     {
-                    print(parms)
-                    print(strsplit(parms,split = "'"))
-                    namePart <- "ti"
-                    IDPart <- rnd.env$nameId[which(namePart == names(rnd.env$nameID))]
+                    #print(paste("ti",parms))
+                    namelist <- strsplit(parms,split="'")[[1]]
+                    namePart <- paste0(namelist[2],"X")
+                    #print(com.env$v.com[[namelist[2]]]$ID)
+                    IDPart <- paste0("24",sumID(com.env$v.com[[namelist[2]]]$ID))
                     }
              )
            },
+           "calc_cap" = {
+             IDPart <- paste0("29",substr(gsub("[^0-9]","",parms),2,nchar(gsub("[^0-9]","",parms))))
+           },
            "calc_res" = {
-             namePart <- "S"
-             IDPart <- "19"
+             namePart <- gsub("'","",parms)
+             IDPart <- paste0("19",sumID(com.env$v.com[[namePart]]$ID))
+             namePart <- paste0(namePart,"S")
            },
            "calc_adj" = {
              namePart <- adjList[which(parms == names(adjList))]
              IDPart <- which(namePart == LETTERS)
+             IDPart <- formatC(IDPart, width = 2, format = "d", flag = "0")
            },
            "from.var.env" = {
              namePart <- gsub("'","",parms)
-             if(nchar(namePart) > 1) IDPart <- sumID(com.env$v.com[parms]$ID)
+             if(nchar(namePart) > 1) IDPart <- sumID(com.env$v.com[[namePart]]$ID)
            },
            "calc_ret" = {
              namePart <-  substr(parms,2,2)
@@ -110,17 +129,17 @@ set_name = function(V1) {
              } else {
                namePart <- "l"
                namePart <- paste0(namePart,parms)
-               IDPart <- "38"
+               IDPart <- paste0("38",parms)
              }
            },
            "calc_cmn" = {
              namePart <- gsub("'","",parms)
+             IDPart <- paste0("05",sumID(com.env$v.com[[namePart]]$ID))
              namePart <- paste0(namePart,"E")
-             IDPart <- "05"
            },
            "calc_decay" = {
-             namePart <- 100*as.numeric(strsplit(parms,split="0")[[1]][2])
-             IDPart <- paste0("04",namePart)
+             namePart <- substr(gsub("[^0-9]","",parms),2,3)
+             IDPart <- paste0("30",namePart)
              namePart <- paste0("d",namePart)
            },
            "calc_bin" = {
@@ -140,7 +159,14 @@ set_name = function(V1) {
              } else{
                namePart <- "bw"
                IDPart <- "2849"
-             }
+             }  
+             parm_list <- strsplit(parms,split=",")[[1]]
+             b1 <- gsub(".*=","",parm_list[2])
+             b2 <- gsub(".*=","",parm_list[3])
+             b11 <- 50 + 10*as.numeric(b1)
+             b12 <- 50 + 10*as.numeric(b2)
+             #print(paste(b1,b2,b11,b12))
+             IDPart <- paste0(IDPart,b11,b12)
            },
            "calc_vlty" = {
              namePart <- gsub("'","",parms)
@@ -149,15 +175,26 @@ set_name = function(V1) {
            },
            "calc_dm" = {
              namePart <- ifelse(substr(parms,2,2)=="G","pdm","ndm")
-             IDPart <- rnd.env$nameId[which(namePart == names(rnd.env$nameID))]
+             #IDPart <- rnd.env$nameId[[which(namePart == names(rnd.env$nameID))]]
+             IDPart <- ifelse(substr(parms,2,2)=="G","59","60")
+           },
+           "calc_z" = {
+             if (grepl("TRUE",parms)) {  #Zscore "Z"
+               IDPart <- "52"
+             } else {                    #Zscale "z"
+               IDPart <- "26"
+             }
            },
            print("calc_function not found in set_name")
     )
     if(V1$type == "ti") {
-      print(paste(namePart,IDPart,V1$var_name,V1$ID))
+      #print(paste(namePart,IDPart,V1$var_name,V1$ID))
     }
     V1$var_name <- paste0(V1$var_name,namePart)
     V1$ID <- paste0(V1$ID,IDPart)
+  }
+  if (V1$use == "model") {
+    V1$var_name <- paste0(V1$var_name,sumID(V1$ID))
   }
   if (!binning) {
     V1$name <- V1$var_name
@@ -165,9 +202,16 @@ set_name = function(V1) {
     V1$name[1] <- paste0(V1$var_name,"l")
     V1$name[2] <- paste0(V1$var_name,"h")
   }
-  if (V1$type == "ti") {
-    print("return V1 from set_name")
-    print(V1)
+  if (!is.null(orig_name)) {
+    #print("checking dependencies for name change")
+    for (i in 1:length(com.env$v.com)) {
+      if (orig_name %in% com.env$v.com[[i]]$requires) {
+        print(paste("WARNING:",orig_name,"in",com.env$v.com[[i]]$var_name,"var_num:",i,"Changed to:",V1$var_name))
+        print(com.env$v.com[[i]]$requires)
+        com.env$v.com[[i]]$requires[which(com.env$v.com[[i]]$requires == orig_name)] <- V1$var_name
+        print(com.env$v.com[[i]]$requires)
+      }
+    }
   }
   return(V1)
 }
@@ -319,10 +363,10 @@ select_rnd_raw <- function() {
            switch(type,
                   "adx" = {
                     for (raw in c('PDM','NDM','TR')) {
-                      print(paste("adx,raw=",raw))
+                      #print(paste("adx,raw=",raw))
                       nam <- paste(raw,'d',100*d,sep="")
                       if (!(nam %in% names(com.env$v.com))) {
-                        vs.nam <- ifelse(raw=='TR','tr','dm') 
+                        vs.nam <- ifelse(raw=='TR','tr','pdm') 
                         V1 <- rnd.env$vs.com[[which(vs.nam == names(rnd.env$vs.com))]]
                         #V1$name <- nam
                         #V1$ID <- 100*(V1$ID+d)
@@ -331,6 +375,7 @@ select_rnd_raw <- function() {
                           V1$math[1] <- "calc_dm,'KL','GH'"
                         }
                         V1$math[2] <- paste("calc_decay,decay=",d,sep="")
+                        V1$var_name <- NULL
                         V1 <- set_name(V1)
                         scom2vcom(V1)
                         switch(raw,
@@ -372,7 +417,7 @@ select_rnd_raw <- function() {
                     #print(paste("mf,raw=",raw))
                     mf.nam <- paste(raw,'d',100*d,sep="")
                     if (!(mf.nam %in% names(com.env$v.com))) {
-                      V1 <- rnd.env$vs.com[[which('mf' == names(rnd.env$vs.com))]]
+                      V1 <- rnd.env$vs.com[[which('pmf' == names(rnd.env$vs.com))]]
                       #V1$name <- mf.nam
                       #V1$ID <- 100*(V1$ID+d)
                       if (raw == 'PMF') {
@@ -383,6 +428,7 @@ select_rnd_raw <- function() {
                       }
                       V1$math[2] <- paste("calc_decay,decay=",d,sep="")
                       #print(paste("mf",V1$name,"requires",V1$requires))
+                      V1$var_name <- NULL
                       V1 <- set_name(V1)
                       mf.nam <- V1$name
                       scom2vcom(V1)
@@ -393,12 +439,13 @@ select_rnd_raw <- function() {
                      # V1$name <- d.nam
                       #V1$ID <- 100*(V1$ID+d)
                       V1$math[2] <- paste("calc_decay,decay=",d,sep="")
+                      V1$var_name <- NULL
                       V1 <- set_name(V1)
                       d.nam <- V1$name
                       scom2vcom(V1)
                     }
                     nam <- paste(mf.nam,'raw',sep="")
-                    V1 <- rnd.env$vs.com[[which('mf' == names(rnd.env$vs.com))]]
+                    V1 <- rnd.env$vs.com[[which('pmf' == names(rnd.env$vs.com))]]
                     #V1$name <- nam
                     V1$requires <- c(V1$requires,mf.nam,d.nam)
                     V1$tier <- V1$tier + 1
@@ -424,6 +471,7 @@ select_rnd_raw <- function() {
                       #V1$name <- d.nam
                       #V1$ID <- 100*(V1$ID+d)
                       V1$math[2] <- paste("calc_decay,decay=",d,sep="")
+                      V1$var_name <- NULL
                       V1 <- set_name(V1)
                       d.nam <- V1$name
                       scom2vcom(V1)
@@ -441,6 +489,7 @@ select_rnd_raw <- function() {
   )
   #print(paste("select_rnd_raw",V1$name))
   #print(V1)
+  V1$var_name <- NULL
   V1 <- set_name(V1)
   scom2vcom(V1)                        #insert selected raw into vcom (if not already there)
   #if (!all(V1$requires %in% names(com.env$v.com))) {
@@ -530,8 +579,8 @@ rnd_var <- function(var_type='model') {
             V1$math[1] <- paste("calc_res,'",V1$name,"'",sep="")
             V1$tier <- V1$tier + 1
             V1$calc_cmn <- FALSE
-            V1$ID <- V1$ID + 1
-            V1$name <- "Drs"
+            #V1$ID <- V1$ID + 1
+            #V1$name <- "Drs"
           },
           "file" = {
             status <- load_rnd_var()
@@ -591,6 +640,7 @@ rnd_var <- function(var_type='model') {
           print(var_type)
           print(choice)
           print(loop_list)
+          print(V1$use)
           stop()
         }
         b <- rnd_val(choice)
@@ -604,9 +654,10 @@ rnd_var <- function(var_type='model') {
             V2 <- com.env$v.com[[length(com.env$v.com)]]
             if (length(V2$name)>1) {
               print("Warning: Can't use bin var to bin yet **********************")
+              print(paste(V2$var_name,V2$use))
               return(-1)
             }
-            V1$requires <- unique(c(V1$requires,V2$requires,V2$name))
+            V1$requires <- unique(c(V1$requires,V2$requires,V2$var_name))
             V1$tier <- max( V1$tier,(V2$tier+1) )
             V1$calc_cmn <- (V1$calc_cmn & V2$calc_cmn)
             if (length(V1$math) <= 0) print(paste("V1$math length:",length(V1$math)))
@@ -639,6 +690,7 @@ rnd_var <- function(var_type='model') {
       vcom.name <- substr(n1,1,(nchar(n1)-1))
     }
   } 
+  V1$var_name <- NULL
   V1 <- set_name(V1)
   # if (!binning) {
   #   V1$ID <- paste(V1$ID,get_id(V1$math),sep="")  #loop over all math functions to create id
@@ -696,12 +748,14 @@ rnd_mod <- function(reg_names=NULL,vcom_num=0) {
       #print(paste("vcom_num=",vcom_num,vcom_name))
     }
     vd <- com.env$v.com[[vcom_num]]
+    #print(vd$math)
     vd$vcom_num <- vcom_num
     for (m in 1:length(vd$math)) {
       math <- strsplit(vd$math[m],split=",")[[1]]
       if (math[1] %in% names(rnd.env$known_mod_fun)) math.list <- c(math.list,m)
     }
   }
+  #print(math.list)
   if (is.null(math.list)) {
     if (loop_num == 1) {
       print(paste("Error: given vcom_num,",vcom_num,", has no modifiable functions"))
@@ -712,12 +766,13 @@ rnd_mod <- function(reg_names=NULL,vcom_num=0) {
     return(vd)
   }
   current_math_id <- 0
-  orig_math_id <- 0
+  orig_math_id <- vd$ID
   loop_num <- 0
-  while ((current_math_id == orig_math_id) & (loop_num < 10)) {
+  while ((vd$ID == orig_math_id) & (loop_num < 10)) {
     loop_num <- loop_num + 1
     math_num <- ifelse(length(math.list)==1,math.list,sample(math.list,size=1))
     orig_math <- vd$math[math_num]
+    #print(paste(loop_num,math_num,orig_math))
     length_orig_math <- length(vd$math)
     math <- strsplit(vd$math[math_num],split=",")[[1]]
     switch(math[1],
@@ -801,10 +856,11 @@ rnd_mod <- function(reg_names=NULL,vcom_num=0) {
                }
            }
     )
-    orig_math_id <- get_id(com.env$v.com[[vcom_num]]$math)
-    current_math_id <- get_id(vd$math)
+    #orig_math_id <- get_id(com.env$v.com[[vcom_num]]$math)
+    #current_math_id <- get_id(vd$math)
+    vd <- set_name(vd)
   }
-  vd$ID <- sub(orig_math_id,current_math_id,vd$ID)
+  #vd$ID <- sub(orig_math_id,current_math_id,vd$ID)
   if (vd$ID %in% com.env$ID_tried) {
     print(paste("warning:trying to mod a var already tried",vd$name,vd$ID))
     if (com.env$verbose) print(com.env$ID_tried)
@@ -815,11 +871,11 @@ rnd_mod <- function(reg_names=NULL,vcom_num=0) {
     com.env$ID_tried <- c(com.env$ID_tried,vd$ID)
   }
   if (length_orig_math == length(vd$math)) {
-    #print(paste("orig:",orig_math,"try:",vd$math[math_num]))
+    print(paste(vd$var_name,"orig:",orig_math,"try:",vd$math[math_num]))
   } else {
-    #print(paste("orig:",orig_math,"try: delete math"))
+    print(paste(vd$var_name,"orig:",orig_math,"try: delete math"))
   }
-  vd <- set_name(vd)
+  #print(vd$math)
   return(vd)
 }
 
@@ -931,7 +987,7 @@ create_vd_list <- function(orig_vd,new_vd,try_num) {
            sample_idx_b1 <- get_sample_idx(orig_idx_b1,new_idx_b1,idx_size,direction)
            sample_idx_b2 <- get_sample_idx(orig_idx_b1,new_idx_b2,idx_size,direction)
            if (sample_idx_b1>=sample_idx_b2) {
-             vd_list <- NULL
+             vd_list$ID <- -1
              return(vd_list)
            }
            vd_list <- new_vd
@@ -945,14 +1001,15 @@ create_vd_list <- function(orig_vd,new_vd,try_num) {
            if ((vd_list$math[i] == orig_vd$math[i]) | (vd_list$math[i] == new_vd$math[i])) vd_list <- NULL
          }
   )
-  current_math_id <- get_id(vd_list$math)
+  #current_math_id <- get_id(vd_list$math)
   if (com.env$verbose) print(paste("opt var",current_math_id))
-  if (is.null(current_math_id)) {
-    print(paste("current_math_id missing",vd_list))
+  if (is.null(vd_list)) {
+    print(paste("vd_list missing, orig:",orig_vd$math[i]))
     vd_list$ID <- -1
     return(vd_list)
   }
-  vd_list$ID <- sub(new_math_id,current_math_id,new_vd$ID)
+  #vd_list$ID <- sub(new_math_id,current_math_id,new_vd$ID)
+  vd_list <- set_name(vd_list)
   if (vd_list$ID %in% com.env$ID_tried) {
     print(paste("warning:trying to optimize a var already tried",vd_list$name,vd_list$ID))
     if (com.env$verbose) print(com.env$ID_tried)
@@ -990,7 +1047,7 @@ optimize_mod <- function(orig_vd,new_vd,orig_adj_r2,new_adj_r2,try_num=NULL,impr
     com.env$reg_names <- names(com.env$model.stepwise$coefficients)[-1]
     return(optimize_mod(new_vd,best_vd,new_adj_r2,com.env$best_adj_r2,try_num,improve=TRUE))
   } else {
-    print(paste("optimize model did not improve",adj_r2,new_adj_r2,improve,try_num))
+    #print(paste("optimize model did not improve",adj_r2,new_adj_r2,improve,try_num))
     if (improve) return(new_vd)
     try_num <- try_num + 1
     return(optimize_mod(orig_vd,new_vd,orig_adj_r2,new_adj_r2,try_num))

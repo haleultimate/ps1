@@ -142,18 +142,23 @@ calc_math <- function(ve.xts,coln,XX_list=NULL,math_str,first_pass=FALSE) { #app
   math_str <- gsub(place_holder_str,data_string,math_str)
   if (!is.null(XX_list)) {
     for (n in 1:length(XX_list)) {
-      data_string <- paste(ve.xts,"[,'",XX_list[n],"']",sep="")
+      replacement_string <- paste(ve.xts,"[,'",XX_list[n],"']",sep="")
       place_holder_str <- paste("XX",n,sep="")
-      math_str <- gsub(place_holder_str,data_string,math_str)
+      math_str <- gsub(place_holder_str,replacement_string,math_str)
     }
   }
-  if (first_pass & com.env$verbose) print(math_str)
+  #if (first_pass) print(math_str)
   eval(parse(text=math_str))
+  #check data string and replace NA,INF,NaN with 0
+  cmd_str <- paste0(data_string,"[!is.finite(",data_string,")] <- 0")
+  #if (first_pass) print(cmd_str)
+  eval(parse(text=cmd_str))
   if (new_var) {
+    tmp.xts[!is.finite(tmp.xts)] <- 0
     cmd_str <- paste(ve.xts," <- cbind(",ve.xts,",tmp.xts)",sep="")
     if (first_pass & com.env$verbose) print(cmd_str)
     eval(parse(text=cmd_str))
-  }
+  } 
 }
 
 calc_z <- function(ve.xts,coln,ma=TRUE,first_pass=FALSE) { #compute zscore/zscale on coln
@@ -164,7 +169,11 @@ calc_z <- function(ve.xts,coln,ma=TRUE,first_pass=FALSE) { #compute zscore/zscal
   out_string <- paste(ve.xts,"[,",coln,"]",sep="")
   cmd_string <- paste("sd_val <- sd(",data_string,",na.rm=TRUE)",sep="")
   eval(parse(text=cmd_string))
-  if (sd_val > 0) {
+  if (is.nan(sd_val)) {
+    print(paste("ERROR in calc_z, sd_val is NaN",ve.xts,coln,ma,first_pass))
+    cmd_string <- paste(out_string," <- 0",sep="")
+    eval(parse(text=cmd_string))
+  } else if (sd_val > 0) {
     #print(cmd_string)
     mean_val <- 0
     if (ma) {
@@ -252,17 +261,17 @@ calc_adv <- function(ve.xts,coln,window=20,logv=TRUE,subtract=18.5,first_pass=FA
   #logadv.z <- logadv.z - 18.5 #create logadv.z, lb=20, assumed 18.5 as mean
 }
 
-calc_dol <- function(ve.xts,coln,price="T",first_pass=FALSE) {
+calc_dol <- function(ve.xts,coln,price="R",first_pass=FALSE) {
   ticker <- sub("var.env$","",ve.xts,fixed=TRUE)
   v.de <- paste("data.env$",ticker,"[,'",ticker,".Volume']",sep="")
   cmd_string <- paste("tmp.xts <- data.env$",ticker,"[,'",ticker,".Volume']",sep="")
   eval(parse(text=cmd_string))
   tmp.xts[tmp.xts <= 0] <- 1
-  if (price == "M") {
+  if (price == "J") {
     h.de <- paste("data.env$",ticker,"[,'",ticker,".High']",sep="")
     l.de <- paste("data.env$",ticker,"[,'",ticker,".Low']",sep="")
     cmd_string <- paste(ve.xts," <- cbind(",ve.xts,",sqrt(",h.de,"*",l.de,")*tmp.xts)",sep="")
-  } else if (price == "T") {
+  } else if (price == "R") {
     h.de <- paste("data.env$",ticker,"[,'",ticker,".High']",sep="")
     l.de <- paste("data.env$",ticker,"[,'",ticker,".Low']",sep="")
     c.de <- paste("data.env$",ticker,"[,'",ticker,".Close']",sep="")
@@ -282,9 +291,10 @@ calc_res <- function(ve.xts,coln,field,first_pass=FALSE) {
   #f.xts <- paste(ve.xts,"[,'",field,"']",sep="")
   ticker <- sub("var.env$","",ve.xts,fixed=TRUE)
   cmn <- com.env$cmn_lookup[ticker]
-  cmd_string <- paste("cmn.xts <- merge(",ve.xts,"[,'",field,"'],var.env$",cmn,"[,'",field,"'],fill=0)",sep="")
+  cmd_string <- paste("cmn.xts <- merge(",ve.xts,"[,'",field,"'],var.env$",cmn,"[,'",field,"'])",sep="")
   eval(parse(text=cmd_string))
-  #cmn.xts[is.na(cmn.xts)] <- 0        #set cmn value to zero if missing (cmn not started yet)
+  cmn.xts[,2][is.na(cmn.xts[,2])] <- 0
+  cmn.xts <- na.omit(cmn.xts)
   cmd_string <- paste(ve.xts," <- cbind(",ve.xts,",(cmn.xts[,1]-cmn.xts[,2]))",sep="")
   #print(cmd_string)
   eval(parse(text=cmd_string))
@@ -295,7 +305,11 @@ calc_cmn <- function(ve.xts,coln,field,first_pass=FALSE) {
   #if (verbose) print(paste("ve.xts=",ve.xts,"field=",field))
   ticker <- sub("var.env$","",ve.xts,fixed=TRUE)
   cmn <- com.env$cmn_lookup[ticker]
-  cmd_string <- paste(ve.xts," <- cbind(",ve.xts,",var.env$",cmn,"[,'",field,"'])",sep="")
+  cmd_string <- paste("cmn.xts <- merge(",ve.xts,"[,'",com.env$predict.ret,"'],var.env$",cmn,"[,'",field,"'])",sep="")
+  eval(parse(text=cmd_string))
+  cmn.xts[,2][is.na(cmn.xts[,2])] <- 0
+  cmn.xts <- na.omit(cmn.xts)
+  cmd_string <- paste(ve.xts," <- cbind(",ve.xts,",cmn.xts[,2])",sep="")
   #print(cmd_string)
   eval(parse(text=cmd_string))
 }
@@ -365,7 +379,7 @@ make_vars <- function(vd = NULL) {
   make_vcom <- is.null(vd)
   first_pass <- TRUE
   #if (com.env$verbose) 
-  if (com.env$verbose) print(paste("make_vars",make_vcom))
+  #print(paste("make_vars",make_vcom))
   if (make_vcom) {
     col.calc <- NULL
     col.cmn.calc <- NULL
@@ -374,7 +388,7 @@ make_vars <- function(vd = NULL) {
   } 
   for (stk in 1:(com.env$stx + com.env$cmns)) {
     ticker <- com.env$stx_list[stk]
-    if (com.env$verbose) print(paste("Getting data for:",ticker))
+    #print(paste("Getting data for:",ticker))
     is.cmn <- (com.env$cmn_lookup[[ticker]] == 'cmn')
     ve.xts <- paste("var.env$",ticker,sep="")
     if (make_vcom) {
@@ -402,7 +416,7 @@ make_vars <- function(vd = NULL) {
           math <- strsplit(vd$math[m],split=",")[[1]]
           parms <- gsub("^[^,]*,","",vd$math[m])
           fun_call <- paste(math[1],"('",ve.xts,"',",coln,",",parms,",first_pass=first_pass)",sep="")
-          if (first_pass & com.env$verbose) print(paste(fun_call,"m=",m,"v=",v,first_pass))
+          #if (first_pass) print(paste(fun_call,"m=",m,"v=",v,first_pass))
           eval(parse(text=fun_call))
         }
         if (first_pass & com.env$verbose) print(paste(coln,vd$name))

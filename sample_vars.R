@@ -1,3 +1,5 @@
+source("rnd_parms.R")
+
 #sample vars
 V1 <- NULL
 V1$col <- 1
@@ -162,23 +164,23 @@ cmd_string <- paste0("rnd.env$vs.com$",V1$var_name," <- V1")
 eval(parse(text=cmd_string))
 
 #data to calculate raw returns
-rnd.env$prclu <- NULL
-for (i in 1:length(rnd.env$vs.com)) {
-  rnd.env$prclu[i] <- rnd.env$vs.com[[i]]$name
-}
+#rnd.env$prclu <- NULL
+#for (i in 1:length(rnd.env$vs.com)) {
+#  rnd.env$prclu[i] <- rnd.env$vs.com[[i]]$name
+#}
 
 max_j <- length(rnd.env$vs.com)
 for (i in 1:6) {
-  print(i)
+  #print(i)
   vd_end_price <- rnd.env$vs.com[[i]]
   for (j in (i+1):max_j) {
     V1 <- NULL
     V1$col <- 1
     V1$use <- "calc"
     V1$calc_cmn <- TRUE
-    print(paste(j,vd_end_price$name))
+    #print(paste(j,vd_end_price$name))
     vd_start_price <- rnd.env$vs.com[[j]]
-    print(vd_start_price$name)
+    #print(vd_start_price$name)
     V1$type <- "ret"
     V1$tier <- 4
     V1$requires <- unique(c(vd_end_price$requires,vd_start_price$requires,vd_start_price$name,vd_end_price$name))
@@ -186,7 +188,7 @@ for (i in 1:6) {
     V1 <- set_name(V1)
     cmd_string <- paste0("rnd.env$vs.com$",V1$var_name," <- V1")   
     eval(parse(text=cmd_string))
-    print(V1$var_name)
+    #print(V1$var_name)
     rnd.env$raw_list <- c(rnd.env$raw_list,length(rnd.env$vs.com))
   }
 }
@@ -416,4 +418,4 @@ eval(parse(text=cmd_string))
 # 
 # com.env$v.com$VLTY <- V1
 
-print("End of Sample Vars")
+#print("End of Sample Vars")

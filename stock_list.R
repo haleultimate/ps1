@@ -1,4 +1,4 @@
-com.env <- new.env()
+com.env <- new.env(parent=globalenv())
 
 symbols <- c(
   "XLF", # Financial sector ETF
