@@ -14,9 +14,11 @@ V1$use <- "calc"
 V1$calc_cmn <- TRUE
 V1$type <- "Price"
 V1$math[1] <- "from.data.env,'.Adjusted'"
-V1 <- set_name(V1)
-cmd_string <- paste0("com.env$v.com$",V1$var_name," <- V1")
-eval(parse(text=cmd_string))
+#print(V1$name)
+add_vd(V1)
+#V1 <- set_name(V1)
+#cmd_string <- paste0("com.env$v.com$",V1$var_name," <- V1")
+#eval(parse(text=cmd_string))
 rm(V1)
 
 V2 <- NULL
@@ -28,9 +30,10 @@ V2$use <- "model"
 V2$calc_cmn <- TRUE
 V2$math[1] <- paste0("calc_look_forward,-",com.env$look_forward)
 V2$math[2] <- "calc_cap,abscap=0.05"
-V2 <- set_name(V2)
-cmd_string <- paste0("com.env$v.com$",V2$var_name," <- V2")
-eval(parse(text=cmd_string))
+V2 <- add_vd(V2)
+#V2 <- set_name(V2)
+#cmd_string <- paste0("com.env$v.com$",V2$var_name," <- V2")
+#eval(parse(text=cmd_string))
 com.env$predict.ret <- V2$var_name #always second variable [hard coded when loading model]
 rm(V2)
 

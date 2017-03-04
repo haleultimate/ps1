@@ -4,8 +4,8 @@ rnd.env <- new.env(parent=globalenv())
 rnd.env$vs.com <- NULL
 rnd.env$raw_list <- NULL
 
-rnd.env$nameID <- c(1412,2323,3735,16168,14148,53,54,55,56,57,58,59,60,61)
-names(rnd.env$nameID) <- c('TRraw','DM','DI','MF','FI','ld','tr','di','pmf','nmf','fi','ti','pdm','ndm')
+rnd.env$nameID <- c(53,54,55,56,57,58,59,60,61)
+names(rnd.env$nameID) <- c('ld','tr','di','pmf','nmf','fi','ti','pdm','ndm')
 
 rnd.env$fun_id <- c(1:6)  #any undefined function will be mapped to zero
 names(rnd.env$fun_id) <- c('calc_cap','calc_z','calc_res','calc_decay','calc_vlty','calc_bin')
@@ -23,11 +23,11 @@ rnd.env$prob$raw_var.c2c.lags <- c(3,5,8,13,21,34,55,89,144)
 rnd.env$prob$raw_var.ti.type <- c('adx','mf','fi')
 rnd.env$prob$raw_var.ti.wts <- c(0.3,0.5,0.2)
 rnd.env$prob$type <- c('ret','res','cmn','vlt','vol','vrs','file') #keep 'file' hard coded as last entry
-rnd.env$prob$type.wts <- c(0.9,0.9,0.1,0.3,0.3,0.1,0)
+rnd.env$prob$type.wts <- c(0.9,0.9,0.1,0.3,0.3,0.1,0.9)
 rnd.env$prob$type.bv <- rnd.env$prob$type
-rnd.env$prob$type.bv.wts <- c(0.1,0.1,0.1,0.02,0.1,0.1,0)
-rnd.env$prob$cap <- c('abscap','cap_pct','zcap','none')
-rnd.env$prob$cap.wts <- c(0.,0.4,0.2,0.3)
+rnd.env$prob$type.bv.wts <- c(0.1,0.1,0.1,0.1,0.1,0.1,0)
+rnd.env$prob$cap <- c('cap_pct','zcap','abscap','none')
+rnd.env$prob$cap.wts <- c(0.4,0.2,0.,0.3)
 rnd.env$prob$abscap <- c(.13,.08,.05,.03,.02,.01,.005,.003)
 rnd.env$prob$abscap.wts <- rep(0.1,times=length(rnd.env$prob$abscap))
 rnd.env$prob$cap_pct <- c(.001,.005,.01,.02,.03,.05,.08,.13)

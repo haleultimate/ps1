@@ -15,8 +15,7 @@ if ((com.env$save_var_n > 0) | (com.env$run_sim)) {
   eval_adj_r2(oos_data=TRUE)
 }
 
-#get top vars
-if (com.env$save_var_n > 0) save_vars(com.env$save_var_n)
+if (com.env$save_var_n > 0) save_vars(com.env$save_var_n) #get top vars
 
 if (com.env$run_sim) {
   source("make_mu.R")                             #calc MU,VLTY,ADJRET for each var.env xts object

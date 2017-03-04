@@ -55,19 +55,35 @@ if (!exists("stx_list.old")) {         #only load if stx_list has changed
   stx_list.old <- com.env$stx_list
 }
 
-com.env$load_model <- FALSE
-com.env$save_model <- TRUE
+com.env$load_model <- TRUE
+com.env$save_model <- FALSE
 com.env$model_filename <- "lf5_feb28.vcom"
 com.env$look_forward <- 5
-com.env$save_var_n <- 5
-com.env$opt_model <- TRUE
-com.env$model_loops <- 40
+com.env$save_var_n <- 0
+com.env$opt_model <- FALSE
+com.env$model_loops <- 2
 com.env$add_vars <- 3
 com.env$mod_var_loops <- 20
 com.env$run_sim <- TRUE
-#run_type <- "add_vars"
-#insample.r2.threshold <- 0.02
-#com.env$predict.ret <- "C2Clf1p"    #should be set up as first model_var in v.com (define_vars.R)
+
+com.env$load_multi_model <- TRUE
+com.env$model_list <- c("lf1_feb28.vcom","lf5_feb28.vcom")
+if (com.env$load_multi_model) {  #override com parameters for multi_model
+  bad_model_list <- is.null(com.env$model_list)
+  if (!bad_model_list) bad_model_list <- (length(com.env$model_list)<2)
+  if (bad_model_list) {
+    print("Must have at least two models to load to run multi_model")
+    stop()
+  }
+  rm(bad_model_list)                    #only below settings are supported in multi-model
+  com.env$load_model <- TRUE
+  com.env$save_model <- FALSE
+  com.env$model_filename <- com.env$model_list[1]
+  com.env$opt_model <- FALSE
+  com.env$run_sim <- TRUE
+  com.env$save_var_n <- 0
+}
+
 com.env$days2remove <- 60
 com.env$reg_start_date <- as.POSIXct("2004-07-01 UTC")
 com.env$reg_end_date <- as.POSIXct("2011-12-30 UTC")

@@ -501,3 +501,33 @@ stk_matrix <- function(type,index=0) {
     eval(parse(text=cmd_string))
   }
 }
+
+mu_calc <- function(index=0) {
+  V1 <- NULL
+  V1$col <- 1
+  V1$name <- "MU"
+  V1$math[1] <- "calc_prediction,'com.env$model.stepwise'"
+  calc_vd(V1)
+  stk_matrix("MU",index)
+}
+
+adjret_calc <- function() {
+  V1 <- NULL
+  V1$col <- 1
+  V1$name <- "ADJRET"
+  V1$math[1] <- "calc_adjret,'.Adjusted'"
+  calc_vd(V1)
+  stk_matrix("ADJRET")
+}
+
+vlty_calc <- function() {
+  V1 <- NULL
+  V1$col <- 1
+  V1$name <- "VLTY"
+  V1$math[1] <- "calc_vlty,'ADJRET',window=250"
+  calc_vd(V1)
+  stk_matrix("VLTY")
+}
+
+  
+  

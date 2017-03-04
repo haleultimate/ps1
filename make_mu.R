@@ -1,29 +1,57 @@
 #make_mu.R
 #make xts columns in var.env for MU, VLTY, ADJRET
 #accumulate into xts for MU, VLTY, ADJRET with stx as columns
-V1 <- NULL
-V1$col <- 1
-V1$name <- "MU"
-V1$math[1] <- "calc_prediction,'com.env$model.stepwise'"
-calc_vd(V1)
 
-V1 <- NULL
-V1$col <- 1
-V1$name <- "ADJRET"
-V1$math[1] <- "calc_adjret,'.Adjusted'"
-calc_vd(V1)
+mu_calc()
+# V1 <- NULL
+# V1$col <- 1
+# V1$name <- "MU"
+# V1$math[1] <- "calc_prediction,'com.env$model.stepwise'"
+# calc_vd(V1)
+# stk_matrix("MU")
+# 
 
-V1 <- NULL
-V1$col <- 1
-V1$name <- "VLTY"
-V1$math[1] <- "calc_vlty,'ADJRET',window=250"
-calc_vd(V1)
+adjret_calc()
+# V1 <- NULL
+# V1$col <- 1
+# V1$name <- "ADJRET"
+# V1$math[1] <- "calc_adjret,'.Adjusted'"
+# calc_vd(V1)
+# stk_matrix("VLTY")
+# 
 
-stk_matrix("MU")
-stk_matrix("VLTY")
-stk_matrix("ADJRET")
+vlty_calc()
+# V1 <- NULL
+# V1$col <- 1
+# V1$name <- "VLTY"
+# V1$math[1] <- "calc_vlty,'ADJRET',window=250"
+# calc_vd(V1)
+# stk_matrix("ADJRET")
 
-
+if (com.env$load_multi_model) {
+  for (i in 2:length(com.env$model_list)) {
+    print("clearing var.env")
+    var_env_list <- ls(var.env)
+    keep_list <- c("MU","VLTY","ADJRET")
+    var_env_list <- var_env_list[!(var_env_list %in% keep_list)]
+    rm(list=var_env_list,envir=var.env)
+#    for (del_var in var_env_list) {
+#      if (del_var %in% keep_list) next
+#      cmd_string <- paste0("rm('",del_var,"',envir=var.env)")
+#      print(cmd_string)
+#      eval(parse(text=cmd_string))
+#    }
+    print(ls(var.env))
+    load_model(com.env$model_list[i])
+    print(paste("Evaluating model,",i,com.env$model_list[i],Sys.time()))
+    eval_adj_r2(oos_data=TRUE)
+    mu_calc(i)
+    cmd_string <- paste0("var.env$MU <- var.env$MU + var.env$MU",i)
+    print(cmd_string)
+    eval(parse(text=cmd_string))
+  }
+}
+#load_model()
 
 
 

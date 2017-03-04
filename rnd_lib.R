@@ -1,18 +1,29 @@
-#rnd_lib.R
-adjList <- c("H", "L","O","V")
-names(adjList) <- c("'High'", "'Low'","'Open'","'Volume'")
+add_vd <- function(V1,vcom_num=NULL) {  #if var_num is null append V1 to v.com list, otherwise place it at var_num
+  if (is.null(vcom_num)) {
+    V1 <- set_name(V1)
+    V1$vcom_num <- length(com.env$v.com) + 1
+    #print(V1$var_name)
+    cmd_string <- paste0("com.env$v.com$",V1$var_name," <- V1")
+    #print(cmd_string)
+    eval(parse(text=cmd_string))
+  } else {
+    V1$vcom_num <- vcom_num
+    V1 <- set_name(V1,orig_name=V1$var_name)
+    com.env$v.com[[vcom_num]] <- V1
+    names(com.env$v.com)[vcom_num] <- V1$var_name
+  }
+  #print(paste("add_vd",V1$var_name,vcom_num))
+  return(V1)
+}
 
 #returns vd$name and vd$ID given a variable's math.list
-set_name = function(V1) {
+set_name = function(V1,orig_name=NULL) {
+  #print(paste("in set_name:",V1$math))
   if (is.null(V1)) {
     print("Warning:V1 is null, no name/ID given")
     return(V1)
   }
-  orig_name <- NULL
-  if(!is.null(V1$var_name)){
-    orig_name <- V1$var_name
-    #print(paste("Entering set name with var_name ==",orig_name))
-  }
+  #orig_name <- ifelse(mod,V1$var_name,NULL) 
   V1$var_name <- NULL
   V1$ID <- NULL
   namePart <- NULL
@@ -91,25 +102,32 @@ set_name = function(V1) {
                     namelist <- strsplit(parms,split="'")[[1]]
                     namePart <- paste0(namelist[2],"X")
                     #print(com.env$v.com[[namelist[2]]]$ID)
+                    if (is.null(com.env$v.com[[namelist[2]]]$ID)) print(V1)
                     IDPart <- paste0("24",sumID(com.env$v.com[[namelist[2]]]$ID))
                     }
              )
            },
            "calc_cap" = {
-             IDPart <- paste0("29",substr(gsub("[^0-9]","",parms),2,nchar(gsub("[^0-9]","",parms))))
+             switch(strsplit(parms,"=")[[1]][1],
+                    "cap_pct" = { IDPart <- 1 },
+                    "zcap" = { IDPart <- 2 },
+                    "abscap" = { IDPart <- 3})
+             IDPart <- paste0("29",IDPart,substr(gsub("[^0-9]","",parms),2,nchar(gsub("[^0-9]","",parms))))
            },
            "calc_res" = {
              namePart <- gsub("'","",parms)
+             if (is.null(com.env$v.com[[namePart]]$ID)) print(V1)
              IDPart <- paste0("19",sumID(com.env$v.com[[namePart]]$ID))
              namePart <- paste0(namePart,"S")
            },
            "calc_adj" = {
-             namePart <- adjList[which(parms == names(adjList))]
+             namePart <- substr(parms,2,2) #adjList[which(parms == names(adjList))]
              IDPart <- which(namePart == LETTERS)
              IDPart <- formatC(IDPart, width = 2, format = "d", flag = "0")
            },
            "from.var.env" = {
              namePart <- gsub("'","",parms)
+             #if (is.null(com.env$v.com[[namePart]]$ID)) print(V1)
              if(nchar(namePart) > 1) IDPart <- sumID(com.env$v.com[[namePart]]$ID)
            },
            "calc_ret" = {
@@ -134,6 +152,7 @@ set_name = function(V1) {
            },
            "calc_cmn" = {
              namePart <- gsub("'","",parms)
+             if (is.null(com.env$v.com[[namePart]]$ID)) print(V1)
              IDPart <- paste0("05",sumID(com.env$v.com[[namePart]]$ID))
              namePart <- paste0(namePart,"E")
            },
@@ -194,6 +213,8 @@ set_name = function(V1) {
     V1$ID <- paste0(V1$ID,IDPart)
   }
   if (V1$use == "model") {
+    #print(paste("model var, appending ID",V1$var_name))
+    if (is.null(V1$ID)) print(V1)
     V1$var_name <- paste0(V1$var_name,sumID(V1$ID))
   }
   if (!binning) {
@@ -203,17 +224,49 @@ set_name = function(V1) {
     V1$name[2] <- paste0(V1$var_name,"h")
   }
   if (!is.null(orig_name)) {
-    #print("checking dependencies for name change")
-    for (i in 1:length(com.env$v.com)) {
-      if (orig_name %in% com.env$v.com[[i]]$requires) {
-        print(paste("WARNING:",orig_name,"in",com.env$v.com[[i]]$var_name,"var_num:",i,"Changed to:",V1$var_name))
-        print(com.env$v.com[[i]]$requires)
-        com.env$v.com[[i]]$requires[which(com.env$v.com[[i]]$requires == orig_name)] <- V1$var_name
-        print(com.env$v.com[[i]]$requires)
+    if (V1$var_name != orig_name) {
+      if (is.null(V1$vcom_num)) {
+        print(paste("WARNING:",orig_name,"changed to",V1$var_name,"with no vcom_num, replace_name not called"))
+      } else {
+        replace_name(V1$var_name,orig_name,V1$vcom_num)
       }
+      #print("checking dependencies for name change")
+      #for (i in 1:length(com.env$v.com)) {
+      #  if (orig_name %in% com.env$v.com[[i]]$requires) {
+      #    print(paste("WARNING:",orig_name,"in",com.env$v.com[[i]]$var_name,"var_num:",i,"Changed to:",V1$var_name))
+      #    print(com.env$v.com[[i]]$requires)
+      #    com.env$v.com[[i]]$requires[which(com.env$v.com[[i]]$requires == orig_name)] <- V1$var_name
+      #    print(com.env$v.com[[i]]$requires)
+      #  }
     }
   }
+  #print(paste("return:",V1$var_name,V1$ID))
   return(V1)
+}
+
+replace_name <- function(name,orig_name,vcom_num) {
+  if (is.null(vcom_num)) {
+    print(paste("Warning: Can't replace name without vcom_num",name,orig_name))
+    return()
+  }
+  if (name == orig_name) return()
+  if (vcom_num == length(com.env$v.com)) return()
+  exact_orig_name <- paste0("^",orig_name,"$")
+  quoted_orig_name <- paste0("'",orig_name,"'")
+  quoted_name <- paste0("'",name,"'")
+  for (i in (vcom_num+1):length(com.env$v.com)) {
+    orig_requires <- com.env$v.com[[i]]$requires
+    orig_math <- com.env$v.com[[i]]$math
+    com.env$v.com[[i]]$requires <- gsub(exact_orig_name,name,com.env$v.com[[i]]$requires)
+    com.env$v.com[[i]]$math <- gsub(quoted_orig_name,quoted_name,com.env$v.com[[i]]$math)
+    if (!identical(orig_requires,com.env$v.com[[i]]$requires)) {
+      print(paste("replace_name:",name,orig_name,vcom_num))
+      print(orig_requires)
+      print(orig_math)
+      print(com.env$v.com[[i]]$requires)
+      print(com.env$v.com[[i]]$math)
+    }
+  }
 }
 
 sumID <- function(ID){
@@ -258,8 +311,12 @@ check_ids <- function(id_list) {
 
 #insert sample var into v.com given its name
 scom2vcom <- function(V1) {
-  #print(paste("scom2vcom",V1$name,V1$requires))
-  if (!(V1$name %in% names(com.env$v.com))) {
+  #print(paste("scom2vcom",V1$var_name,V1$requires))
+  #V1 <- set_name(V1)
+  #if (is.null(V1$var_name) | is.null(V1$ID) | is.null(V1$name)) {
+  #  print(V1)
+  #}
+  if (!(V1$var_name %in% names(com.env$v.com))) {
     if (length(V1$requires) > 0) {
       for (i in 1:length(V1$requires)) {
         if (V1$requires[i] %in% names(rnd.env$vs.com)) {
@@ -277,18 +334,21 @@ scom2vcom <- function(V1) {
     } else {
       #print(paste("no requirements in",V1$name,"requires:",V1$requires))
     }
-    cmd_string <- paste("com.env$v.com$",V1$name," <- V1",sep="")
+    V1 <- add_vd(V1) #append V1 to vcom list
+    #cmd_string <- paste("com.env$v.com$",V1$name," <- V1",sep="")
     #print(paste("scom2vcom",cmd_string))
-    eval(parse(text=cmd_string))
-    com.env$vcom_names <- c(com.env$vcom_names,V1$name)
+    #eval(parse(text=cmd_string))
+    com.env$vcom_names <- c(com.env$vcom_names,V1$var_name)
     if (!all(V1$requires %in% names(com.env$v.com))) {
-      print(paste("ERROR",V1$name,"Missing required var in com.env$v.com in scom2vcom"))
+      print(paste("ERROR",V1$var_name,"Missing required var in com.env$v.com in scom2vcom"))
       print(V1$requires)
       print(names(com.env$v.com))
     }
   } else {
     #print(paste("V1$name",V1$name," already in v.com"))
+    #V1 <- set_name(V1)
   }
+  return(V1)
 } 
 
 rnd_val <- function(choice,type="model") {
@@ -327,7 +387,9 @@ unique_name <- function(name,id,first=TRUE) {
   }
 }
 
+#select a raw var, add it and its dependencies to v.com (using scom2vcom)
 select_rnd_raw <- function() {
+  #print("select_rnd_raw")
   choice <- sample(rnd.env$prob$raw_var,size=1,prob=rnd.env$prob$raw_var.wts)
   switch(choice,
          "retrange" = {
@@ -375,9 +437,9 @@ select_rnd_raw <- function() {
                           V1$math[1] <- "calc_dm,'KL','GH'"
                         }
                         V1$math[2] <- paste("calc_decay,decay=",d,sep="")
-                        V1$var_name <- NULL
+                        #V1$var_name <- NULL
                         V1 <- set_name(V1)
-                        scom2vcom(V1)
+                        V1 <- scom2vcom(V1)
                         switch(raw,
                                'PDM' = {
                                  pdm.nam <- V1$name
@@ -428,10 +490,10 @@ select_rnd_raw <- function() {
                       }
                       V1$math[2] <- paste("calc_decay,decay=",d,sep="")
                       #print(paste("mf",V1$name,"requires",V1$requires))
-                      V1$var_name <- NULL
+                      #V1$var_name <- NULL
                       V1 <- set_name(V1)
+                      V1 <- scom2vcom(V1)
                       mf.nam <- V1$name
-                      scom2vcom(V1)
                     }
                     d.nam <- paste('Dd',100*d,sep="")
                     if (!(d.nam %in% names(com.env$v.com))) {
@@ -439,10 +501,10 @@ select_rnd_raw <- function() {
                      # V1$name <- d.nam
                       #V1$ID <- 100*(V1$ID+d)
                       V1$math[2] <- paste("calc_decay,decay=",d,sep="")
-                      V1$var_name <- NULL
+                      #V1$var_name <- NULL
                       V1 <- set_name(V1)
+                      V1 <- scom2vcom(V1)
                       d.nam <- V1$name
-                      scom2vcom(V1)
                     }
                     nam <- paste(mf.nam,'raw',sep="")
                     V1 <- rnd.env$vs.com[[which('pmf' == names(rnd.env$vs.com))]]
@@ -462,8 +524,8 @@ select_rnd_raw <- function() {
                       #V1$ID <- 100*(V1$ID+d)
                       V1$math[2] <- paste("calc_decay,decay=",d,sep="")
                       V1 <- set_name(V1)
+                      V1 <- scom2vcom(V1)
                       fi.nam <- V1$name
-                      scom2vcom(V1)
                     }
                     d.nam <- paste('Dd',100*d,sep="")
                     if (!(d.nam %in% names(com.env$v.com))) {
@@ -471,10 +533,10 @@ select_rnd_raw <- function() {
                       #V1$name <- d.nam
                       #V1$ID <- 100*(V1$ID+d)
                       V1$math[2] <- paste("calc_decay,decay=",d,sep="")
-                      V1$var_name <- NULL
+                      #V1$var_name <- NULL
                       V1 <- set_name(V1)
+                      V1 <- scom2vcom(V1)
                       d.nam <- V1$name
-                      scom2vcom(V1)
                     }
                     nam <- paste(fi.nam,'raw',sep="")
                     V1 <- rnd.env$vs.com[[which('fi' == names(rnd.env$vs.com))]]
@@ -489,14 +551,16 @@ select_rnd_raw <- function() {
   )
   #print(paste("select_rnd_raw",V1$name))
   #print(V1)
-  V1$var_name <- NULL
+  #V1$var_name <- NULL
   V1 <- set_name(V1)
-  scom2vcom(V1)                        #insert selected raw into vcom (if not already there)
+  V1 <- scom2vcom(V1)                        #insert selected raw into vcom (if not already there)
   #if (!all(V1$requires %in% names(com.env$v.com))) {
   #  print(paste("ERROR",V1$name,"Missing required var in com.env$v.com in select_rnd_raw"))
   #  print(V1$requires)
   #  print(names(com.env$v.com))
   #}
+  if (is.null(V1$name) | is.null(V1$var_name) | is.null(V1$ID)) print(V1)
+  #print(paste("rnd_raw:",V1$var_name))
   return(V1)
   #rnd.env$prob$raw_var <- c('retrange','ccd','c2c')
   #rnd.env$prob$raw_var.wts <- c(0.4,0.3,0.3)
@@ -519,7 +583,7 @@ rnd_var <- function(var_type='model') {
           "ret" = {
             #raw <- sample(rnd.env$raw_list,1)          #select a random raw
             V1 <- select_rnd_raw()
-            V1$use <- var_type
+            #V1$use <- var_type
             V1$requires <- c(V1$requires,V1$name)
             V1$tier <- V1$tier + 1
             V1$math[1] <- paste("from.var.env,'",V1$name,"'",sep="")
@@ -529,7 +593,7 @@ rnd_var <- function(var_type='model') {
           "res" = {
             #raw <- sample(rnd.env$raw_list,1)          #select a random raw
             V1 <- select_rnd_raw()
-            V1$use <- var_type
+            #V1$use <- var_type
             V1$requires <- c(V1$requires,V1$name)
             V1$tier <- V1$tier + 1
             V1$math[1] <- paste("calc_res,'",V1$name,"'",sep="")
@@ -544,7 +608,7 @@ rnd_var <- function(var_type='model') {
               print(V1$requires)
               print(com.env$v.com)
             }
-            V1$use <- var_type
+            #V1$use <- var_type
             V1$requires <- c(V1$requires,V1$name)
             V1$tier <- V1$tier + 1
             V1$math[1] <- paste("calc_cmn,'",V1$name,"'",sep="")
@@ -555,7 +619,7 @@ rnd_var <- function(var_type='model') {
             #raw <- sample(rnd.env$raw_list,1)          #select a random raw
             V1 <- select_rnd_raw()
             #scom2vcom(V1$name)                        #insert selected raw into vcom (if not already there)
-            V1$use <- var_type
+            #V1$use <- var_type
             V1$requires <- c(V1$requires,V1$name)
             V1$tier <- V1$tier + 1
             V1$math[1] <- paste("calc_vlty,'",V1$name,"'",sep="")
@@ -564,8 +628,8 @@ rnd_var <- function(var_type='model') {
           },
           "vol" = {
             V1 <- rnd.env$vs.com[[rnd.env$vol_raw]]
-            scom2vcom(V1)                        #insert selected raw into vcom (if not already there)
-            V1$use <- var_type
+            V1 <- scom2vcom(V1)                        #insert selected raw into vcom (if not already there)
+            #V1$use <- var_type
             #V1$requires <- c(V1$requires,V1$name)
             V1$tier <- V1$tier
             V1$calc_cmn <- TRUE
@@ -573,8 +637,8 @@ rnd_var <- function(var_type='model') {
           },
           "vrs" = { #volume residualized 
             V1 <- rnd.env$vs.com[[rnd.env$vol_raw]]
-            scom2vcom(V1)                        #insert selected raw into vcom (if not already there)
-            V1$use <- var_type
+            V1 <- scom2vcom(V1)                        #insert selected raw into vcom (if not already there)
+            #V1$use <- var_type
             V1$requires <- c(V1$requires,V1$name)
             V1$math[1] <- paste("calc_res,'",V1$name,"'",sep="")
             V1$tier <- V1$tier + 1
@@ -636,7 +700,7 @@ rnd_var <- function(var_type='model') {
       },
       "bin" = {
         if (var_type=='bin') {
-          print("Warning: Can't use bin var to bin yet **********************")
+          print("Warning: Can't use bin var to bin yet ******[trying to create]*****")
           print(var_type)
           print(choice)
           print(loop_list)
@@ -653,9 +717,11 @@ rnd_var <- function(var_type='model') {
             if (status == -1) return(status)
             V2 <- com.env$v.com[[length(com.env$v.com)]]
             if (length(V2$name)>1) {
-              print("Warning: Can't use bin var to bin yet **********************")
+              print("Warning: Can't use bin var to bin yet ********[new var created]*******")
               print(paste(V2$var_name,V2$use))
               return(-1)
+            } else if (V2$use != "bin") {
+              print(paste("Warning: Created bin var not of use 'bin'",V2$var_name,V2$use))
             }
             V1$requires <- unique(c(V1$requires,V2$requires,V2$var_name))
             V1$tier <- max( V1$tier,(V2$tier+1) )
@@ -672,47 +738,50 @@ rnd_var <- function(var_type='model') {
       }
       )  #end choice switch
   } #end loop over choice list
-  binning <- FALSE
-  if (choice == "bin") {  #assumes last choice is binning
-    if ((b == "new_var") & (b1 < b2)) {
-      binning <- TRUE
-      b12 <- paste(gsub("[^0-9]","",b1),gsub("[^0-9]","",b2),sep="")
-      V1$ID <- paste(V1$ID,get_id(V1$math),sep="")      
-      n1 <- paste(V1$name,"b",b12,"l",sep="")
-      n2 <- paste(V1$name,"b",b12,"h",sep="")
-      n1 <- unique_name(n1,V1$ID)
-      n2 <- unique_name(n2,V1$ID)
-      if (n1 == -1 | n2 == -1) {
-        V1$name <- -1
-      } else {
-        V1$name <- c(n1,n2)
-      }
-      vcom.name <- substr(n1,1,(nchar(n1)-1))
-    }
-  } 
-  V1$var_name <- NULL
-  V1 <- set_name(V1)
+  #binning <- FALSE
+  #if (choice == "bin") {  #assumes last choice is binning
+  #  if ((b == "new_var") & (b1 < b2)) {
+  #    binning <- TRUE
+  #    b12 <- paste(gsub("[^0-9]","",b1),gsub("[^0-9]","",b2),sep="")
+      #V1$ID <- paste(V1$ID,get_id(V1$math),sep="")      
+  #    n1 <- paste(V1$name,"b",b12,"l",sep="")
+  #    n2 <- paste(V1$name,"b",b12,"h",sep="")
+      #n1 <- unique_name(n1,V1$ID)
+      #n2 <- unique_name(n2,V1$ID)
+      #if (n1 == -1 | n2 == -1) {
+      #  V1$name <- -1
+      #} else {
+      #  V1$name <- c(n1,n2)
+      #}
+      #vcom.name <- substr(n1,1,(nchar(n1)-1))
+  #  }
+  #} 
+  #V1$var_name <- NULL
+  V1 <- set_name(V1)  #needed to check if ID is unique
   # if (!binning) {
   #   V1$ID <- paste(V1$ID,get_id(V1$math),sep="")  #loop over all math functions to create id
   #   V1$name <- unique_name(V1$name,V1$ID)
   #   vcom.name <- V1$name
   # }
-  newvar.error <- FALSE
-  if (length(V1$name) == 1) if (V1$name == -1) newvar.error <- TRUE
-  if (newvar.error) {
-    print(paste("warning:created identical variable",V1$name,V1$ID))
-    return(-1)
-  } else if (V1$ID %in% com.env$ID_tried) {
+  #newvar.error <- FALSE
+  #if (length(V1$name) == 1) if (V1$name == -1) newvar.error <- TRUE
+  #if (newvar.error) {
+  #  print(paste("warning:created identical variable",V1$name,V1$ID))
+  #  return(-1)
+  if (V1$ID %in% com.env$ID_tried) {
     print(paste("warning:trying to create variable already tried",V1$name,V1$ID))
     if (com.env$verbose) print(com.env$ID_tried)
     return(-2)
   } else {
     com.env$ID_tried <- c(com.env$ID_tried,V1$ID)
-    cmd_string <- paste("com.env$v.com$",V1$var_name," <- V1",sep="")
+    #V1$var_name <- NULL
+    V1$use <- var_type
+    V1 <- add_vd(V1)
+    #cmd_string <- paste("com.env$v.com$",V1$var_name," <- V1",sep="")
     #if (var_type == "model") 
     #print(paste("rnd_var",cmd_string))
     #if (vcom.name == "CCret") print(V1)
-    eval(parse(text=cmd_string))
+    #eval(parse(text=cmd_string))
     #com.env$vcom_names <- c(com.env$vcom_names,V1$name)
     #if (var_type == "model") com.env$ind_names <- c(com.env$ind_names,V1$name)
     #if (var_type == "bin") com.env$bin_names <- c(com.env$bin_names,V1$name)
@@ -721,7 +790,7 @@ rnd_var <- function(var_type='model') {
     #  print(V1$requires)
     #  print(names(com.env$v.com))
     #}
-    print(paste("Adding variable:",V1$var_name))
+    print(paste("Adding variable:",com.env$v.com[[length(com.env$v.com)]]$var_name))
     return(0)
   }
 }
@@ -834,7 +903,7 @@ rnd_mod <- function(reg_names=NULL,vcom_num=0) {
                } else {
                  bin_name <- gsub(".*=","",math[2])
                  if (substr(bin_name,nchar(bin_name),nchar(bin_name)) == "l") {
-                   print("Can't use bin as binning variable")
+                   print("Can't use bin as binning variable [in rnd_mod]")
                    print(bin_name)
                    print(orig_math)
                    stop()
@@ -858,7 +927,7 @@ rnd_mod <- function(reg_names=NULL,vcom_num=0) {
     )
     #orig_math_id <- get_id(com.env$v.com[[vcom_num]]$math)
     #current_math_id <- get_id(vd$math)
-    vd <- set_name(vd)
+    vd <- set_name(vd)  #needed to check ID
   }
   #vd$ID <- sub(orig_math_id,current_math_id,vd$ID)
   if (vd$ID %in% com.env$ID_tried) {
@@ -1009,7 +1078,7 @@ create_vd_list <- function(orig_vd,new_vd,try_num) {
     return(vd_list)
   }
   #vd_list$ID <- sub(new_math_id,current_math_id,new_vd$ID)
-  vd_list <- set_name(vd_list)
+  vd_list <- set_name(vd_list)   #needed to check ID
   if (vd_list$ID %in% com.env$ID_tried) {
     print(paste("warning:trying to optimize a var already tried",vd_list$name,vd_list$ID))
     if (com.env$verbose) print(com.env$ID_tried)
@@ -1131,7 +1200,8 @@ load_rnd_var <- function() {
     load(file=varfile,envir=rnd.env)
     #print(names(rnd.env$VCOM))
     for (i in 1:length(names(rnd.env$VCOM))) {
-      vname <- names(rnd.env$VCOM)[i]
+      V1 <- set_name(rnd.env$VCOM[[i]])
+      vname <- V1$var_name
       #print(vname)
       match <- FALSE
       if (vname %in% names(com.env$v.com)) {
@@ -1143,21 +1213,9 @@ load_rnd_var <- function() {
           return(-1)
         }
       }
-      #if ((!match) & (vname!=orig_vname)) { #must update all "requires" fields
-      #  for (j in (i+1):length(names(rnd.env$VCOM))) {
-      #    vd <- rnd.env$VCOM[[j]]
-      #    for (k in 1:length(vd$requires)) {
-      #      if (vd$requires[k]==orig_vname) {
-      #        vd$requires[k] <- vname
-      #        print(paste("updating requires",vd$requires,vd$ID))
-      #      }
-      #    }
-      #  }
-      #}
       if (!match) {
-        cmd_string <- paste("com.env$v.com$",vname," <- rnd.env$VCOM[[i]]",sep="")
-        #print(cmd_string)
-        eval(parse(text=cmd_string))
+        print(paste("Loading variable:",V1$var_name))
+        add_vd(V1)
       } else {
         #print(paste(vname,"already in v.com"))
       }

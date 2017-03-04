@@ -197,8 +197,9 @@ eval_adj_r2 <- function(vd=NULL,orig_vd=NULL,old_adj_r2=0,oos_data=FALSE) {
   if (!is.null(vd)) { #insert modified vd into com.env$v.com
     old.v.com <- com.env$v.com
     #orig_vd <- com.env$v.com[[vd$vcom_num]]
-    com.env$v.com[[vd$vcom_num]] <- vd                                  #replace modified vd in v.com
-    names(com.env$v.com)[vd$vcom_num] <- vd$var_name
+    vd <- add_vd(vd,vd$vcom_num)
+    #com.env$v.com[[vd$vcom_num]] <- vd                                  #replace modified vd in v.com
+    #names(com.env$v.com)[vd$vcom_num] <- vd$var_name
     #if (length(orig_vd$name) > length(vd$name)) {                        #if deleted bin change vd$name in names(v.com)
     #  names(com.env$v.com)[vd$vcom_num] <- vd$name
     #  print(paste("changing bin name",orig_vd$name,vd$name,vd$vcom_num))
@@ -385,14 +386,16 @@ load_model <- function(filename) { #loads model and sets com.env$predict.ret
 
 save_model <- function(filename) {
   print(paste("function save_model",filename))
-  saved_model_files <- list.files(path=com.env$modeldir)
-  print(paste("Saved_model_files:",length(saved_model_files)))
-  if (length(saved_model_files)>0) {
-    loop <- 1
-    while (com.env$model_filename %in% saved_model_files & loop<5) {
-      print(paste("Warning:",com.env$model_filename,"already in model directory, appending _"))
-      com.env$model_filename <- paste(com.env$model_filename,"_",loop,sep="")
-      loop <- loop + 1
+  if (!com.env$load_model) { #check if filename already exists, if loaded overwrite file
+    saved_model_files <- list.files(path=com.env$modeldir)
+    print(paste("Saved_model_files:",length(saved_model_files)))
+    if (length(saved_model_files)>0) {
+      loop <- 1
+      while (com.env$model_filename %in% saved_model_files & loop<5) {
+        print(paste("Warning:",com.env$model_filename,"already in model directory, appending _"))
+        com.env$model_filename <- paste(com.env$model_filename,"_",loop,sep="")
+        loop <- loop + 1
+      }
     }
   }
   modelfile <- paste(com.env$modeldir,"/",com.env$model_filename,sep="")
