@@ -1,6 +1,13 @@
 add_vd <- function(V1,vcom_num=NULL) {  #if var_num is null append V1 to v.com list, otherwise place it at var_num
   if (is.null(vcom_num)) {
     V1 <- set_name(V1)
+    if (V1$var_name %in% names(com.env$v.com)) {
+      return(com.env$v.com[[V1$var_name]])
+      #print(paste("ERROR in add_vd,",V1$var_name," already in v.com"))
+      #print(names(com.env$v.com))
+      #print(V1)
+      #source("close_session.R")
+    }
     V1$vcom_num <- length(com.env$v.com) + 1
     #print(V1$var_name)
     cmd_string <- paste0("com.env$v.com$",V1$var_name," <- V1")
@@ -16,12 +23,26 @@ add_vd <- function(V1,vcom_num=NULL) {  #if var_num is null append V1 to v.com l
   return(V1)
 }
 
-#returns vd$name and vd$ID given a variable's math.list
-set_name = function(V1,orig_name=NULL) {
+#returns vd$name, vd$var_name, and vd$ID given a variable's math.list
+set_name = function(V1,orig_name=NULL,vdlist=NULL) {
   #print(paste("in set_name:",V1$math))
+  #if (V1$use == "model") {
+  #  if (!is.null(vdlist)) {
+  #    print(names(vdlist))
+  #    print(vdlist[[length(vdlist)]])
+  #  }
+  #  print(V1$math)
+  #}
   if (is.null(V1)) {
     print("Warning:V1 is null, no name/ID given")
     return(V1)
+  }
+  if (is.null(vdlist)) {
+    vdlist <- com.env$v.com
+  } else {
+    #print(names(vdlist))
+    #print(paste("last var in vdlist:",vdlist[[length(vdlist)]]$ID,vdlist[[length(vdlist)]]$var_name))
+    if (!is.null(orig_name)) print ("Warning: Orig_name affects com.env$v.com not vdlist")
   }
   #orig_name <- ifelse(mod,V1$var_name,NULL) 
   V1$var_name <- NULL
@@ -40,20 +61,85 @@ set_name = function(V1,orig_name=NULL) {
              V1$ID <- formatC(V1$ID, width = 2, format = "d", flag = "0")
              break
            },
+           "calc_constant" = {
+             #parms <- gsub(parms,".","")  #remove decimal if necessary
+             namePart <- "i"
+             IDPart <- paste0(which(namePart == letters) + 26,parms)
+             #namePart <- paste0(namePart,parms)  #if we ever start using constants other than 1
+           },
            "calc_look_forward" = {
              if(parms < 0){
-               V1$var_name <- paste0("C2Clf", -as.numeric(parms), "p")
+               V1$var_name <- paste0("CClf", -as.numeric(parms), "p")
                V1$ID <- "9999"
                break
              } else {
-               namePart <- paste0("C2C", parms)
-               IDPart <- paste0("0303",parms)
+               namePart <- paste0("C", parms)
+               IDPart <- paste0("03",parms)
              }
            },
            "calc_dol" = {
              namePart <- "D"
              IDPart <- which(namePart == LETTERS)
              IDPart <- formatC(IDPart, width = 2, format = "d", flag = "0")
+           },
+           "calc_calc" =,
+           "calc_ia" = {
+             parm_list <- strsplit(parms,split=",")[[1]]
+             #print(parm_list)
+             switch(parm_list[1],
+                    "'log'" = {
+                      IDPart <- "95"
+                    },
+                    "'exp'" = {
+                      IDPart <- "96"
+                    },
+                    "'pow'" = {
+                      IDPart <- "97"
+                    },
+                    "'abs'" = {
+                      IDPart <- "98"
+                    },
+                    "'mul'" = {
+                      namePart <- "p"
+                      IDPart <- which(namePart == letters) + 26
+                    },
+                    "'div'" = {
+                      namePart <- "q"
+                      IDPart <- which(namePart == letters) + 26
+                    },
+                    "'add'" = {
+                      namePart <- "a"
+                      IDPart <- which(namePart == letters) + 26
+                    },
+                    "'sub'" = {
+                      namePart <- "s"
+                      IDPart <- which(namePart == letters) + 26
+                    },
+                    "'rsh'" = {
+                      namePart <- "e"
+                      IDPart <- "31"
+                    },
+                    "'fth'" = {
+                      namePart <- "f"
+                      IDPart <- "32"
+                    }
+             )
+             if (length(parm_list)==3) {
+               IDPart <- paste0(IDPart,(strsplit(parm_list[3],split="=")[[1]][2])) #-1 option for sign in pow,rsh,fth 
+             }
+             if (length(parm_list)==2) {
+               if (grepl("[[:alpha:]]", parm_list[2])) {   #get variable name and sum its ID
+                 #print(paste("Variable name found in calc_calc",parm_list[2]))
+                 newname <- gsub("'", "", parm_list[2])
+                 #print(paste("calc_calc naming1:",namePart,newname))
+                 namePart <- paste0(namePart,newname)
+                 IDPart <- paste0(IDPart, sumID(vdlist[[newname]]$ID,vdlist[[newname]]))
+               } else if (parm_list[1] %in% c("log", "mul", "div", "add", "sub", "pow")) {
+                 parm_list[2] <- gsub("[^0-9]", "", parm_list[2])
+                 IDPart <- paste0(IDPart, parm_list[2])
+               }
+             }
+             #print(paste("calc_calc naming:",namePart,IDPart,parms))
            },
            "calc_math" = {
              switch(parms,
@@ -68,7 +154,7 @@ set_name = function(V1,orig_name=NULL) {
                       IDPart <- formatC(IDPart, width = 2, format = "d", flag = "0")
                     },
                     "c('D'),math_str='XX0N <- log(XX1) - 18.5'" = {
-                      namePart <- "ld"
+                      namePart <- "lD"
                       #IDPart <- rnd.env$nameId[[which(namePart == names(rnd.env$nameID))]]
                       IDPart <- "53"
                     },
@@ -102,8 +188,8 @@ set_name = function(V1,orig_name=NULL) {
                     namelist <- strsplit(parms,split="'")[[1]]
                     namePart <- paste0(namelist[2],"X")
                     #print(com.env$v.com[[namelist[2]]]$ID)
-                    if (is.null(com.env$v.com[[namelist[2]]]$ID)) print(V1)
-                    IDPart <- paste0("24",sumID(com.env$v.com[[namelist[2]]]$ID))
+                    #if (is.null(com.env$v.com[[namelist[2]]]$ID)) print(V1)
+                    IDPart <- paste0("24",sumID(vdlist[[namelist[2]]]$ID,vdlist[[namelist[2]]]))
                     }
              )
            },
@@ -114,10 +200,10 @@ set_name = function(V1,orig_name=NULL) {
                     "abscap" = { IDPart <- 3})
              IDPart <- paste0("29",IDPart,substr(gsub("[^0-9]","",parms),2,nchar(gsub("[^0-9]","",parms))))
            },
-           "calc_res" = {
+           "calc_stk" = {
              namePart <- gsub("'","",parms)
-             if (is.null(com.env$v.com[[namePart]]$ID)) print(V1)
-             IDPart <- paste0("19",sumID(com.env$v.com[[namePart]]$ID))
+             #if (is.null(com.env$v.com[[namePart]]$ID)) print(V1)
+             IDPart <- paste0("19",sumID(vdlist[[namePart]]$ID,vdlist[[namePart]]))
              namePart <- paste0(namePart,"S")
            },
            "calc_adj" = {
@@ -127,8 +213,14 @@ set_name = function(V1,orig_name=NULL) {
            },
            "from.var.env" = {
              namePart <- gsub("'","",parms)
-             #if (is.null(com.env$v.com[[namePart]]$ID)) print(V1)
-             if(nchar(namePart) > 1) IDPart <- sumID(com.env$v.com[[namePart]]$ID)
+             #if (is.null(vdlist[[namePart]]$ID)) {
+             #   print(V1)
+             #   print(names(vdlist))
+             #}
+             if(nchar(namePart) > 1) {
+               #print(paste("sumID:",vdlist[[namePart]]$ID,namePart))
+               IDPart <- sumID(vdlist[[namePart]]$ID,vdlist[[namePart]])
+             }
            },
            "calc_ret" = {
              namePart <-  substr(parms,2,2)
@@ -150,47 +242,62 @@ set_name = function(V1,orig_name=NULL) {
                IDPart <- paste0("38",parms)
              }
            },
-           "calc_cmn" = {
+           "calc_etf" = {
              namePart <- gsub("'","",parms)
-             if (is.null(com.env$v.com[[namePart]]$ID)) print(V1)
-             IDPart <- paste0("05",sumID(com.env$v.com[[namePart]]$ID))
+             #if (is.null(com.env$v.com[[namePart]]$ID)) print(V1)
+             IDPart <- paste0("05",sumID(vdlist[[namePart]]$ID,vdlist[[namePart]]))
              namePart <- paste0(namePart,"E")
            },
            "calc_decay" = {
-             namePart <- substr(gsub("[^0-9]","",parms),2,3)
-             IDPart <- paste0("30",namePart)
-             namePart <- paste0("d",namePart)
+             #numPart <- as.numeric(unlist(regmatches(parms,gregexpr("[[:digit:]]+\\.*[[:digit:]]*",parms))))
+             #print(paste("calc_decay naming:",parms,numPart))
+             numPart <- get_decay_from_math(math_str)
+             if (numPart < 1) {
+               namePart <- substr(gsub("[^0-9]","",numPart),2,3)  #remove decimal
+               IDPart <- paste0("30",namePart)
+               namePart <- paste0("d",namePart)
+             } else if (numPart > 2) {
+               IDPart <- paste0("27",numPart)
+               namePart <- paste0("a",numPart)
+             } else  {
+               IDPart <- paste0("38",numPart)
+               namePart <- paste0("l",numPart)
+             }
            },
            "calc_bin" = {
              binning <- TRUE
              if(grepl("E",parms)){
-               namePart <- "be"
-               IDPart <- "2831"
+               namePart <- "bE"
+               IDPart <- "2805"
              } else if(grepl("T",parms)){
-               namePart <- "bt"
-               IDPart <- "2846"
+               namePart <- "bT"
+               IDPart <- "2820"
              } else if(grepl("D",parms)){
-               namePart <- "bd"
-               IDPart <- "2830"
+               namePart <- "bD"
+               IDPart <- "2804"
              } else if(grepl("S",parms)){
-               namePart <- "bs"
-               IDpart <- "2845"
+               namePart <- "bS"
+               IDpart <- "2819"
              } else{
-               namePart <- "bw"
-               IDPart <- "2849"
+               namePart <- "bW"
+               IDPart <- "2823"
              }  
              parm_list <- strsplit(parms,split=",")[[1]]
-             b1 <- gsub(".*=","",parm_list[2])
-             b2 <- gsub(".*=","",parm_list[3])
-             b11 <- 50 + 10*as.numeric(b1)
-             b12 <- 50 + 10*as.numeric(b2)
+             name <- gsub(".*=","",parm_list[1])
+             name <- gsub("'","",name)
+             b1 <- as.numeric(gsub(".*=","",parm_list[2]))
+             b2 <- as.numeric(gsub(".*=","",parm_list[3]))
+             b11 <- ifelse(((b1>=0)&(b1<1)),100*b1,50+10*b1)
+             b12 <- ifelse(((b2>=0)&(b2<1)),100*b2,50+10*b2)
              #print(paste(b1,b2,b11,b12))
-             IDPart <- paste0(IDPart,b11,b12)
+             #print(paste("sumID:",vdlist[[name]]$ID,name))
+             IDPart <- paste0(IDPart,sumID(vdlist[[name]]$ID,vdlist[[name]]),b11,b12)
            },
            "calc_vlty" = {
              namePart <- gsub("'","",parms)
+             #print(paste("calc_vlty",namePart))
+             IDPart <- paste0("20",sumID(vdlist[[namePart]]$ID,vdlist[[namePart]]))
              namePart <- paste0(namePart,"T")
-             IDPart <- "20"
            },
            "calc_dm" = {
              namePart <- ifelse(substr(parms,2,2)=="G","pdm","ndm")
@@ -199,12 +306,18 @@ set_name = function(V1,orig_name=NULL) {
            },
            "calc_z" = {
              if (grepl("TRUE",parms)) {  #Zscore "Z"
+               namePart <- "Z"
                IDPart <- "52"
              } else {                    #Zscale "z"
+               namePart <- "z"
                IDPart <- "26"
              }
            },
-           print("calc_function not found in set_name")
+           "calc_rank" = {
+             namePart <- "r"
+             IDPart <- "18"              #rank "r"
+           },
+           print(paste("calc_function not found in set_name",math_str,math,parms))
     )
     if(V1$type == "ti") {
       #print(paste(namePart,IDPart,V1$var_name,V1$ID))
@@ -215,7 +328,18 @@ set_name = function(V1,orig_name=NULL) {
   if (V1$use == "model") {
     #print(paste("model var, appending ID",V1$var_name))
     if (is.null(V1$ID)) print(V1)
-    V1$var_name <- paste0(V1$var_name,sumID(V1$ID))
+    V1$ID <- paste0(V1$ID,"39")
+    var_name <- paste0(V1$var_name,"m",sumID(V1$ID,V1))
+    var_name <- gsub("l1","",var_name)
+    var_name <- gsub("Z","",var_name)
+    var_name <- gsub("z","",var_name)
+    var_name <- gsub("r","",var_name)              #shorten model names by removing scaling and lag1
+    if (nchar(var_name) > 20) {
+      print("*************************************************************")
+      print(V1$math)
+      print(var_name)
+    }
+    V1$var_name <- var_name
   }
   if (!binning) {
     V1$name <- V1$var_name
@@ -230,14 +354,6 @@ set_name = function(V1,orig_name=NULL) {
       } else {
         replace_name(V1$var_name,orig_name,V1$vcom_num)
       }
-      #print("checking dependencies for name change")
-      #for (i in 1:length(com.env$v.com)) {
-      #  if (orig_name %in% com.env$v.com[[i]]$requires) {
-      #    print(paste("WARNING:",orig_name,"in",com.env$v.com[[i]]$var_name,"var_num:",i,"Changed to:",V1$var_name))
-      #    print(com.env$v.com[[i]]$requires)
-      #    com.env$v.com[[i]]$requires[which(com.env$v.com[[i]]$requires == orig_name)] <- V1$var_name
-      #    print(com.env$v.com[[i]]$requires)
-      #  }
     }
   }
   #print(paste("return:",V1$var_name,V1$ID))
@@ -269,27 +385,15 @@ replace_name <- function(name,orig_name,vcom_num) {
   }
 }
 
-sumID <- function(ID){
+sumID <- function(ID,V1=NULL){
+  if (is.null(ID)) {
+    print ("Error: V1 has no ID")
+    print (V1)
+    source("close_session.R")
+  }
   total <- 0
   for(i in 1:nchar(ID)) (total <- total + as.numeric(substring(ID,i,i)))
   return(total)
-}
-
-get_id <- function(math.list) {
-  id <- NULL
-  for (math_str in math.list) {
-    math <- strsplit(math_str,split=",")[[1]][1] #get element to first comma (function call)
-    fun_id <- which(math==names(rnd.env$fun_id))
-    if (length(fun_id) > 0 & length(id) > 0) id <- paste(id,fun_id,sep="")
-    if (length(fun_id) > 0 & length(id) == 0) id <- fun_id
-    parms <- gsub("^[^,]*,","",math_str) #get everything after first comma (parameters)
-    parms <- sub("TRUE","8",parms)
-    parms <- sub("FALSE","9",parms)
-    parms <- gsub("[^0-9]","",parms)     #remove all non-numeric characters
-    if (length(parms) > 0 & length(id) > 0) id <- paste(id,parms,sep="")
-    if (length(parms) > 0 & length(id) == 0) id <- parms
-  }
-  return(id)
 }
 
 check_ids <- function(id_list) {
@@ -312,10 +416,6 @@ check_ids <- function(id_list) {
 #insert sample var into v.com given its name
 scom2vcom <- function(V1) {
   #print(paste("scom2vcom",V1$var_name,V1$requires))
-  #V1 <- set_name(V1)
-  #if (is.null(V1$var_name) | is.null(V1$ID) | is.null(V1$name)) {
-  #  print(V1)
-  #}
   if (!(V1$var_name %in% names(com.env$v.com))) {
     if (length(V1$requires) > 0) {
       for (i in 1:length(V1$requires)) {
@@ -335,9 +435,7 @@ scom2vcom <- function(V1) {
       #print(paste("no requirements in",V1$name,"requires:",V1$requires))
     }
     V1 <- add_vd(V1) #append V1 to vcom list
-    #cmd_string <- paste("com.env$v.com$",V1$name," <- V1",sep="")
-    #print(paste("scom2vcom",cmd_string))
-    #eval(parse(text=cmd_string))
+    #print(paste("scom2vcom, added",V1$var_name))
     com.env$vcom_names <- c(com.env$vcom_names,V1$var_name)
     if (!all(V1$requires %in% names(com.env$v.com))) {
       print(paste("ERROR",V1$var_name,"Missing required var in com.env$v.com in scom2vcom"))
@@ -346,7 +444,6 @@ scom2vcom <- function(V1) {
     }
   } else {
     #print(paste("V1$name",V1$name," already in v.com"))
-    #V1 <- set_name(V1)
   }
   return(V1)
 } 
@@ -361,30 +458,165 @@ rnd_val <- function(choice,type="model") {
   eval(parse(text=cmd_string))
 }
 
-unique_name <- function(name,id,first=TRUE) {
-  #print(paste("name=",name,"id=",id,"first=",first))
-  old_id <-  NULL
-  if (name %in% com.env$vcom_names) {
-    for (i in 1:length(com.env$v.com)) {
-      if (name %in% com.env$v.com[[i]]$name) {
-        old_id <- com.env$v.com[[i]]$ID
-        break
-      }
-    }  
-    #print(paste("id",id,"old_id",old_id,which(name==com.env$vcom_names),com.env$v.com[[11]]$ID))
-    if (is.null(old_id)) return(-1)
-    if (id == old_id) return(-1)
-    if (first) {
-      new_name <- paste(name,"2",sep="")
-    } else {
-      num <- as.integer(substr(name,nchar(name),nchar(name)))
-      num <- as.character(num + 1)
-      new_name <- gsub(".$",num,name)
-    }
-    return(unique_name(new_name,id,first=FALSE)) 
-  } else {
-    return(name)
-  }
+rnd_choice <- function(choice) {
+  #print(paste('rnd_choice',choice))
+  #cmd_string <- paste0("print(rnd.env$p$",choice,")")
+  #eval(parse(text=cmd_string))
+  cmd_string <- paste0("return(sample(names(rnd.env$p$",choice,"),size=1,prob=rnd.env$p$",choice,"))")
+  #print(cmd_string)
+  eval(parse(text=cmd_string))
+}
+
+#types of new_vars: {"raw","calc","bin","model"}
+#new_var creates variable definition and appends it and all needed dependencies onto com.env$v.com list
+new_var <- function(type,raw_type=NULL) {
+  #print(paste("new_var",type,raw_type))
+  switch(type,
+         "raw" = {
+           if (is.null(raw_type)) raw_type <- rnd_choice("raw")
+           #print(paste("Create new raw var, raw_type",raw_type)) #FUTURE: allow existing raw to be chosen
+           switch(raw_type,
+                  "ret" = {
+                    V1 <- rnd.env$vs.com[[sample(rnd.env$ret_list,1)]]
+                  },
+                  "BC" = {
+                    V1 <- rnd.env$vs.com[[which("BC" == names(rnd.env$vs.com))]]
+                  },
+                  "V" = {
+                    V1 <- rnd.env$vs.com[[which("lD" == names(rnd.env$vs.com))]]
+                  },
+                  "C2C" = {
+                    V1 <- rnd.env$vs.com[[which("CC3" == names(rnd.env$vs.com))]]
+                    lag <- rnd_choice("C2Clag")
+                    V1$math <- sub("3",lag,V1$math)
+                  },
+                  "TI" =, #not supported yet
+                  {
+                  print(paste("Raw type not supported",raw_type))
+                  source("close_session.R")
+                  }
+                  )
+           V1$use <- "raw"
+           V1 <- set_name(V1)
+           #print(V1$var_name)
+           V1 <- scom2vcom(V1)                        #insert selected raw and dependencies into vcom (if not already there)
+           return(V1)
+         },
+         "calc" = { 
+           #FUTURE: allow existing calc to be chosen
+           #select raw
+           raw_type <- rnd_choice("raw")
+           V1 <- new_var("raw",raw_type=raw_type)
+           #print(paste("Create new calc var",V1$var_name)) 
+           V1$requires <- c(V1$requires,V1$var_name)
+           V1$use <- "calc"
+           calc_type <- rnd_choice(paste0(raw_type,".type"))
+           if (calc_type == "T") { #if volatility calc_vlty, otherwise calc_decay
+             V1$math <- paste0("calc_vlty,'",V1$var_name,"'")
+             next_math <- 2
+           } else { #select decay
+             decay <- rnd_choice(paste0(raw_type,".d"))
+             V1$math <- paste0("from.var.env,'",V1$var_name,"'")
+             V1$math[2] <- paste0("calc_decay,",decay)
+             next_math <- 3
+             if (calc_type == "S") { #add V1 to v.com list (so ETF can be calculated), restart new V1 with calc_res
+               V1 <- add_vd(V1)
+               V1$requires <- c(V1$requires,V1$var_name)
+               V1$calc_cmn <- FALSE
+               V1$math <- paste0("calc_stk,'",V1$var_name,"'")
+               if (V1$type == "ret") V1$type <- "stk"
+               next_math <- 2
+             }
+           }
+           #print(V1$math)
+           #select cap
+           cap_type <- rnd_choice("cap_type")
+           if (cap_type != "none") {
+             cap <- rnd_choice(cap_type)
+             V1$math[next_math] <- paste0("calc_cap,",cap_type,"=",cap)
+             next_math <- next_math + 1
+           } 
+           #select calc
+           calc <- rnd_choice("calc")
+           if (calc != "none") {
+             if (calc == "pow") {
+               pow <- rnd_choice("pow")
+               V1$math[next_math] <- paste0("calc_calc,'pow',",pow)
+             } else {
+               V1$math[next_math] <- paste0("calc_calc,'",calc,"'")
+             }
+             next_math <- next_math + 1
+           }
+           #select scale
+           scale <- rnd_choice("scale")
+           #print(paste(scale,next_math))
+           if (scale == "z") {
+             V1$math[next_math] <- "calc_z,ma=FALSE"
+             V1$scale_type <- "zscale"
+           } else if (scale == "Z") {
+             V1$math[next_math] <- "calc_z,ma=TRUE"
+             V1$scale_type <- "zscore"
+           } else if (scale == "r") {
+             V1$math[next_math] <- "calc_rank,10"  #use deciles to approx rank
+             V1$scale_type <- "rank"
+           }
+           V1 <- add_vd(V1)  #add calc var to v.com list
+           if (calc_type == "E") {
+             V1$requires <- c(V1$requires,V1$var_name)
+             V1$calc_cmn <- FALSE
+             V1$math <- paste0("calc_etf,'",V1$var_name,"'")
+             if (V1$type == "ret") V1$type <- "etf"
+             V1 <- add_vd(V1)
+           }
+           #print(V1$name)
+           #print(V1$math)
+           return(V1)
+         },
+         "bin" = {
+           #only code if needed
+         },
+         "model" = {
+           #get new calc_var   
+           V1 <- new_var("calc")
+           #print(paste("Create new model var",V1$var_name))
+           V1$requires <- c(V1$requires,V1$var_name)
+           V1$math <- paste0("from.var.env,'",V1$var_name,"'")
+           #get interaction term
+           interact <- rnd_choice("interaction")
+           if (interact != "none") {  #FUTURE: add in sign choices, add in rnd weightings for add/sub
+             V2 <- new_var("calc")
+             V1$requires <- unique(c(V1$requires,V2$requires,V2$var_name))
+             V1$math[2] <- paste0("calc_calc,'",interact,"','",V2$var_name,"'")
+             V1$calc_cmn <- (V1$calc_cmn & V2$calc_cmn)
+             next_math <- 3
+           } else {
+             next_math <- 2
+           }
+           #get bin term
+           binning <- rnd_choice("bin")
+           if (binning != "none") {  #FUTURE: add chance to reuse interaction var
+             V2 <- new_var("calc") 
+             V1$requires <- unique(c(V1$requires,V2$requires,V2$var_name))
+             scale_type <- substr(V2$scale_type,1,1)
+             #print(paste(V2$var_name,V2$math,scale_type))
+             b1 <- rnd_choice(paste0("bin_points.",scale_type))
+             b2 <- b1                  
+             while(b1==b2) b2 <- rnd_choice(paste0("bin_points.",scale_type))
+             bp1 <- min(b1,b2)
+             bp2 <- max(b1,b2)
+             V1$math[next_math] <- paste0("calc_bin,bin_field='",V2$var_name,"',b1=",bp1,",b2=",bp2)
+             V1$calc_cmn <- (V1$calc_cmn & V2$calc_cmn)
+             next_math <- next_math + 1
+             #print(V1$math)
+           }
+           #FUTURE: add in decays (calc_bin_decay if binned, calc_decay if no binning)
+           V1$use <- "model"
+           V1 <- add_vd(V1)
+           #print(paste("Final model variable added:",V1$var_name))
+           print(V1$math)
+           return(V1)
+         }
+         )
 }
 
 #select a raw var, add it and its dependencies to v.com (using scom2vcom)
@@ -550,21 +782,10 @@ select_rnd_raw <- function() {
          }
   )
   #print(paste("select_rnd_raw",V1$name))
-  #print(V1)
-  #V1$var_name <- NULL
   V1 <- set_name(V1)
   V1 <- scom2vcom(V1)                        #insert selected raw into vcom (if not already there)
-  #if (!all(V1$requires %in% names(com.env$v.com))) {
-  #  print(paste("ERROR",V1$name,"Missing required var in com.env$v.com in select_rnd_raw"))
-  #  print(V1$requires)
-  #  print(names(com.env$v.com))
-  #}
   if (is.null(V1$name) | is.null(V1$var_name) | is.null(V1$ID)) print(V1)
-  #print(paste("rnd_raw:",V1$var_name))
   return(V1)
-  #rnd.env$prob$raw_var <- c('retrange','ccd','c2c')
-  #rnd.env$prob$raw_var.wts <- c(0.4,0.3,0.3)
-  #rnd.env$prob$raw_var.c2c.lags <- c(3,5,8,13,21,34,55,89,144)
 }
 
 #place a variable and all of its required calcs in v.com
@@ -738,58 +959,15 @@ rnd_var <- function(var_type='model') {
       }
       )  #end choice switch
   } #end loop over choice list
-  #binning <- FALSE
-  #if (choice == "bin") {  #assumes last choice is binning
-  #  if ((b == "new_var") & (b1 < b2)) {
-  #    binning <- TRUE
-  #    b12 <- paste(gsub("[^0-9]","",b1),gsub("[^0-9]","",b2),sep="")
-      #V1$ID <- paste(V1$ID,get_id(V1$math),sep="")      
-  #    n1 <- paste(V1$name,"b",b12,"l",sep="")
-  #    n2 <- paste(V1$name,"b",b12,"h",sep="")
-      #n1 <- unique_name(n1,V1$ID)
-      #n2 <- unique_name(n2,V1$ID)
-      #if (n1 == -1 | n2 == -1) {
-      #  V1$name <- -1
-      #} else {
-      #  V1$name <- c(n1,n2)
-      #}
-      #vcom.name <- substr(n1,1,(nchar(n1)-1))
-  #  }
-  #} 
-  #V1$var_name <- NULL
   V1 <- set_name(V1)  #needed to check if ID is unique
-  # if (!binning) {
-  #   V1$ID <- paste(V1$ID,get_id(V1$math),sep="")  #loop over all math functions to create id
-  #   V1$name <- unique_name(V1$name,V1$ID)
-  #   vcom.name <- V1$name
-  # }
-  #newvar.error <- FALSE
-  #if (length(V1$name) == 1) if (V1$name == -1) newvar.error <- TRUE
-  #if (newvar.error) {
-  #  print(paste("warning:created identical variable",V1$name,V1$ID))
-  #  return(-1)
   if (V1$ID %in% com.env$ID_tried) {
     print(paste("warning:trying to create variable already tried",V1$name,V1$ID))
     if (com.env$verbose) print(com.env$ID_tried)
     return(-2)
   } else {
     com.env$ID_tried <- c(com.env$ID_tried,V1$ID)
-    #V1$var_name <- NULL
     V1$use <- var_type
     V1 <- add_vd(V1)
-    #cmd_string <- paste("com.env$v.com$",V1$var_name," <- V1",sep="")
-    #if (var_type == "model") 
-    #print(paste("rnd_var",cmd_string))
-    #if (vcom.name == "CCret") print(V1)
-    #eval(parse(text=cmd_string))
-    #com.env$vcom_names <- c(com.env$vcom_names,V1$name)
-    #if (var_type == "model") com.env$ind_names <- c(com.env$ind_names,V1$name)
-    #if (var_type == "bin") com.env$bin_names <- c(com.env$bin_names,V1$name)
-    #if (!all(V1$requires %in% names(com.env$v.com))) {
-    #  print(paste("ERROR",V1$name,"Missing required var in com.env$v.com in rnd_var"))
-    #  print(V1$requires)
-    #  print(names(com.env$v.com))
-    #}
     print(paste("Adding variable:",com.env$v.com[[length(com.env$v.com)]]$var_name))
     return(0)
   }
@@ -973,7 +1151,6 @@ create_vd_list <- function(orig_vd,new_vd,try_num) {
     return(vd_list)
   }
   if (com.env$verbose) print(paste(orig_vd$math[i],new_vd$math[i]))
-  new_math_id <- get_id(new_vd$math)
   if (com.env$verbose) print(paste("new math id:",new_math_id,new_vd$ID))
   orig_math <- strsplit(orig_vd$math[i],split=",")[[1]]
   new_math <- strsplit(new_vd$math[i],split=",")[[1]]

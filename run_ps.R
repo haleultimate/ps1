@@ -3,6 +3,7 @@ source("init_session.R")                        #clean environment, setup com pa
 
 #source("rnd_parms.R")
 source("rnd_lib.R")
+source("make_lib.R")
 source("calc_lib.R")   
 source("model_select.R") 
 source("reg_lib.R")
@@ -30,4 +31,5 @@ if (com.env$run_sim) {
   source("blotter_sim.R")
 }
 
-source("close_session.R")
+print(paste("End time:",Sys.time()))
+#source("close_session.R")

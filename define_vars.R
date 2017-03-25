@@ -10,7 +10,7 @@ V1 <- NULL
 V1$col <- 1
 V1$name <- "C"
 V1$tier <- 1
-V1$use <- "calc"
+V1$use <- "data"
 V1$calc_cmn <- TRUE
 V1$type <- "Price"
 V1$math[1] <- "from.data.env,'.Adjusted'"

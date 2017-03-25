@@ -56,18 +56,19 @@ if (!exists("stx_list.old")) {         #only load if stx_list has changed
 }
 
 com.env$load_model <- FALSE
-com.env$save_model <- TRUE
-com.env$model_filename <- "lf8_mar3.vcom"
-com.env$look_forward <- 8
-com.env$save_var_n <- 5
+com.env$save_model <- FALSE
+com.env$model_filename <- "lf1_mar3.vcom"
+com.env$look_forward <- 1
+com.env$save_var_n <- 0
 com.env$opt_model <- TRUE
-com.env$model_loops <- 70
+com.env$model_loops <- 2
 com.env$add_vars <- 3
-com.env$mod_var_loops <- 20
-com.env$run_sim <- TRUE
+com.env$mod_var_loops <- 10
+com.env$run_sim <- FALSE
 
 com.env$load_multi_model <- FALSE
-com.env$model_list <- c("lf1_feb28.vcom","lf5_feb28.vcom")
+com.env$model_list <- c("lf1_mar3.vcom","lf2_mar3.vcom","lf3_mar3.vcom","lf5_mar3.vcom",
+                        "lf8_mar3.vcom","lf13_mar3.vcom","lf21_mar3.vcom","lf34_mar3.vcom")
 if (com.env$load_multi_model) {  #override com parameters for multi_model
   bad_model_list <- is.null(com.env$model_list)
   if (!bad_model_list) bad_model_list <- (length(com.env$model_list)<2)

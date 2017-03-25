@@ -45,7 +45,7 @@ from.data.env <- function(ve.xts,coln,field,first_pass=FALSE) {
   } else {
     cmd_string <- paste(ve.xts," <- ",de.xts,sep="")
   }
-  if (first_pass & com.env$verbose) print(cmd_string)
+  #if (first_pass) print(cmd_string)
   eval(parse(text=cmd_string))
 }
 
@@ -53,7 +53,14 @@ from.var.env <- function(ve.xts,coln,field,first_pass=FALSE) {
   #print(paste("from.var.env:","ve.xts=",ve.xts,"field=",field))
   ve.field <- paste(ve.xts,"$",field,sep="")
   cmd_string <- paste(ve.xts," <- cbind(",ve.xts,",",ve.field,")",sep="")
-  if (first_pass & com.env$verbose) print(cmd_string)
+  #if (first_pass) print(cmd_string)
+  eval(parse(text=cmd_string))
+}
+
+calc_constant <- function(ve.xts,coln,value,first_pass=FALSE) {
+  #if (first_pass) print(paste("calc_constant:","ve.xts=",ve.xts,"value=",value))
+  cmd_string <- paste(ve.xts," <- cbind(",ve.xts,",",value,")",sep="")
+  #if (first_pass) print(cmd_string)
   eval(parse(text=cmd_string))
 }
 
@@ -69,10 +76,52 @@ calc_look_forward <- function(ve.xts,coln,lf=-1,first_pass=FALSE) {
   eval(parse(text=cmd_string))
 }
 
+ma <- function(x,n=30){stats::filter(x,rep(1/n,n), sides=1)} #n is window of ma
+
+calc_ma <- function(ve.xts,coln,n=30,first_pass=FALSE) { 
+  cmd_string <- paste(ve.xts,"[,",coln,"] <- ma(",ve.xts,"[,",coln,"],",n,")",sep="")
+  eval(parse(text=cmd_string))
+}
+
 calc_lag <- function(ve.xts,coln,lag=1,first_pass=FALSE) {  #always lag coln
   #if (verbose) print(paste("calc_lag:","ve.xts=",ve.xts,"lag=",lag))
   cmd_string <- paste(ve.xts,"[,",coln,"] <- stats::lag(",ve.xts,"[,",coln,"],",lag,")",sep="")
   eval(parse(text=cmd_string))
+}
+
+#calc decay will call calc_lag for decay={1,2}, and calc_ma for decay>2 (decay gives moving average window)
+#otherwise calc decay will compute an exponential decay
+calc_decay <- function(ve.xts,coln,decay,var_cnt=1,first_pass=FALSE) { #compute decay on coln
+  #print(paste("ve.xts=",ve.xts,"decay=",decay))
+  if (decay >= 3) {
+    calc_ma(ve.xts,coln,n=decay,first_pass)
+  } else if (decay >= 1) {
+    calc_lag(ve.xts,coln,lag=decay,first_pass)
+  } else { #decay between 0. and 1.
+    data_string <- paste(ve.xts,"[,",coln,"]",sep="")
+    cmd_string <- paste("tmp.xts <-",data_string,sep="")
+    #print(cmd_string)
+    eval(parse(text=cmd_string))
+    tmp.xts[is.na(tmp.xts)] <- 0   #replace missing with 0
+    tmp.ses <- ses(tmp.xts,alpha=decay)
+    tmp.decay <- xts(fitted.values(tmp.ses),order.by = index(tmp.xts))
+    cmd_string <- paste(data_string,"<- tmp.decay")
+    #if (verbose) print(cmd_string)
+    eval(parse(text=cmd_string))
+    if (var_cnt > 1) {
+      for (i in 2:var_cnt) {
+        data_string <- paste(ve.xts,"[,",coln+i-1,"]",sep="")
+        cmd_string <- paste("tmp.xts <-",data_string,sep="")
+        eval(parse(text=cmd_string))
+        tmp.xts[is.na(tmp.xts)] <- 0   #replace missing with 0
+        tmp.ses <- ses(tmp.xts,alpha=decay)
+        tmp.decay <- xts(fitted.values(tmp.ses),order.by = index(tmp.xts))
+        cmd_string <- paste(data_string,"<- tmp.decay")
+        #if (verbose) print(cmd_string)
+        eval(parse(text=cmd_string))
+      }
+    }
+  }
 }
 
 calc_ret <- function(ve.xts,coln,start_price,end_price,first_pass=FALSE) {
@@ -193,22 +242,6 @@ calc_z <- function(ve.xts,coln,ma=TRUE,first_pass=FALSE) { #compute zscore/zscal
   }
 }
 
-calc_decay <- function(ve.xts,coln,decay,first_pass=FALSE) { #compute decay on coln
-  #print(paste("ve.xts=",ve.xts,"decay=",decay))
-  #ve.xts <- paste("var.env$",ticker,sep="")
-  #cmd_string <- paste("col <- ncol(",ve.xts,")",sep="")
-  #eval(parse(text=cmd_string))
-  data_string <- paste(ve.xts,"[,",coln,"]",sep="")
-  cmd_string <- paste("tmp.xts <-",data_string,sep="")
-  #print(cmd_string)
-  eval(parse(text=cmd_string))
-  tmp.xts[is.na(tmp.xts)] <- 0   #replace missing with 0
-  tmp.ses <- ses(tmp.xts,alpha=decay)
-  tmp.decay <- xts(fitted.values(tmp.ses),order.by = index(tmp.xts))
-  cmd_string <- paste(data_string,"<- tmp.decay")
-  #if (verbose) print(cmd_string)
-  eval(parse(text=cmd_string))
-}
 
 calc_adj <- function(ve.xts,coln,field,first_pass=FALSE) { #take from data.env and append adjusted value to var.env
   #if (verbose) print(paste("ve.xts=",ve.xts,"field=",field))
@@ -216,11 +249,9 @@ calc_adj <- function(ve.xts,coln,field,first_pass=FALSE) { #take from data.env a
   de.xts <- paste("data.env$",ticker,"[,'",ticker,".",field,"']",sep="")
   de.adjc <- paste("data.env$",ticker,"[,'",ticker,".Adjusted']",sep="")
   de.c <- paste("data.env$",ticker,"[,'",ticker,".Close']",sep="")
-  #ve.xts <- paste("var.env$",ticker,sep="")
   cmd_string <- paste(ve.xts," <- cbind(",ve.xts,",",de.xts,"*",de.adjc,"/",de.c,")",sep="")
   #if (verbose) print(cmd_string)
   eval(parse(text=cmd_string))
-  #adj_var <- df[,field] * df[,adjcnam] / df[,cnam]
 }
 
 #default window of 60 days
@@ -286,7 +317,7 @@ calc_dol <- function(ve.xts,coln,price="R",first_pass=FALSE) {
 
 #looks up cmn from cmn_lookup
 #subtracts cmn from raw variable held in each stock ve.xts
-calc_res <- function(ve.xts,coln,field,first_pass=FALSE) {
+calc_stk <- function(ve.xts,coln,field,first_pass=FALSE) {
   #if (verbose) print(paste("ve.xts=",ve.xts,"field=",field))
   #f.xts <- paste(ve.xts,"[,'",field,"']",sep="")
   ticker <- sub("var.env$","",ve.xts,fixed=TRUE)
@@ -301,7 +332,7 @@ calc_res <- function(ve.xts,coln,field,first_pass=FALSE) {
 }
 
 #looks up cmn from cmn_lookup
-calc_cmn <- function(ve.xts,coln,field,first_pass=FALSE) {
+calc_etf <- function(ve.xts,coln,field,first_pass=FALSE) {
   #if (verbose) print(paste("ve.xts=",ve.xts,"field=",field))
   ticker <- sub("var.env$","",ve.xts,fixed=TRUE)
   cmn <- com.env$cmn_lookup[ticker]
@@ -318,37 +349,29 @@ calc_cmn <- function(ve.xts,coln,field,first_pass=FALSE) {
 #bin 'field' by 'bin_field' using bin_points b1 & b2
 #append to ve.xts as last two columns
 calc_bin <- function(ve.xts,coln,field=NULL,bin_field,b1=-2.,b2=2.,first_pass=FALSE) {
-  if (first_pass & com.env$verbose) print(paste("ve.xts=",ve.xts,"coln"=coln,"field=",field,"bin_field=",bin_field,"Bins:",b1,b2,first_pass))
-  #ve.xts <- paste("var.env$",ticker,sep="")
+  #if (first_pass) print(paste("ve.xts=",ve.xts,"coln"=coln,"field=",field,"bin_field=",bin_field,"Bins:",b1,b2,first_pass))
   if (is.null(field)) {
-    f.xts <- paste(ve.xts,"[,",coln,"]",sep="")
-    } else {
-    f.xts <- paste(ve.xts,"[,'",field,"']",sep="")
-    }
-  bf.xts <- paste(ve.xts,"[,'",bin_field,"']",sep="")
+    f.xts <- paste0(ve.xts,"[,",coln,"]")
+  } else {
+    f.xts <- paste0(ve.xts,"[,'",field,"']")
+  }
+  bf.xts <- paste0(ve.xts,"[,'",bin_field,"']")
   x <- c(b1,b2)
   y <- c(1,0)
   cmd_string <- paste("vl.xts <- ",f.xts,"*approx(x,y,",bf.xts,",yleft=1,yright=0)$y",sep="")
-  #if (verbose) print (cmd_string)
+  #if (first_pass) print(cmd_string)
   eval(parse(text=cmd_string))
   y <- c(0,1)
   cmd_string <- paste("vh.xts <- ",f.xts,"*approx(x,y,",bf.xts,",yleft=0,yright=1)$y",sep="")
-  #if (verbose) print (cmd_string)
+  #if (first_pass) print(cmd_string)
   eval(parse(text=cmd_string))
   if (is.null(field)) {
     cmd_string <- paste(ve.xts," <- cbind(",ve.xts,"[,-ncol(",ve.xts,")],vl.xts,vh.xts)",sep="") 
   } else {
     cmd_string <- paste(ve.xts," <- cbind(",ve.xts,",vl.xts,vh.xts)",sep="")
   }
-  if (first_pass & com.env$verbose) print (cmd_string)
+  #if (first_pass) print (cmd_string)
   eval(parse(text=cmd_string))
-    #calc_bin <- function(var,bin_var,b1=-2.,b2=2) {
-    #v.temp <- na.exclude(merge(var,bin_var))
-    #x <- c(b1,b2)
-    #y <- c(1,0)
-    #vl <- v.temp[,names(var)]*approx(x,y,v.temp[,names(bin_var)],yleft=1,yright=0)$y
-    #y <- c(0,1)
-    #vh <- v.temp[,names(var)]*approx(x,y,v.temp[,names(bin_var)],yleft=0,yright=1)$y
 }
 
 calc_dm <- function(ve.xts,coln,ret1,ret2,first_pass=FALSE) {
@@ -370,6 +393,189 @@ calc_dm <- function(ve.xts,coln,ret1,ret2,first_pass=FALSE) {
   tmp.xts <- ifelse(r1.xts>r2.xts & r1.xts>0,r1.xts,0)
   cmd_string <- paste(ve.xts," <- cbind(",ve.xts,",tmp.xts)",sep="")
   #if (verbose) print(cmd_string)
+  eval(parse(text=cmd_string))
+}
+
+#Used to calculate [log,exp,pow,abs]
+#parm only used for pow 
+#sign: used for [log,pow], 0=keep sign of var, 1=abs value, 2=as calculated (for power, any undefined values sent to 0)
+calc_calc <- function(ve.xts,coln,type,parm=NULL,sign=0,first_pass=FALSE) {
+  #print(paste("calc_calc",ve.xts,coln,type,parm,sign,first_pass))
+  cmd_string <- paste0("orig_field <- ",ve.xts,"[,",coln,"]")
+  #if(first_pass) print(cmd_string)
+  eval(parse(text=cmd_string))
+  switch(type,
+         "log" = {
+           #if (first_pass) print(paste("1",type,parm,sign))
+           if (sign==0) {
+             calc_field <- sign(orig_field)*log(abs(orig_field))
+           } else if (sign==1) {
+             calc_field <- log(abs(orig_field))
+           } else {
+             print(paste("Error:log does not support sign",sign))
+             source("close_session.R")
+           }
+           calc_field[!is.finite(calc_field)] <- 0
+         },
+         "exp" = {
+           #if (first_pass) print(paste("2",type,parm,sign))
+           calc_field <- exp(orig_field)
+         },
+         "abs" = {
+           #if (first_pass) print(paste("2.5",type,parm,sign))
+           calc_field <- abs(orig_field)
+         },
+         "pow" = {
+           #if (first_pass) print(paste("3",type,parm,sign))
+           if (sign==0) {
+             calc_field <- sign(orig_field)*'^'(abs(orig_field),parm)
+           } else if (sign==1) {
+             calc_field <- '^'(abs(orig_field),parm)
+           } else if (sign==2) {
+             calc_field <- '^'(orig_field,parm)
+             calc_field[!is.finite(calc_field)] <- 0
+           }
+             else {
+             print(paste("Error:log does not support sign",sign))
+             source("close_session.R")
+           }
+           #calc_field[!is.finite(calc_field)] <- 0
+         },
+         {
+           print(paste("Error: No valid calc type in calc_calc",type))
+           source("close_session.R")
+         }
+  )
+  cmd_string <- paste0(ve.xts,"[,",coln,"] <- calc_field")
+  #if(first_pass) print(cmd_string)
+  eval(parse(text=cmd_string))
+}
+
+#Used to calculate interactions [add,mul,div,sub,rsh,fth]
+#rsh,fth calcs variability given by the passed in variable (historically) and replaces with residuals or fitted values
+#parm can be numeric or a passed in variable that exists in the var.env (has already been calculated and is in the requires list)
+#sign: used for [mul,div], 0=as-is, 1=keep sign of first var, 2=keep sign of passed in var, 3=abs value
+#sign: used for [rsh,fth] 0=use intercept term, -1=no intercept
+calc_ia <- function(ve.xts,coln,type,parm=NULL,sign=0,first_pass=FALSE) {
+  #print(paste("calc_calc",ve.xts,coln,type,parm,sign,first_pass))
+  cmd_string <- paste0("orig_field <- ",ve.xts,"[,",coln,"]")
+  #if(first_pass) print(cmd_string)
+  eval(parse(text=cmd_string))
+  if (!is.null(parm)) {
+    if (grepl("[[:alpha:]]",parm)) {
+      cmd_string <- paste0("new_field <- ",ve.xts,"[,'",parm,"']")
+      #if(first_pass) print(cmd_string)
+      eval(parse(text=cmd_string))
+      numeric_parm <- FALSE
+    } else {
+      if ((type == "rsh") | (type == "fth")) {
+        print("ERROR: Cannot use numeric parameter with rsh or fth in calc_ia")
+        source("close_session.R")
+      }
+      parm <- as.numeric(parm)
+      numeric_parm <- TRUE 
+    }
+  }
+  switch(type,
+         "mul" = {
+           #if (first_pass) print(paste("4",type,parm,sign,numeric_parm))
+           if (numeric_parm) {
+             calc_field <- orig_field*parm
+           } else {
+             if (sign == 0) {
+               calc_field <- orig_field*new_field
+             } else if (sign == 1) {
+               calc_field <- orig_field*abs(new_field)
+             } else if (sign == 2) {
+               calc_field <- abs(orig_field)*new_field
+             } else if (sign == 3) {
+               calc_field <- abs(orig_field*new_field)
+             }
+           }
+         },
+         "div" = {
+           #if (first_pass) print(paste("6",type,parm,sign))
+           if (numeric_parm) {
+             calc_field <- orig_field/parm
+           } else {
+             if (sign == 0) {
+               #print(paste(length(orig_field),length(new_field)))
+               calc_field <- orig_field/new_field
+               #print(length(calc_field))
+             } else if (sign == 1) {
+               calc_field <- orig_field/abs(new_field)
+             } else if (sign == 2) {
+               calc_field <- abs(orig_field)/new_field
+             } else if (sign == 3) {
+               calc_field <- abs(orig_field/new_field)
+             }
+             calc_field[!is.finite(calc_field)] <- 0   #to handle division by 0
+           }
+         },
+         "add" = {
+           #if (first_pass) print(paste("5",type,parm,sign))
+           if (numeric_parm) {
+             calc_field <- orig_field + parm
+           } else {
+             calc_field <- orig_field + new_field 
+           }
+           #print("finished add")
+         },
+         "sub" = {
+           #if (first_pass) print(paste("7",type,parm,sign))
+           if (numeric_parm) {
+             calc_field <- orig_field - parm
+           } else {
+             calc_field <- orig_field - new_field
+           }
+         },
+         "fth" =,  #replace with historical regression using new_field as predictor variable (variability shared)
+         "rsh" = { #replace with historical residuals (remove variability explained by new_field variable)
+           #if (first_pass) print(paste("8",type,parm,sign))
+           if (sign==0) {
+             .env <- environment()
+             f <- as.formula("orig_field ~ new_field",env=.env)
+             rcor.model <- lm(f)
+           } else if (sign==-1) { #no intercept
+             .env <- environment()
+             f <- as.formula("orig_field ~ new_field - 1",env=.env)
+             rcor.model <- lm(f)
+           } else {
+             print(paste("Calc_calc,",type," does not support sign=",sign))
+             source("close_session.R")
+           }
+           sel <- which(is.finite(orig_field) & is.finite(new_field)) #both exist so regression should have a residual
+           calc_field <- orig_field
+           if (length(sel) != length(residuals(rcor.model))) {
+             print(paste("Problem in calc_ia",type," number of residuals does not match input data",length(sel),length(residuals(rcor.model),ve.xts)))
+             source("close_session.R")
+           } else if (type == "rsh") {
+             calc_field[sel] <- residuals(rcor.model)
+           } else if (type == "fth") {
+             calc_field[sel] <- fitted(rcor.model)   
+           }
+         },
+         {
+           print(paste("Error: No valid calc type in calc_calc",type))
+           source("close_session.R")
+         }
+  )
+  cmd_string <- paste0(ve.xts,"[,",coln,"] <- calc_field")
+  #if(first_pass) print(cmd_string)
+  eval(parse(text=cmd_string))
+}
+
+
+#splits data into quantiles(# from qcount) and approximates a rank from 0-1.0 from these quantiles (in reg_date_range)
+calc_rank <- function(ve.xts,coln,qcount,first_pass=FALSE) {
+  #print(paste("calc_rank",ve.xts,coln,first_pass))
+  data_string <- paste0(ve.xts,"[com.env$reg_date_range,",coln,"]")
+  out_string <- paste0(ve.xts,"[,",coln,"]")
+  cmd_string <- paste0("deciles <- quantile(",data_string,",probs=seq(0,1,(1/",qcount,")),na.rm = TRUE)")
+  #if(first_pass) print(cmd_string)
+  eval(parse(text=cmd_string))
+  cmd_string <- paste0(out_string,"<- approx(deciles,(as.numeric(sub('%','',names(deciles)))/100),",out_string,",yleft=0,yright=1)$y")
+  #if(first_pass) print(cmd_string)
   eval(parse(text=cmd_string))
 }
 
@@ -395,7 +601,7 @@ make_vars <- function(vd = NULL) {
       for (v in 1:length(com.env$v.com)) {
         if (is.cmn & !com.env$v.com[[v]]$calc_cmn) next          #nothing to compute in cmn
         if ((is.cmn & !col.cmn.calc[v]) | (!is.cmn & !col.calc[v])) {  #calculate new column num and insert it into v.com
-          if (!exists(ticker,envir=var.env)) {
+          if (!exists(ticker,envir=var.env,inherits=FALSE)) {
             coln <- 1
           } else {
             cmd_string <- paste("coln <- ncol(",ve.xts,") + 1",sep="")
@@ -426,7 +632,7 @@ make_vars <- function(vd = NULL) {
       if (is.cmn & !vd$calc_cmn) next          #nothing to compute in cmn
       cmd_string <- paste("coln <- ncol(",ve.xts,") + 1",sep="")
       eval(parse(text=cmd_string))
-      if (first_pass & com.env$verbose) print(paste('mod_var',vd$vcom_num,coln))
+      #if (first_pass) print(paste('mod_var',vd$vcom_num,coln))
       if (is.cmn) {
         vd$cmn_col <- coln
       } else {
@@ -436,14 +642,15 @@ make_vars <- function(vd = NULL) {
         math <- strsplit(vd$math[m],split=",")[[1]]
         parms <- gsub("^[^,]*,","",vd$math[m])
         fun_call <- paste(math[1],"('",ve.xts,"',",coln,",",parms,")",sep="")
-        if (first_pass & com.env$verbose) print(paste(fun_call,"m=",m,"v=",vd$vcom_num))
+        #if (first_pass & com.env$verbose) print(paste(fun_call,"m=",m,"v=",vd$vcom_num))
         eval(parse(text=fun_call))
       }
-      if (first_pass & com.env$verbose) {
-        cmd_string <- paste("print(length(colnames(",ve.xts,")))",sep="")
-        print(cmd_string)
-        eval(parse(text=cmd_string))
-      }
+      name.var(ve.xts,(coln:(coln-1+length(vd$name))),vd$name,first_pass)
+      #if (first_pass) {
+      #  cmd_string <- paste("print(length(colnames(",ve.xts,")))",sep="")
+        #print(cmd_string)
+      #  eval(parse(text=cmd_string))
+      #}
     } #end mod var
     if (stk>1) first_pass <- FALSE
   } #end stock loop
@@ -453,27 +660,35 @@ make_vars <- function(vd = NULL) {
 calc_vd <- function(vd) { #for use in computing MU,ADJRET,VLTY  #appended to each var.env$ticker xts object
   #print("calc VD")
   print(paste("calc_vd",vd$name,vd$math[1]))
+  first_pass <- TRUE
   #print("starting stk loop")
   for (stk in 1:(com.env$stx+com.env$cmns)) {
     #print(stk)
     ticker <- com.env$stx_list[stk]
     #print(paste("Getting data for:",ticker))
     is.cmn <- (com.env$cmn_lookup[[ticker]] == 'cmn')
-    if (is.cmn) next                           #nothing to compute in cmn
-    ve.xts <- paste("var.env$",ticker,sep="")
-    cmd_string <- paste("c <- ncol(",ve.xts,") + 1",sep="")      
-    eval(parse(text=cmd_string))                               #get column number
+    ve.xts <- paste0("var.env$",ticker)
+    if (is.cmn & !vd$calc_cmn) next                           #nothing to compute in cmn
+    if (!exists(ticker,envir=var.env,inherits=FALSE)) {
+      c <- 1
+    } else {
+      cmd_string <- paste("c <- ncol(",ve.xts,") + 1",sep="")      
+      eval(parse(text=cmd_string))                               #get column number
+    }
+    #print(c)
     vd$col <- c
-    
+
     coln <- vd$col
     for (m in 1:length(vd$math)) {
       math <- strsplit(vd$math[m],split=",")[[1]]
       parms <- gsub("^[^,]*,","",vd$math[m])
-      fun_call <- paste(math[1],"('",ve.xts,"',",coln,",",parms,")",sep="")
-      #print(fun_call)
+      fun_call <- paste(math[1],"('",ve.xts,"',",coln,",",parms,",first_pass=first_pass)",sep="")
+      if (first_pass) print(fun_call)
       eval(parse(text=fun_call))
     }
-    name.var(ve.xts,(coln:(coln-1+length(vd$name))),vd$name)
+    #print(coln-1+length(vd$name))
+    name.var(ve.xts,(coln:(coln-1+length(vd$name))),vd$name,first_pass)
+    if (stk>1) first_pass <- FALSE
   }
 }
 
@@ -506,6 +721,7 @@ mu_calc <- function(index=0) {
   V1 <- NULL
   V1$col <- 1
   V1$name <- "MU"
+  V1$calc_cmn <- FALSE
   V1$math[1] <- "calc_prediction,'com.env$model.stepwise'"
   calc_vd(V1)
   stk_matrix("MU",index)
@@ -515,6 +731,7 @@ adjret_calc <- function() {
   V1 <- NULL
   V1$col <- 1
   V1$name <- "ADJRET"
+  V1$calc_cmn <- FALSE
   V1$math[1] <- "calc_adjret,'.Adjusted'"
   calc_vd(V1)
   stk_matrix("ADJRET")
@@ -524,6 +741,7 @@ vlty_calc <- function() {
   V1 <- NULL
   V1$col <- 1
   V1$name <- "VLTY"
+  V1$calc_cmn <- FALSE
   V1$math[1] <- "calc_vlty,'ADJRET',window=250"
   calc_vd(V1)
   stk_matrix("VLTY")

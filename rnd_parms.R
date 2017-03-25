@@ -2,8 +2,8 @@
 # list of settings for constructing and modifying variables
 rnd.env <- new.env(parent=globalenv())
 rnd.env$vs.com <- NULL
-rnd.env$raw_list <- NULL
 
+#set up lists for naming
 rnd.env$nameID <- c(53,54,55,56,57,58,59,60,61)
 names(rnd.env$nameID) <- c('ld','tr','di','pmf','nmf','fi','ti','pdm','ndm')
 
@@ -12,6 +12,135 @@ names(rnd.env$fun_id) <- c('calc_cap','calc_z','calc_res','calc_decay','calc_vlt
 rnd.env$known_mod_fun <- c(1:5)
 names(rnd.env$known_mod_fun) <- c('calc_cap','calc_z','calc_decay','calc_lag','calc_bin')
 
+#set up constants  #no leading zeros on numeric parameters (lengthens IDs)
+rnd.env$mod.model <- c("fve","interact","bin","decay")
+
+rnd.env$raws <- c("ret","BC","V","C2C","TI")
+rnd.env$C2Clag_list <- c(3,5,8,13,21,34,55,89,144)
+
+rnd.env$calc_types <- c("W","S","E","T")  #[raw, stock, ETF, Volatility]
+
+rnd.env$interaction_list <- c("mul","div","add","sub","rsh","fth","none")
+
+rnd.env$bin_point.zlist <- c(-4,-3.5,-3,-2.5,-2,-1.5,-1,-.5,0,.5,1,1.5,2,2.5,3,3.5,4)
+rnd.env$bin_point.rlist <- c(.01,.02,.03,.05,.08,.13,.21,.34,.5,.66,.79,.87,.92,.95,.97,.98,.99)
+
+rnd.env$decay_list <- c(.89,.55,.34,.21,.13,.08,.05,.03,.02,.01)
+
+rnd.env$cap_type_list <- c('cap_pct','zcap','abscap','none')
+rnd.env$cap_pct_list <- c(.001,.005,.01,.02,.03,.05,.08,.13,.21,.34)
+rnd.env$zcap_list <- c(.5,1,1.5,2,2.5,3,3.5,4,4.5,5.)
+
+rnd.env$calc_list <- c('log','exp','pow','none')
+rnd.env$pow_list <- c(.25,.33,.5,.75,1.25,1.5,2,2.5,3)
+
+rnd.env$scale_list <- c('Z','z','r','none') # [Zscore,zscale,rank]
+
+#set up var creation probabilities
+
+#raws
+rnd.env$p$raw <- c(0.3,0.3,0.2,0.1,0.)
+names(rnd.env$p$raw) <- rnd.env$raws    #("ret","BC","V","C2C","TI")
+
+rnd.env$p$C2Clag <- rep(0.1,times=length(rnd.env$C2Clag_list))
+names(rnd.env$p$C2Clag) <- rnd.env$C2Clag_list
+
+#types  [raw,stock,ETF,Volatility]
+rnd.env$p$ret.type <- c(0.3,0.3,0.1,0.5)
+names(rnd.env$p$ret.type) <- rnd.env$calc_types
+
+rnd.env$p$BC.type <- c(0.3,0.3,0.1,0.5)
+names(rnd.env$p$BC.type) <- rnd.env$calc_types
+
+rnd.env$p$V.type <- c(0.5,0.1,0.,0.)
+names(rnd.env$p$V.type) <- rnd.env$calc_types
+
+rnd.env$p$C2C.type <- c(0.3,0.3,0.1,0.)
+names(rnd.env$p$C2C.type) <- rnd.env$calc_types
+
+rnd.env$p$TI.type <- c(0.5,0.1,0.,0.)
+names(rnd.env$p$TI.type) <- rnd.env$calc_types
+
+#decays
+rnd.env$p$ret.d <- c(0.1,5,rep(0.1,times=length(rnd.env$decay_list)))
+names(rnd.env$p$ret.d) <- c(2,1,rnd.env$decay_list)
+
+rnd.env$p$BC.d <- c(0.1,0.3,rep(0.1,times=length(rnd.env$decay_list)))
+names(rnd.env$p$BC.d) <- c(2,1,rnd.env$decay_list)
+
+#rnd.env$p$V.d <- c(rep(0.1,8),0.6,rep(0.1,times=length(rnd.env$decay_list)))
+#names(rnd.env$p$V.d) <- c(53,34,21,13,8,5,3,2,1,rnd.env$decay_list)  # moving averages >2
+rnd.env$p$V.d <- c(0.1,0.6,rep(0.1,times=length(rnd.env$decay_list)))
+names(rnd.env$p$V.d) <- c(2,1,rnd.env$decay_list)  # moving averages removed, calc_ma not working
+
+rnd.env$p$C2C.d <- c(0.1,5)
+names(rnd.env$p$C2C.d) <- c(2,1)
+
+rnd.env$p$TI.d <- c(0.1,5,rep(0.1,times=length(rnd.env$decay_list)))
+names(rnd.env$p$TI.d) <- c(2,1,rnd.env$decay_list)
+
+rnd.env$p$model.d <- c(0.5,rep(0.1,times=length(rnd.env$decay_list)))
+names(rnd.env$p$model.d) <- c('none',rnd.env$decay_list)
+
+#caps
+rnd.env$p$cap_type <- c(0.4,0.2,0.,0.3)
+names(rnd.env$p$cap_type) <- rnd.env$cap_type_list
+
+rnd.env$p$cap_pct <- rep(0.1,times=length(rnd.env$cap_pct_list))
+names(rnd.env$p$cap_pct) <- rnd.env$cap_pct_list
+
+rnd.env$p$zcap <- rep(0.1,times=length(rnd.env$zcap_list))
+names(rnd.env$p$zcap) <- rnd.env$zcap_list
+
+#calcs
+rnd.env$p$calc <- c(0.1,0.1,0.2,8)  # 5% chance of using calc
+names(rnd.env$p$calc) <- rnd.env$calc_list
+
+rnd.env$p$pow <- rep(0.1,times=length(rnd.env$pow_list))
+names(rnd.env$p$pow) <- rnd.env$pow_list
+
+#scale
+rnd.env$p$scale <- c(0.1,0.1,0.1,0) # must scale
+names(rnd.env$p$scale) <- rnd.env$scale_list
+
+#model interaction calcs
+rnd.env$p$interaction <- c(0.1,0.1,0.1,0.1,1,0.1,3.5)       #c("mult","div","add","sub","rsh","fth","none")
+names(rnd.env$p$interaction) <- rnd.env$interaction_list
+
+#bin
+rnd.env$p$bin <- c(.5,.5)                               #when creating model variable, chance to bin
+names(rnd.env$p$bin) <- c("bin","none")
+
+rnd.env$p$bin_points.z <- rep(0.1,times=length(rnd.env$bin_point.zlist))
+names(rnd.env$p$bin_points.z) <- rnd.env$bin_point.zlist                  
+
+rnd.env$p$bin_points.r <- rep(0.1,times=length(rnd.env$bin_point.rlist))
+names(rnd.env$p$bin_points.r) <- rnd.env$bin_point.rlist                  
+
+rnd.env$p$delete_bin <- c(0.1,0.9)                      #when modding bin variable, chance to delete bins
+names(rnd.env$p$delete_bin) <- c("delete","keep")
+
+rnd.env$p$model_start <- c(0.1,0.9)                        #when creating model variable, chance to use intercept and bin
+names(rnd.env$p$model_start) <- c("constant","calc_var")
+
+#mod model var
+rnd.env$p$int_bin <- c(0.,0.,.5,.5)
+names(rnd.env$p$int_bin) <- rnd.env$mod.model   #("fve","interact","bin","decay")
+
+rnd.env$p$int <- c(0.,0.,0.,1.)
+names(rnd.env$p$int) <- rnd.env$mod.model
+
+rnd.env$p$bin <- c(0.,0.,.5,.5)
+names(rnd.env$p$bin) <- rnd.env$mod.model
+
+rnd.env$p$fve <- c(0.,0.,0.,1.)
+names(rnd.env$p$fve) <- rnd.env$mod.model
+
+#set up var mod probabilities
+rnd.env$p$mod_use <- c(1,0)
+names(rnd.env$p$mod_use) <- c("model","calc")
+
+#legacy parms below
 rnd.env$prob$choices <- c('type','cap','math','scale','decay','bin')
 rnd.env$prob$choices.wts <- c(0.1,0.3,0.0,0.3,0.2,0.4) 
 rnd.env$prob$choices.bv <- c('type','cap','scale','decay')
