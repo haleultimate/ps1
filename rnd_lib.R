@@ -1281,7 +1281,7 @@ optimize_mod <- function(orig_vd,new_vd,orig_adj_r2,new_adj_r2,try_num=NULL,impr
     if (vd_list$ID == -1) return(new_vd) 
     #print("evaluating new vd")
     #print(paste(vd_list$name,orig_vd$name))
-    com.env$override_col <- com.env$mod_col
+    #com.env$override_col <- com.env$mod_col
     com.env$reg_names <- names(com.env$model.stepwise$coefficients)[-1]
     adj_r2 <- eval_adj_r2(vd=vd_list,orig_vd=orig_vd)
   }
@@ -1289,7 +1289,7 @@ optimize_mod <- function(orig_vd,new_vd,orig_adj_r2,new_adj_r2,try_num=NULL,impr
     print(paste("optimize model improved",adj_r2,new_adj_r2))
     best_vd <- vd_list
     com.env$best_adj_r2 <- adj_r2
-    com.env$override_col <- com.env$mod_col
+    #com.env$override_col <- com.env$mod_col
     com.env$reg_names <- names(com.env$model.stepwise$coefficients)[-1]
     return(optimize_mod(new_vd,best_vd,new_adj_r2,com.env$best_adj_r2,try_num,improve=TRUE))
   } else {

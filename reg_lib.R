@@ -217,22 +217,24 @@ eval_adj_r2 <- function(modvar_list=NULL,old_adj_r2=0,oos_data=FALSE,verbose=FAL
     new_reg_names <- reg_names[!(reg_names %in% V1$name)]
     name_found <- FALSE
     error_text <- NULL
+    cnBAC <- colnames(var.env$BAC)
     if ((length(V2$name)>1) & (length(V1$name)==length(V2$name))) {
-      for (i in length(V2$name)) {
+      for (i in 1:length(V2$name)) {
         if (V1$name[[i]] %in% reg_names) {
           new_reg_names <- c(new_reg_names,V2$name[[i]])
-          if (!(V1$name[[i]] %in% colnames(var.env$BAC))) error_text <- paste(V1$name[[i]],"found in reg_names, but not in colnames var.env$BAC")
-          if (!(V2$name[[i]] %in% colnames(var.env$BAC))) error_text <- paste(V2$name[[i]],"found in new_reg_names, but not in colnames var.env$BAC")
+          if (!(V1$name[[i]] %in% cnBAC)) error_text <- paste(V1$name[[i]],"found in reg_names, but not in colnames var.env$BAC")
+          if (!(V2$name[[i]] %in% cnBAC)) error_text <- paste(V2$name[[i]],"found in new_reg_names, but not in colnames var.env$BAC")
           name_found <- TRUE
         }
       }
     } else {
       new_reg_names <- c(new_reg_names,V2$name)
-      name_found <- (V1$name[[1]] %in% reg_names)
-      if (!(V1$name %in% colnames(var.env$BAC))) error_text <- paste(V1$name,"found in reg_names, but not in colnames var.env$BAC")
-      if (!(V2$name %in% colnames(var.env$BAC))) error_text <- paste(V2$name,"found in new_reg_names, but not in colnames var.env$BAC")
+      name_found <- ifelse((length(V1$name) == 2),((V1$name[[1]] %in% reg_names) | (V1$name[[2]] %in% reg_names)),(V1$name[[1]] %in% reg_names))
+      V1_in_colnames <- ifelse((length(V1$name) == 2),((V1$name[[1]] %in% cnBAC) | (V1$name[[2]] %in% cnBAC)),(V1$name[[1]] %in% cnBAC))
+      if (!(V1_in_colnames)) error_text <- paste(V1$name,"found in reg_names, but not in colnames var.env$BAC")
+      if (!(V2$name %in% cnBAC)) error_text <- paste(V2$name,"found in new_reg_names, but not in colnames var.env$BAC")
     }
-    if (!name_found) error_text <- paste(V1$name,"not found in reg_names, but is model variable")
+    if (!name_found) error_text <- paste(V1$name,"not found in reg_names",length(V1$name),length(V2$name),reg_names)
     if (!is.null(error_text)) {  #error checking to make sure names are available for regression
       print(error_text)
       source("close_session.R")
@@ -247,6 +249,7 @@ eval_adj_r2 <- function(modvar_list=NULL,old_adj_r2=0,oos_data=FALSE,verbose=FAL
     #print(paste("Not better in eval_adj_r2 mod loop, old_adj_r2=",old_adj_r2,"new_adj_r2=",new_adj_r2))
     com.env$v.com <- old.v.com
   } else {
+    #reg_names <- names(com.env$model.stepwise$coefficients)[-1]  #update reg_names with new mod
     #print(paste("Better in eval_adj_r2 mod loop, old_adj_r2=",old_adj_r2,"new_adj_r2=",new_adj_r2))
   }
   return(new_adj_r2)
@@ -341,8 +344,10 @@ opt_model <- function(model_loops,add_vars,mod_var_loops) {
     loops <- 0
     check_adj_r2 <- orig_adj_r2
     com.env$reg_names <- names(com.env$model.stepwise$coefficients)[-1]
+    #print("updating reg_names")
+    #print(com.env$reg_names)
     com.env$reg_vcom_names <- get_reg_names(com.env$reg_names)
-    com.env$override_col <- NULL
+    #com.env$override_col <- NULL
     #print(paste("reg_vars=",length(com.env$reg_names)))
     #print(com.env$reg_vcom_names)
     model_worse <- TRUE
@@ -355,6 +360,9 @@ opt_model <- function(model_loops,add_vars,mod_var_loops) {
       #new_vd <- rnd_mod(reg_names=com.env$reg_vcom_names)
       #print(new_vd)
       mod_list <- mod_var("model")
+      #print("mod_var model")
+      print(mod_list[[1]]$math)
+      print(mod_list[[2]]$math)
       new_adj_r2 <- eval_adj_r2(mod_list,old_adj_r2=orig_adj_r2)
       #      if (new_vd$ID != -1) {
         #print(paste("save away orig_vd",new_vd$vcom_num))
@@ -373,6 +381,9 @@ opt_model <- function(model_loops,add_vars,mod_var_loops) {
       if (new_adj_r2 > orig_adj_r2) {
         model_worse <- FALSE
         print(paste("model improved",new_adj_r2,orig_adj_r2,"loop#",loops,mod_list[[2]]$var_name))
+        com.env$reg_names <- names(com.env$model.stepwise$coefficients)[-1]
+        #print("updating reg_names")
+        #print(com.env$reg_names)
         optimize_mod_list(mod_list, new_adj_r2)
 #          com.env$best_adj_r2 <- new_adj_r2
 #          com.env$override_col <- com.env$mod_col

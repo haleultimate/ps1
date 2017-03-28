@@ -59,9 +59,9 @@ vdlist2vcom <- function(vdlist,vcom_num=0) {  #append to end if no vcom_num give
 #return decay from calc_decay math string
 #Assumes math form: "none", "calc_decay, decay" or "calc_decay, decay, var_cnt=cnt"
 get_decay_from_math <- function(math) {
-  print(paste("get_decay_from_math",math))
+  #print(paste("get_decay_from_math",math))
   if (math == "none") {
-    return(1)
+    return(0)
   } else {
     if (strsplit(math,split=",")[[1]][1] != "calc_decay") {
       print(paste("ERROR in get_decay_from_math, passed",math))
@@ -76,8 +76,8 @@ get_decay_from_math <- function(math) {
 # if var_cnt (!= 1) provided produce "calc_decay, decay, var_cnt=cnt"
 # if decay = 1 return "none"
 get_math_from_decay <- function(decay,math=NULL,var_cnt=NULL) {
-  print(paste("get_math_from_decay, decay=",decay,math,var_cnt))
-  if (decay == 1) {
+  #print(paste("get_math_from_decay, decay=",decay,math,var_cnt))
+  if (decay == 0) {
     math <- "none"
   } else if (is.null(math)) {
     if (is.null(var_cnt)) {
@@ -94,6 +94,46 @@ get_math_from_decay <- function(decay,math=NULL,var_cnt=NULL) {
     }
     math <- paste0("calc_decay,",decay,",",strsplit(math,split=",")[[1]][3])
   }
+}
+
+#return list (bp1,bp2) from calc_bin math string
+#assumes math in form "calc_bin,bin_field='calc_var',b1=bp1,b2=bp2"
+get_bp_from_math <- function(math) {
+  #print(paste("get_bp_from_math",math))
+  if (math == "none") return(c(0,0))
+
+  parm_list <- strsplit(math,split=",")[[1]]
+  if (parm_list[1] != "calc_bin") {
+    print(paste("ERROR in get_bp_from_math, passed",math))
+    source("close_session.R")
+  }
+  #name <- gsub(".*=","",parm_list[2])
+  #name <- gsub("'","",name)
+  bp1 <- as.numeric(gsub(".*=","",parm_list[3]))
+  bp2 <- as.numeric(gsub(".*=","",parm_list[4]))
+  if (bp1>bp2) {
+    print(paste("ERROR:bp1>bp2 in get_bp_from_math,bp1=",bp1,"bp2=",bp2,math))
+    source("close_session.R")
+  }
+  return(c(bp1,bp2))
+}
+
+#return math string replacing bin points with bp1 and bp2
+get_math_from_bp <- function(bp1,bp2,math) {
+  #print(paste("get_math_from_bp,bp1=",bp1,"bp2=",bp2,math))
+  if ((bp1 == 0) & (bp2 == 0)) return("none")
+  if (bp1>bp2) {
+    print(paste("ERROR:bp1>bp2 in get_math_from_bp,bp1=",bp1,"bp2=",bp2,math))
+    source("close_session.R")
+  }
+  
+  parm_list <- strsplit(math,split=",")[[1]]
+  if (parm_list[1] != "calc_bin") {
+    print(paste("ERROR in get_math_from_bp, passed",math))
+    source("close_session.R")
+  }
+  math <- paste(parm_list[1],parm_list[2],paste0("b1=",bp1),paste0("b2=",bp2),sep=",")
+  return(math)
 }
 
 #return vdlist with last vd="raw" var [types generally derived from set rnd.env$vs.com sample vars]
@@ -139,7 +179,6 @@ get_calc_list <- function() {
   V1 <- vdlist[[length(vdlist)]]
   #print(paste("Create new calc var",V1$var_name)) 
   V1$requires <- c(V1$requires,V1$var_name)
-  V1$use <- "calc"
   calc_type <- rnd_choice(paste0(raw_type,".type"))
   if (calc_type == "T") { #if volatility calc_vlty, otherwise calc_decay
     V1$math <- paste0("calc_vlty,'",V1$var_name,"'")
@@ -195,6 +234,7 @@ get_calc_list <- function() {
     V1$math[next_math] <- "calc_rank,10"  #use deciles to approx rank
     V1$scale_type <- "rank"
   }
+  V1$use <- "calc"  #only after scaling can a variable be considered "calc" type
   #print(paste("call calc set_name",V1$math))
   #for (vd in vdlist) if (is.null(vd$ID)) print(vd)
   V1 <- set_name(V1,vdlist=vdlist)
@@ -216,7 +256,8 @@ mod_model_decay <- function(V1) {
   if (d == "none") {
     V1$math <- V1$math[-i]
   } else {
-    V1$math[i] = get_math_from_decay(d,var_cnt=length(V1$names))
+    var_cnt <- ifelse(grepl("calc_bin",V1$math[i-1]),2,1)
+    V1$math[i] = get_math_from_decay(d,var_cnt=var_cnt)
     # paste0("calc_decay,",d)
     # if (length(V1$names) > 1) V1[i] <- paste0(V1$math[i],",var_cnt=",length(V1$names))  #decay multiple columns
   }
@@ -225,15 +266,33 @@ mod_model_decay <- function(V1) {
 
 #modify bin points of model variable [FUTURE: if no binning add binning]
 mod_model_bin <- function(V1) {
+  #print("mod_model_bin")
   i <- which(grepl('calc_bin',V1$math))
   if (length(i) == 0) {
     print("ERROR: ADDING bin not supported yet")
     source("close_session.R")
   }
   math_list <- strsplit(V1$math[[i]],split=",")[[1]]  #bin points are items 3 and 4 
+  #print(math_list)
   if ((length(math_list) > 2) & (V1$scale_type != "constant")) { #either new var or binning constant, binning not to be deleted
     if (rnd_choice("delete_bin") == "delete") {
+      if (grepl("calc_decay",V1$math[length(V1$math)])) {
+        if (!grepl("var_cnt=2",V1$math[length(V1$math)])) print(V1)
+      }
       V1$math <- V1$math[-i]
+      print(paste("delete bin,math[i],i=",i))
+      #check for decay
+      if (length(V1$math) == i) { #decay exists, with var_cnt
+        if (grepl("calc_decay",V1$math[i]) & grepl("var_cnt=2",V1$math[i])) {
+          decay_split <- strsplit(V1$math[i],split=",")[[1]]
+          V1$math[i] <- paste(decay_split[1],decay_split[2],sep=",")  #throw away var_cnt=2
+          print(paste("new decay math:",V1$math[i]))
+        } else {
+          print("ERROR in mod_model_bin: math after deleted bin was not a decay with var_cnt=2")
+          print(V1)
+          source("close_session.R")
+        }
+      }
       return(V1)
     }
   }
@@ -241,12 +300,17 @@ mod_model_bin <- function(V1) {
   b1 <- rnd_choice(paste0("bin_points.",scale_type))
   b2 <- b1                  
   while(b1==b2) b2 <- rnd_choice(paste0("bin_points.",scale_type)) #make sure bin_point parms have at least 2 choices (otherwise infinite loop)
-  bp1 <- min(b1,b2)
-  bp2 <- max(b1,b2)
+  #print(paste("b1:",b1,"b2:",b2,"min:",min(b1,b2),"max:",max(b1,b2)))
+  bp1 <- min(as.numeric(b1),as.numeric(b2))
+  bp2 <- max(as.numeric(b1),as.numeric(b2))
+  #print(paste("bp1:",bp1,"bp2:",bp2))
   
-  
+  if (bp2<bp1) {
+    print(paste("ERROR in mod_model_bin:bp2<bp1, bp1:",bp1,"bp2:",bp2))
+    source("close_session.R")
+  }
   V1$math[[i]] <- paste(math_list[1],math_list[2],paste0("b1=",bp1),paste0("b2=",bp2),sep=",")
-  
+  #print(V1$math)
   return(V1)
 }
 
@@ -284,6 +348,12 @@ get_model_list <- function() {
     V1$requires <- unique(c(V1$requires,V2$requires,V2$var_name))
     V1$math[2] <- paste0("calc_ia,'",interact,"','",V2$var_name,"'")
     V1$calc_cmn <- (V1$calc_cmn & V2$calc_cmn)
+    if (is.null(V1$scale_type) | is.null(V2$scale_type)) {
+      print(paste("ERROR in get_model_list, in interact either V1 or V2 does not have a scale type"))
+      print(V1)
+      print(V2)
+      source("close_session.R")
+    }
     if ((V1$scale_type == "rank") & (V2$scale_type != "rank")) V1$scale_type <- "zscale"  #best guess for bin points
     next_math <- 3
   } else {
@@ -291,7 +361,7 @@ get_model_list <- function() {
   }
   #get bin term, if var is constant binning is mandatory
   binning <- ifelse(model_start=="constant","bin",rnd_choice("bin"))
-  #print(paste("binning =",binning,"next_math=",next_math))
+  print(paste("binning =",binning,"next_math=",next_math))
   if (binning != "none") {  #FUTURE: add chance to reuse interaction var
     vdlist2 <- get_calc_list()
     vdlist <- c(vdlist,vdlist2)
@@ -301,12 +371,11 @@ get_model_list <- function() {
     V1$calc_cmn <- (V1$calc_cmn & V2$calc_cmn)
     V1$math[next_math] <- paste0("calc_bin,bin_field='",V2$var_name,"'")
     V1 <- mod_model_bin(V1)  #append random bin points 
-    #print(paste(V2$var_name,V2$math,scale_type))
-    #b1 <- rnd_choice(paste0("bin_points.",scale_type))
-    #b2 <- b1                  
-    #while(b1==b2) b2 <- rnd_choice(paste0("bin_points.",scale_type)) #make sure bin_point parms have at least 2 choices (otherwise infinite loop)
-    #bp1 <- min(b1,b2)
-    #bp2 <- max(b1,b2)
+    #bp_pair <- get_bp_from_math(V1$math[next_math])
+    #if (bp_pair[1]>=bp_pair[2]) {
+    #  print("ERROR in get_model_list, bp1 >= bp2",bp_pair[1],bp_pair[2])
+    #  source("close_session.R")
+    #}
     next_math <- next_math + 1
     #print(V1$math)
   }
@@ -368,7 +437,7 @@ mod_var_model <- function(V1=NULL) {
       source("close_session.R")
     }
     
-    interact <- any(grepl("calc_calc",V1$math))
+    interact <- any(grepl("calc_ia",V1$math))
     bin <- any(grepl("calc_bin",V1$math))
     if (interact & bin) {
       choice <- rnd_choice("int_bin")
@@ -385,6 +454,14 @@ mod_var_model <- function(V1=NULL) {
            },
            "bin" = {
              V2 <- mod_model_bin(V1)
+             # i <- which(grepl('calc_bin',V2$math))
+             # if (length(i) != 0) {  #in case mod is "delete bin"
+             #   bp_pair <- get_bp_from_math(V2$math[i])
+             #   if (bp_pair[1]>=bp_pair[2]) {
+             #     print("ERROR in mod_var_model, bp1 >= bp2",bp_pair[1],bp_pair[2])
+             #     source("close_session.R")
+             #   }
+             # }
            },
            "int" =,
            "fve" =,
@@ -401,13 +478,16 @@ mod_var_model <- function(V1=NULL) {
     print(paste("Error: Could not modify model variable",V1$var_name))
     source("close_session.R")
   }
-  print(V1$math)
-  print(V2$math)
+  #print("End of mod_var_model")
+  #print(V1$math)
+  #print(V2$math)
   modlist <- NULL
-  cmd_string <- paste0("modlist$",V1$var_name," <- V1")
-  eval(parse(text=cmd_string))
-  cmd_string <- paste0("modlist$",V2$var_name," <- V2")
-  eval(parse(text=cmd_string))
+  # cmd_string <- paste0("modlist$",V1$var_name," <- V1")
+  # eval(parse(text=cmd_string))
+  # cmd_string <- paste0("modlist$",V2$var_name," <- V2")
+  # eval(parse(text=cmd_string))
+  modlist <- list(V1,V2)
+  
   return(modlist)
 }
 
@@ -429,7 +509,7 @@ mod_var <- function(mod_use=NULL) {
 #find opt_type from math_list[orig_math,mod_math]
 #"none" is used to show addition/deletion in a math list
 find_opt_type <- function(math_list) {
-  print(paste("find_opt_type",math_list[1],math_list[2]))
+  #print(paste("find_opt_type",math_list[1],math_list[2]))
   orig_math <- math_list[[1]]
   mod_math <- math_list[[2]]
   opt_type <- strsplit(orig_math,split=",")[[1]][1]  
@@ -440,36 +520,36 @@ find_opt_type <- function(math_list) {
 #move out 0.5X difference between i1 and i2
 #must fall between 1 and max_i and not be equal to i1 or i2 [if not possible return 0]
 move_out_index <- function(i1,i2,max_i,movement=0.5) {
-  print(paste("move_out_index",i1,i2,max_i,movement))
-  if (i1 == i2 | i2 == 1 | i2 == max_i | max_i < 3) return(0)
+  #print(paste("move_out_index",i1,i2,max_i,movement))
+  if ((i1 == i2) | (i2 == 1) | (i2 == max_i) | (max_i < 3)) return(0)
   if (i1 > i2) { #reducing index
     i3 <- i2 - ceiling(movement*(i1-i2))
   } else { #increasing index
     i3 <- i2 + ceiling(movement*(i2-i1))  
   }
   i3 <- min(max(i3,1),max_i)
-  print(i3)
+  #print(i3)
   return(i3)
 }
 
 #move in 0.5X difference between i1 and i2
 #must not be equal to i1 or i2 [if not possible return 0]
 move_in_index <- function(i1,i2,movement=0.5) {
-  print(paste("move_out_index",i1,i2,movement))
+  #print(paste("move_out_index",i1,i2,movement))
   if (i1 == i2) return(0)
   if (i1 > i2) { #reducing index
     i3 <- i1 - ceiling(movement*(i1-i2))
   } else {       #increasing index
     i3 <- i1 + ceiling(movement*(i2-i1))  
   }
-  print(i3)
+  #print(i3)
   return(i3)
 }
 
 
 #opt_decay
-#takes in math_list [orig_math,mod_math] and returns opt_math_list [mod_math,new_math]
-#if no move, and more tries possible, new_math="try again", if no move and no tries left, new_math="opt"
+#takes in math_list [orig_math,mod_math] and returns opt_math
+#if no move, and more tries possible, opt_math="try again", if no move and no tries left, opt_math="opt"
 #orig_math is calc_decay (or lag or ma)
 #IF decay (parm in the range (0,1) or math=="none"):
 #  decays are indexed by rnd.env$decay_list, with "none" representing decay=1 [added to decay list] 
@@ -480,7 +560,7 @@ move_in_index <- function(i1,i2,movement=0.5) {
 #  ma windows indexed by rnd.env$ma_window_list, try_num same as if decay 
 #Assumes math form: "calc_decay, parm" or "calc_decay, parm, var_cnt=cnt"
 opt_decay <- function(math_list,try_num) {
-  print(paste("opt_decay",math_list[1],math_list[2],try_num))
+  #print(paste("opt_decay",math_list[1],math_list[2],try_num))
   orig_math <- math_list[[1]]
   mod_math <- math_list[[2]]
   orig_decay <- get_decay_from_math(orig_math)
@@ -493,40 +573,37 @@ opt_decay <- function(math_list,try_num) {
   #   decay <- gsub("^[^,]*,","",orig_math)         #get everything after first comma (parameters), assumes no "decay=" 
   # }
 
-  if (decay < 1) {
-    decay_index_list <- c(1,rnd.env$decay_list)
+  opt_math <- "opt"
+  #print(paste("mod_decay=",mod_decay))
+  if (mod_decay < 1) {
+    decay_index_list <- c(0,rnd.env$decay_list)
     orig_index <- which(orig_decay==decay_index_list)
   #  mod_decay <- gsub("^[^,]*,","",mod_math)      #get everything after first comma (parameters), assumes no "decay="
     mod_index <- which(mod_decay==decay_index_list)
     if (try_num == 1) {  #  try1: 1.5X as far from orig_decay as mod_decay
       new_index <- move_out_index(orig_index,mod_index,length(decay_index_list))  #move_out_index should make 0.5 -> 1, -0.5 -> -1
       if (new_index == 0) {
-        new_math <- "try again"
+        opt_math <- "try again"
       } else {
         new_decay <- decay_index_list[new_index]
-        new_math <- get_math_from_decay(new_decay,math=mod_math)
+        opt_math <- get_math_from_decay(new_decay,math=mod_math)
       }
     } else if (try_num == 2) { #  try2: midway from orig_decay and mod_decay (last try)
       new_index <- move_in_index(orig_index,mod_index)
-      if (new_index == 0) {
-        new_math <- "opt"
-      } else {
+      if (new_index != 0) {
         new_decay <- decay_index_list[new_index]
-        new_math <- get_math_from_decay(new_decay,math=mod_math)
+        opt_math <- get_math_from_decay(new_decay,math=mod_math)
       }
     }
-  } else { #lag or ma
-    new_math <- "opt"  #no opt left
-  }
+  } 
   
-  opt_math_list <- c(mod_math,new_math)
-  print(paste("new_math:",new_math))
-  return(opt_math_list)
+  print(paste("opt_math:",opt_math))
+  return(opt_math)
 }
 
 #opt_cap
-#takes in math_list [orig_math,mod_math] and returns opt_math_list [mod_math,new_math]
-#if no move, and more tries possible, new_math="try again", if no move and no tries left, new_math="opt"
+#takes in math_list [orig_math,mod_math] and returns opt_math
+#if no move, and more tries possible, opt_math="try again", if no move and no tries left, opt_math="opt"
 #orig_math is calc_cap, (cap_pct, zcap, abscap)
 #IF cap_pct:
 #  decays are indexed by rnd.env$cap_pct_list, with "none" representing cap_pct=0 [added to decay list] 
@@ -557,29 +634,155 @@ opt_cap <- function(math_list,try_num) {
   }
   
   if (cap_type == "abscap") {
-    return(c(mod_math,"opt"))
+    return("opt")
   }
   
   cap_index_list <- ifelse(cap_type=="cap_pct",c(0,rnd.env$cap_pct_list),c(0,rnd.env$zcap_list)) #else "zcap"
   orig_index <- which(mod_parm == cap_index_list)
   mod_index <- which(mod_parm == cap_index_list)
   if (try_num == 1) {
-    new_index <- move_out_index(orig_index,mod_index,length(decay_index_list))
-    if (new_index==0) return(c(mod_math,"try again"))
+    new_index <- move_out_index(orig_index,mod_index,length(cap_index_list))
+    if (new_index==0) return("try again")
   } else if (try_num == 2) {
     new_index <- move_in_index(orig_index,mod_index)
-    if (new_index==0) return(c(mod_math,"opt"))
+    if (new_index==0) return("opt")
   } else {
-    return(c(mod_math,"opt"))
+    return("opt")
   }
   new_cap <- cap_index_list[new_index]
-  new_math <- paste0("calc_cap,",cap_type,"=",new_cap)
-  print(new_math)
-  return(c(mod_math,new_math))
+  opt_math <- paste0("calc_cap,",cap_type,"=",new_cap)
+  print(opt_math)
+  return(opt_math)
 }
                   
 #opt_bin - need to code
-
+#takes in math_list [orig_math,mod_math] and returns opt_math
+#if no move, and more tries possible, opt_math="try again", if no move and no tries left, opt_math="opt"
+#orig_math is "calc_bin,bin_field='calc_var',b1=bp1,b2=bp2"
+#try1: move bp1 and bp2 in same direction (outside)
+#try2: move bp1 and bp2 in same direction (inside)
+#try3: move bp1 in same direction (outside) (hold bp2 constant) 
+#try4: move bp1 in same direction (inside) (hold bp2 constant)
+#try5: move bp2 in same direction (outside) (hold bp1 constant) 
+#try6: move bp2 in same direction (inside) (hold bp1 constant)
+opt_bin <- function(math_pair,scale_type,try) {
+  print(paste("opt_bin,try:",try,"scale_type:",scale_type))
+  print(math_pair)
+  orig_math <- math_pair[[1]]
+  mod_math <- math_pair[[2]]
+  cmc <- compare_math_calc(math_pair)
+  if ((cmc == "same") | (orig_math == "none") | (mod_math == "none")) return("opt")
+  if (cmc != "calc_bin") {
+    print(paste("Error in opt_bin, not called with calc_bin type",cmc))
+    source("close_session.R")
+  }
+  scale_type <- substr(scale_type,1,1)
+  cmd_string <- paste0("bin_list <- rnd.env$bin_point.",scale_type,"list")
+  #print(cmd_string)
+  eval(parse(text=cmd_string))
+  orig_bp <- get_bp_from_math(orig_math)
+  mod_bp <- get_bp_from_math(mod_math)
+  #print(bin_list)
+  #print(orig_bp)
+  #print(mod_bp)
+  switch(try,
+         "1" = {
+           if ((orig_bp[1] == mod_bp[1]) | (orig_bp[2] == mod_bp[2])) {
+             return("try again")
+           }
+           orig_idx <- which(orig_bp[1]==bin_list)
+           mod_idx <- which(mod_bp[1]==bin_list)
+           bp1_idx <- move_out_index(orig_idx,mod_idx,length(bin_list))
+           orig_idx <- which(orig_bp[2]==bin_list)
+           mod_idx <- which(mod_bp[2]==bin_list)
+           bp2_idx <- move_out_index(orig_idx,mod_idx,length(bin_list))
+           if ((bp1_idx == 0) | (bp2_idx == 0)) return("try again")
+           bp1 <- bin_list[min(as.numeric(bp1_idx),as.numeric(bp2_idx))]
+           bp2 <- bin_list[max(as.numeric(bp1_idx),as.numeric(bp2_idx))]
+           if ((bp1 == bp2) & (bp1 > 0.5)) bp1 <- bin_list[bp1_idx-1]
+           if ((bp1 == bp2) & (bp2 <= 0.5)) bp2 <- bin_list[bp2_idx+1]
+         },
+         "2" = {
+           if ((orig_bp[1] == mod_bp[1]) | (orig_bp[2] == mod_bp[2])) {
+             return("try again")
+           }
+           orig_idx <- which(orig_bp[1]==bin_list)
+           mod_idx <- which(mod_bp[1]==bin_list)
+           bp1_idx <- move_in_index(orig_idx,mod_idx)
+           orig_idx <- which(orig_bp[2]==bin_list)
+           mod_idx <- which(mod_bp[2]==bin_list)
+           bp2_idx <- move_in_index(orig_idx,mod_idx)
+           if ((bp1_idx == 0) | (bp2_idx == 0)) return("try again")
+           bp1 <- bin_list[min(as.numeric(bp1_idx),as.numeric(bp2_idx))]
+           bp2 <- bin_list[max(as.numeric(bp1_idx),as.numeric(bp2_idx))]
+           if ((bp1 == bp2) & (bp1 > 0.5)) bp1 <- bin_list[bp1_idx-1]
+           if ((bp1 == bp2) & (bp2 <= 0.5)) bp2 <- bin_list[bp2_idx+1]
+         },
+         "3" = {
+           if (orig_bp[1] == mod_bp[1]) {
+             return("try again")
+           }
+           orig_idx <- which(orig_bp[1]==bin_list)
+           mod_idx <- which(mod_bp[1]==bin_list)
+           bp1_idx <- move_out_index(orig_idx,mod_idx,length(bin_list))
+           if (bp1_idx == 0) return("try again")
+           bp1 <- bin_list[bp1_idx]
+           bp2 <- mod_bp[2]
+           if (bp1>=bp2) {
+             bp2_idx <- which(mod_bp[2]==bin_list)
+             bp1 <- bin_list[bp2_idx-1]
+           }
+         },
+         "4" = {
+           if (orig_bp[1] == mod_bp[1]) {
+             return("try again")
+           }
+           orig_idx <- which(orig_bp[1]==bin_list)
+           mod_idx <- which(mod_bp[1]==bin_list)
+           bp1_idx <- move_in_index(orig_idx,mod_idx)
+           if (bp1_idx == 0) return("try again")
+           bp1 <- bin_list[bp1_idx]
+           bp2 <- mod_bp[2]
+           if (bp1>=bp2) {
+             bp2_idx <- which(mod_bp[2]==bin_list)
+             bp1 <- bin_list[bp2_idx-1]
+           }
+         },
+         "5" = {
+           if (orig_bp[2] == mod_bp[2]) {
+             return("opt")
+           }
+           orig_idx <- which(orig_bp[2]==bin_list)
+           mod_idx <- which(mod_bp[2]==bin_list)
+           bp2_idx <- move_out_index(orig_idx,mod_idx,length(bin_list))
+           if (bp2_idx == 0) return("try again")
+           bp2 <- bin_list[bp2_idx]
+           bp1 <- mod_bp[1]
+           if (bp1>=bp2) {
+             bp1_idx <- which(mod_bp[1]==bin_list)
+             bp2 <- bin_list[bp1_idx+1]
+           }
+         },
+         "6" = {
+           orig_idx <- which(orig_bp[2]==bin_list)
+           mod_idx <- which(mod_bp[2]==bin_list)
+           bp2_idx <- move_in_index(orig_idx,mod_idx)
+           if (bp2_idx == 0) return("try again")
+           bp2 <- bin_list[bp2_idx]
+           bp1 <- mod_bp[1]
+           if (bp1>=bp2) {
+             bp1_idx <- which(mod_bp[1]==bin_list)
+             bp2 <- bin_list[bp1_idx+1]
+           }
+         },
+         "7" = {
+           return("opt")
+         }
+         )
+  opt_math <- get_math_from_bp(bp1,bp2,mod_math)
+  #print(opt_math)
+  return(opt_math)
+}
 
 #compare_math takes in math pair (math1,math2) and determines difference type
 #if identical returns "same"
@@ -587,7 +790,7 @@ opt_cap <- function(math_list,try_num) {
 #if either is "none" the other calc call is returned
 #if different calc calls returns list of ["different",calc_call1,calc_call2]
 compare_math_calc <- function(math_pair) {
-  print("compare_math_calc",math_pair)
+  #print(paste("compare_math_calc"))
   if (math_pair[[1]] == math_pair[[2]]) return("same")
   math_type1 <- strsplit(math_pair[[1]],split=",")[[1]][1]
   math_type2 <- strsplit(math_pair[[2]],split=",")[[1]][1]
@@ -596,13 +799,11 @@ compare_math_calc <- function(math_pair) {
   return(c("different",math_type1,math_type2))
 }
 
-#takes a mod_list [orig_vd,mod_vd] and returns a list of pairs of math differences [(orig_math1,mod_math1),(orig_math2,mod_math2),...]
+#takes a mod_list [orig_vd,mod_vd] and returns a pair of math differences [orig_math,mod_math]
 #will insert "none" into the math list to show deleted ("none" in mod_math) or added ("none" in orig_math) functions
 #if identical will return ("same","same")
 get_vd_diff <- function(mod_list) {
-  print(paste("get_vd_diff"))
-  print(mod_list[[1]]$math)
-  print(mod_list[[2]]$math)
+  #print(paste("get_vd_diff"))
   long_math_list <- NULL
   lml_idx <- 1
   orig_vd <- mod_list[[1]]
@@ -610,7 +811,7 @@ get_vd_diff <- function(mod_list) {
   orig_math_list <- orig_vd$math
   mod_math_list <- mod_vd$math
   
-  if (orig_vd$use != "model" | mod_vd != "model") {
+  if (orig_vd$use != "model" | mod_vd$use != "model") {
     print("Error: Non-model vd types not supported in get_vd_diff yet")
     print(orig_vd)
     print(mod_vd)
@@ -621,7 +822,9 @@ get_vd_diff <- function(mod_list) {
   orig_idx <- 1
   mod_idx <- 1
   loops <- 0
-  while ((orig_idx <= length(orig_math_list)) | (mod_idx <= length(mod_math_list))) {
+  math_pair <- NULL
+  while ((orig_idx <= length(orig_math_list)) | (mod_idx <= length(mod_math_list)) & (is.null(math_pair))) {
+    #print(paste(loops,orig_idx,mod_idx,length(orig_math_list),length(mod_math_list)))
     loops <- loops + 1
     if (loops > 1000) {
       print("infinite loop in get vd_diff")
@@ -644,11 +847,11 @@ get_vd_diff <- function(mod_list) {
       } else if (cmc[1] == "different") {
         if (((cmc[2]=="calc_ia") & ((cmc[3]=="calc_bin") | (cmc[3]=="calc_decay"))) |
             ((cmc[2]=="calc_bin") & (cmc[3]=="calc_decay"))) {                #no match in mod_math
-          math_pair <- c(orig_math,"none")
+          math_pair <- c(orig_math_list[orig_idx],"none")
           orig_idx <- orig_idx + 1
         } else if ((((cmc[2]=="calc_bin") | (cmc[2]=="calc_decay")) & (cmc[3]=="calc_ia")) | 
                    ((cmc[2]=="calc_decay") & (cmc[3]=="calc_bin"))) {         #no match in orig_math
-          math_pair <- c("none",mod_math[mod_idx])
+          math_pair <- c("none",mod_math_list[mod_idx])
           mod_idx <- mod_idx + 1
         }
       } else {
@@ -656,44 +859,46 @@ get_vd_diff <- function(mod_list) {
         orig_idx <- mod_idx + 1
       }
     }
-    if (!is.null(math_pair)) {
-      long_math_list[[lml_idx]] <- math_pair
-      lml_idx <- lml_idx + 1
-    }
   }
-  if (is.null(long_math_list)) long_math_list[[1]] <- c("same","same")
-  return(long_math_list)
+  if (is.null(math_pair)) math_pair <- c("same","same")
+  return(math_pair)
 }
 
 #takes a mod_list [orig_vd,mod_vd] with the assumption that mod_vd performed better
-#and returns an new_mod_list [mod_vd,new_vd] to attempt to improve further
+#and returns an new_mod_list [mod_vd,opt_vd] to attempt to improve further
 #try_num gives the number of previous attempts, 
 #if opt_math routine returns "opt" or no new math can be found, new_mod_list[mod_vd,"opt"] is returned
 #if opt_math routine returns "try again" then new_mod_list[mod_vd,"try again"] is returned (opt_math called again with try_num incremented)
-opt_math <- function(mod_list,try_num) {
-  print(paste("opt_math, try:",try_num,mod_list))
+get_opt_vd <- function(mod_list,try_num) {
+  print(paste("opt_math, try:",try_num))
   orig_vd <- mod_list[[1]]
   mod_vd <- mod_list[[2]]
+  opt_vd <- mod_vd
 
-  math_list <- get_vd_diff(mod_list)
-  if (length(math_list) != 1) {
+  math_pair <- get_vd_diff(mod_list)
+  if (length(math_pair) != 2) {
     print("more than one diff not supported yet")
     return(list(mod_vd,"opt"))
   }
-  cmc <- compare_math_calc(math_list)
+  cmc <- compare_math_calc(math_pair)
+  print(paste("cmc=",cmc))
+  
+  if (length(cmc) == 3) {
+    print(cmc)
+    return(list(mod_vd,"opt"))
+  }
   
   switch(cmc,
          "calc_decay" = {
-           opt_math_list <- opt_decay(math_list,try_num)
+           opt_math <- opt_decay(math_pair,try_num)
          },
          "calc_cap" = {
-           opt_math_list <- opt_cap(math_list,try_num)
+           opt_math <- opt_cap(math_pair,try_num)
          },
-         "calc_bin" =, 
-#           {
-#           opt_math_list <- opt_bin(math_list,try_num)
-#         },
-         "calc_bin_decay" =,
+         "calc_bin" =
+         {
+           opt_math <- opt_bin(math_pair,mod_vd$scale_type,try_num)
+         },
          "calc_scale" = ,
          "calc_calc" = ,
          "calc_interact" = ,
@@ -702,20 +907,20 @@ opt_math <- function(mod_list,try_num) {
          "calc_stk" =,
          "calc_vlty" =,
          {
-          print(paste("Warning: Opt_type:",opt_type," not supported (in function opt_var)"))
+          print(paste("Warning: Opt_type:",cmc," not supported (in function opt_var)"))
           return(list(mod_vd,"opt"))
          }
   )
   
   new_vd <- mod_vd
-  if ((math_list[2] == "opt") | (math_list[2] == "try again")) {
-    return(list(mod_vd,math_list[2]))
-  } else if (math_list[2] == "none") {
-    new_vd$math <- new_vd$math[-which(new_vd$math[grepl(cdc,new_vd$math)])] 
+  if ((opt_math == "opt") | (opt_math == "try again")) {
+    return(list(mod_vd,opt_math))
+  } else if (opt_math == "none") {
+    opt_vd$math <- opt_vd$math[-which(grepl(cmc,new_vd$math))] 
   } else {
-    new_vd$math[which(new_vd$math[grepl(cdc,new_vd$math)])] <- math_list[2]
+    opt_vd$math[which(grepl(cmc,new_vd$math))] <- opt_math
   }
-  return(list(mod_vd,new_vd))
+  return(list(mod_vd,opt_vd))
 }
 
 #function takes mod_list[orig_vd,mod_vd] and tests new vd's trying to find improvement
@@ -723,7 +928,7 @@ opt_math <- function(mod_list,try_num) {
 #eval_adj_r2 evaluates new_vd and if better places it into current com.env$v.com
 #continue until "opt" is returned from opt_math
 optimize_mod_list <- function(mod_list, best_adj_r2) {
-  print("optimize_code")
+  print("optimize_code********************************************")
   try_num <- 1
   opt_not_found <- TRUE
   loop <- 0
@@ -734,7 +939,7 @@ optimize_mod_list <- function(mod_list, best_adj_r2) {
       print(mod_list)
       source("close_session.R")
     }
-    new_mod_list <- opt_math(mod_list,try_num)
+    new_mod_list <- get_opt_vd(mod_list,try_num)
     if (length(new_mod_list[[2]]) == 1) {
       if (new_mod_list[[2]] == "try again") {
         try_num <- try_num + 1
@@ -742,12 +947,17 @@ optimize_mod_list <- function(mod_list, best_adj_r2) {
         opt_not_found <- FALSE
       }
     } else {
+      print(new_mod_list[[1]]$math)
+      print(new_mod_list[[2]]$math)
       new_adj_r2 <- eval_adj_r2(new_mod_list,old_adj_r2=best_adj_r2)
       if (new_adj_r2 > best_adj_r2) {
         print(new_mod_list[[2]]$math)
         print(paste("opt model improved from: best_adj_r2:",best_adj_r2,"to:",new_adj_r2,"try:",try_num))
         mod_list <- new_mod_list
         best_adj_r2 <- new_adj_r2
+        com.env$reg_names <- names(com.env$model.stepwise$coefficients)[-1]  #update reg_names with new mod var
+        #print("updating reg_names")
+        #print(com.env$reg_names)
       } else {
         print(new_mod_list[[2]]$math)
         print(paste("opt model did not improve: best_adj_r2:",best_adj_r2,"to:",new_adj_r2,"try:",try_num))
