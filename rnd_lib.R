@@ -47,11 +47,14 @@ set_name = function(V1,orig_name=NULL,vdlist=NULL) {
   #orig_name <- ifelse(mod,V1$var_name,NULL) 
   V1$var_name <- NULL
   V1$ID <- NULL
-  namePart <- NULL
-  IDPart <- NULL
+  #print(V1$ID)
   binning <- FALSE
+  #i <- 0
   for (math_str in V1$math) {
+    #i <- i + 1 
+    #print(paste(i,"math:",math_str,"V1$var_name:",V1$var_name,"V1$ID:",V1$ID))
     namePart <- NULL
+    IDPart <- NULL
     math <- strsplit(math_str,split=",")[[1]][1] #get element to first comma (function call)
     parms <- gsub("^[^,]*,","",math_str) #get everything after first comma (parameters) 
     switch(math, 
@@ -125,18 +128,43 @@ set_name = function(V1,orig_name=NULL,vdlist=NULL) {
                     }
              )
              if (length(parm_list)==3) {
-               IDPart <- paste0(IDPart,(strsplit(parm_list[3],split="=")[[1]][2])) #-1 option for sign in pow,rsh,fth 
+               sign <- as.numeric(strsplit(parm_list[3],split="=")[[1]][2])
+               IDPart <- paste0(IDPart,(sign+1)) #-1 option for sign in pow,rsh,fth 
              }
-             if (length(parm_list)==2) {
+             if (length(parm_list)>=2) {
                if (grepl("[[:alpha:]]", parm_list[2])) {   #get variable name and sum its ID
                  #print(paste("Variable name found in calc_calc",parm_list[2]))
                  newname <- gsub("'", "", parm_list[2])
                  #print(paste("calc_calc naming1:",namePart,newname))
-                 namePart <- paste0(namePart,newname)
+                 #namePart <- paste0(namePart,newname)  #don't add in ia var name
+                 if(grepl("E",newname)){
+                   namePart <- paste0(namePart,"E")
+                   IDPart <- paste0(IDPart,"05")
+                 } else if(grepl("T",newname)){
+                   namePart <- paste0(namePart,"T")
+                   IDPart <- paste0(IDPart,"20")
+                 } else if(grepl("D",parms)){
+                   namePart <- paste0(namePart,"D")
+                   IDPart <- paste0(IDPart,"04")
+                 } else if(grepl("S",parms)){
+                   namePart <- paste0(namePart,"S")
+                   IDPart <- paste0(IDPart,"19")
+                 } else{
+                   namePart <- paste0(namePart,"W")
+                   IDPart <- paste0(IDPart,"23")
+                 }  
+                 if (is.null(vdlist[[newname]]$ID)) {
+                   print(paste("calc_ia,calc_calc,newname:",newname))
+                   print(vdlist[[newname]])
+                   print(V1)
+                 }
                  IDPart <- paste0(IDPart, sumID(vdlist[[newname]]$ID,vdlist[[newname]]))
-               } else if (parm_list[1] %in% c("log", "mul", "div", "add", "sub", "pow")) {
+               } else if (parm_list[1] %in% c("log", "mul", "div", "add", "sub")) {
                  parm_list[2] <- gsub("[^0-9]", "", parm_list[2])
                  IDPart <- paste0(IDPart, parm_list[2])
+               } else if (parm_list[1] == "pow") {
+                 pow <- strsplit(parm_list[2],"=")[[1]][2]
+                 IDPart <- paste0(IDPart, which(rnd.env$pow_list == pow))
                }
              }
              #print(paste("calc_calc naming:",namePart,IDPart,parms))
@@ -188,21 +216,27 @@ set_name = function(V1,orig_name=NULL,vdlist=NULL) {
                     namelist <- strsplit(parms,split="'")[[1]]
                     namePart <- paste0(namelist[2],"X")
                     #print(com.env$v.com[[namelist[2]]]$ID)
-                    #if (is.null(com.env$v.com[[namelist[2]]]$ID)) print(V1)
+                    if (is.null(com.env$v.com[[namelist[2]]]$ID)) print(V1)
                     IDPart <- paste0("24",sumID(vdlist[[namelist[2]]]$ID,vdlist[[namelist[2]]]))
                     }
              )
            },
            "calc_cap" = {
-             switch(strsplit(parms,"=")[[1]][1],
-                    "cap_pct" = { IDPart <- 1 },
-                    "zcap" = { IDPart <- 2 },
-                    "abscap" = { IDPart <- 3})
-             IDPart <- paste0("29",IDPart,substr(gsub("[^0-9]","",parms),2,nchar(gsub("[^0-9]","",parms))))
+             parm_split <- strsplit(parms,"=")[[1]]
+             switch(parm_split[1],
+                    "cap_pct" = { IDPart <- paste0("1",which(as.numeric(rnd.env$cap_pct_list)==as.numeric(parm_split[2]))) },
+                    "zcap" = { IDPart <- paste0("2",which(as.numeric(rnd.env$zcap_list)==as.numeric(parm_split[2]))) },
+                    "abscap" = { IDPart <- paste0("3",gsub("[^0-9]", "", parm_split[2]))})
+             if (nchar(IDPart)<2) print(paste(parm_split,IDPart))
+             IDPart <- paste0("29",IDPart)
            },
            "calc_stk" = {
              namePart <- gsub("'","",parms)
-             #if (is.null(com.env$v.com[[namePart]]$ID)) print(V1)
+             if (is.null(vdlist[[namePart]]$ID)) {
+               print(paste("calc_stk:",namePart))
+               print(vdlist[[namePart]]$ID)
+               print(V1)
+             }
              IDPart <- paste0("19",sumID(vdlist[[namePart]]$ID,vdlist[[namePart]]))
              namePart <- paste0(namePart,"S")
            },
@@ -217,8 +251,12 @@ set_name = function(V1,orig_name=NULL,vdlist=NULL) {
              #   print(V1)
              #   print(names(vdlist))
              #}
-             if(nchar(namePart) > 1) {
-               #print(paste("sumID:",vdlist[[namePart]]$ID,namePart))
+             if (nchar(namePart) > 1) {
+               if (is.null(vdlist[[namePart]]$ID)) {
+                 print(paste("fve, sumID:",vdlist[[namePart]]$ID,namePart))
+                 print(vdlist[[namePart]])
+                 print(V1)
+               }
                IDPart <- sumID(vdlist[[namePart]]$ID,vdlist[[namePart]])
              }
            },
@@ -244,7 +282,11 @@ set_name = function(V1,orig_name=NULL,vdlist=NULL) {
            },
            "calc_etf" = {
              namePart <- gsub("'","",parms)
-             #if (is.null(com.env$v.com[[namePart]]$ID)) print(V1)
+             if (is.null(vdlist[[namePart]]$ID)) {
+               print(paste("calc_etf,namePart",namePart))
+               print(vdlist[[namePart]])
+               print(V1)
+             }
              IDPart <- paste0("05",sumID(vdlist[[namePart]]$ID,vdlist[[namePart]]))
              namePart <- paste0(namePart,"E")
            },
@@ -263,6 +305,7 @@ set_name = function(V1,orig_name=NULL,vdlist=NULL) {
                IDPart <- paste0("38",numPart)
                namePart <- paste0("l",numPart)
              }
+             if (nchar(IDPart) < 3) print(paste("calc_decay [more than 2 digits]:",IDPart))
            },
            "calc_bin" = {
              binning <- TRUE
@@ -287,15 +330,32 @@ set_name = function(V1,orig_name=NULL,vdlist=NULL) {
              name <- gsub("'","",name)
              b1 <- as.numeric(gsub(".*=","",parm_list[2]))
              b2 <- as.numeric(gsub(".*=","",parm_list[3]))
-             b11 <- ifelse(((b1>=0)&(b1<1)),100*b1,50+10*b1)
-             b12 <- ifelse(((b2>=0)&(b2<1)),100*b2,50+10*b2)
-             #print(paste(b1,b2,b11,b12))
-             #print(paste("sumID:",vdlist[[name]]$ID,name))
-             IDPart <- paste0(IDPart,sumID(vdlist[[name]]$ID,vdlist[[name]]),b11,b12)
+             scale_type <- substr(V1$scale_type,1,1)
+             if (scale_type == "z") {
+               st <- 1
+               b11 <- which(as.numeric(rnd.env$bin_point.zlist)==as.numeric(b1))
+               b12 <- which(as.numeric(rnd.env$bin_point.zlist)==as.numeric(b2))
+             } else { #scale_type == "r"
+               st <- 2
+               b11 <- which(as.numeric(rnd.env$bin_point.rlist)==as.numeric(b1))
+               b12 <- which(as.numeric(rnd.env$bin_point.rlist)==as.numeric(b2))
+             }
+             if (is.null(vdlist[[name]]$ID)) {
+                   print(paste("calc_bin",name))
+                   print(vdlist[[name]])
+                   print(V1)
+             }
+             if (is.null(b11) | is.null(b12)) print(paste("b1=",b1,"b2=",b2,"st=",st,"b11=",b11,"b12=",b12))
+             IDPart <- paste0(IDPart,sumID(vdlist[[name]]$ID,vdlist[[name]]),st,b11,b12)
            },
            "calc_vlty" = {
              namePart <- gsub("'","",parms)
              #print(paste("calc_vlty",namePart))
+             if (is.null(vdlist[[namePart]]$ID)) {
+                   print(paste("calc_vlty",namePart))
+                   print(vdlist[[namePart]])
+                   print(V1)
+             }
              IDPart <- paste0("20",sumID(vdlist[[namePart]]$ID,vdlist[[namePart]]))
              namePart <- paste0(namePart,"T")
            },
@@ -322,19 +382,27 @@ set_name = function(V1,orig_name=NULL,vdlist=NULL) {
     if(V1$type == "ti") {
       #print(paste(namePart,IDPart,V1$var_name,V1$ID))
     }
+    #print(paste(namePart,IDPart))
     V1$var_name <- paste0(V1$var_name,namePart)
     V1$ID <- paste0(V1$ID,IDPart)
+    #print(paste(V1$var_name,V1$ID))
   }
-  if (V1$use == "model") {
+  if (V1$use %in% c("model","calc")) {
     #print(paste("model var, appending ID",V1$var_name))
     if (is.null(V1$ID)) print(V1)
-    V1$ID <- paste0(V1$ID,"39")
-    var_name <- paste0(V1$var_name,"m",sumID(V1$ID,V1))
-    var_name <- gsub("l1","",var_name)
-    var_name <- gsub("Z","",var_name)
-    var_name <- gsub("z","",var_name)
-    var_name <- gsub("r","",var_name)              #shorten model names by removing scaling and lag1
-    if (nchar(var_name) > 20) {
+    V1$ID <- ifelse(V1$use=="model",paste0(V1$ID,"39"),paste0(V1$ID,"29")) #model=39,calc=29
+    if (is.null(V1$ID)) {
+      print("set_name (model or calc var)")
+      print(V1)
+    }
+    var_name <- paste0(V1$var_name,substr(V1$use,1,1),sumID(V1$ID,V1))
+    if (V1$use == "model") {
+      var_name <- gsub("l1","",var_name)
+      var_name <- gsub("Z","",var_name)
+      var_name <- gsub("z","",var_name)
+      var_name <- gsub("r","",var_name)              #shorten model names by removing scaling and lag1
+    }
+    if (nchar(var_name) > 25) {
       print("*************************************************************")
       print(V1$math)
       print(var_name)
@@ -343,9 +411,12 @@ set_name = function(V1,orig_name=NULL,vdlist=NULL) {
   }
   if (!binning) {
     V1$name <- V1$var_name
+    V1$longID_name <- paste0("v",V1$ID)
   } else {
     V1$name[1] <- paste0(V1$var_name,"l")
     V1$name[2] <- paste0(V1$var_name,"h")
+    V1$longID_name[1] <- paste0("v",V1$ID,"l")
+    V1$longID_name[2] <- paste0("v",V1$ID,"h")
   }
   if (!is.null(orig_name)) {
     if (V1$var_name != orig_name) {
@@ -356,7 +427,12 @@ set_name = function(V1,orig_name=NULL,vdlist=NULL) {
       }
     }
   }
-  #print(paste("return:",V1$var_name,V1$ID))
+  #if (V1$var_name %in% names(com.env$v.com) & (V1$use %in% c("model","calc"))) {
+  #  print(paste("*****************Warning in set_name, var_name already in com.env$v.com",V1$var_name))
+    #print(names(com.env$v.com))
+    #source("close_session.R")
+  #}
+  #print(paste("set_name return:",V1$var_name,V1$ID))
   return(V1)
 }
 
@@ -385,14 +461,25 @@ replace_name <- function(name,orig_name,vcom_num) {
   }
 }
 
-sumID <- function(ID,V1=NULL){
+sumID <- function(ID,V1=NULL){  #sum digits two at a time (so index 10 and 1 aren't identical)
   if (is.null(ID)) {
     print ("Error: V1 has no ID")
     print (V1)
     source("close_session.R")
   }
   total <- 0
-  for(i in 1:nchar(ID)) (total <- total + as.numeric(substring(ID,i,i)))
+  for (i in 1:nchar(ID)) total <- total + as.numeric(substring(ID,i,i))
+#  if (nchar(ID) < 3) {
+#    total <- as.numeric(ID) 
+#  } else if (nchar(ID)%%3 == 0) {
+#    for (i in 1:(nchar(ID)/3)) total <- total + as.numeric(substring(ID,(3*i-2),(3*i)))
+#  } else if (nchar(ID)%%3 == 1) {
+#    for (i in 1:trunc(nchar(ID)/3)) total <- total + as.numeric(substring(ID,(3*i-2),(3*i)))
+#    total <- total + as.numeric(substring(ID,nchar(ID),nchar(ID)))                                                            
+#  } else if (nchar(ID)%%3 == 2) {
+#    for (i in 1:trunc(nchar(ID)/3)) total <- total + as.numeric(substring(ID,(3*i-2),(3*i)))
+#    total <- total + as.numeric(substring(ID,nchar(ID)-1,nchar(ID)))                                                            
+#  }
   return(total)
 }
 

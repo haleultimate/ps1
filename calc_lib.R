@@ -443,6 +443,7 @@ calc_calc <- function(ve.xts,coln,type,parm=NULL,sign=0,first_pass=FALSE) {
          },
          {
            print(paste("Error: No valid calc type in calc_calc",type))
+           print(paste("calc_calc",ve.xts,coln,type,parm,sign,first_pass))
            source("close_session.R")
          }
   )
@@ -645,7 +646,7 @@ make_vars <- function(vd = NULL) {
         #if (first_pass & com.env$verbose) print(paste(fun_call,"m=",m,"v=",vd$vcom_num))
         eval(parse(text=fun_call))
       }
-      name.var(ve.xts,(coln:(coln-1+length(vd$name))),vd$name,first_pass)
+      name.var(ve.xts,(coln:(coln-1+length(vd$name))),vd$longID_name,first_pass)
       #if (first_pass) {
       #  cmd_string <- paste("print(length(colnames(",ve.xts,")))",sep="")
         #print(cmd_string)

@@ -61,7 +61,7 @@ com.env$model_filename <- "lf1_mar3.vcom"
 com.env$look_forward <- 1
 com.env$save_var_n <- 0
 com.env$opt_model <- TRUE
-com.env$model_loops <- 40
+com.env$model_loops <- 10
 com.env$add_vars <- 3
 com.env$mod_var_loops <- 20
 com.env$run_sim <- FALSE

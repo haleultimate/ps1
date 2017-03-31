@@ -13,14 +13,14 @@ rnd.env$known_mod_fun <- c(1:5)
 names(rnd.env$known_mod_fun) <- c('calc_cap','calc_z','calc_decay','calc_lag','calc_bin')
 
 #set up constants  #no leading zeros on numeric parameters (lengthens IDs)
-rnd.env$mod.model <- c("fve","interact","bin","decay")
+rnd.env$mod.model <- c("fve","ia","bin","decay")
 
 rnd.env$raws <- c("ret","BC","V","C2C","TI")
 rnd.env$C2Clag_list <- c(3,5,8,13,21,34,55,89,144)
 
 rnd.env$calc_types <- c("W","S","E","T")  #[raw, stock, ETF, Volatility]
 
-rnd.env$interaction_list <- c("mul","div","add","sub","rsh","fth","none")
+rnd.env$ia_list <- c("mul","div","add","sub","rsh","fth","none")
 
 rnd.env$bin_point.zlist <- c(-4,-3.5,-3,-2.5,-2,-1.5,-1,-.5,0,.5,1,1.5,2,2.5,3,3.5,4)
 rnd.env$bin_point.rlist <- c(.01,.02,.03,.05,.08,.13,.21,.34,.5,.66,.79,.87,.92,.95,.97,.98,.99)
@@ -104,8 +104,11 @@ rnd.env$p$scale <- c(0.1,0.1,0.1,0) # must scale
 names(rnd.env$p$scale) <- rnd.env$scale_list
 
 #model interaction calcs
-rnd.env$p$interaction <- c(0.1,0.1,0.1,0.1,1,0.1,3.5)       #c("mult","div","add","sub","rsh","fth","none")
-names(rnd.env$p$interaction) <- rnd.env$interaction_list
+rnd.env$p$ia_type <- c(0.1,0.1,0.1,0.1,1,0.1,3.5)       #c("mul","div","add","sub","rsh","fth","none")
+names(rnd.env$p$ia_type) <- rnd.env$ia_list
+
+rnd.env$p$mod_ia <- c(0.1,0.1,0.1,0)
+names(rnd.env$p$mod_ia) <- c("delete","sign","ia_type","calc_var")
 
 #bin
 rnd.env$p$bin <- c(.5,.5)                               #when creating model variable, chance to bin
@@ -124,16 +127,16 @@ rnd.env$p$model_start <- c(0.1,0.9)                        #when creating model 
 names(rnd.env$p$model_start) <- c("constant","calc_var")
 
 #mod model var
-rnd.env$p$int_bin <- c(0.,0.,.5,.5)
-names(rnd.env$p$int_bin) <- rnd.env$mod.model   #("fve","interact","bin","decay")
+rnd.env$p$ia_bin <- c(0,.5,.5,.5)
+names(rnd.env$p$ia_bin) <- rnd.env$mod.model   #("fve","ia","bin","decay")
 
-rnd.env$p$int <- c(0.,0.,0.,1.)
-names(rnd.env$p$int) <- rnd.env$mod.model
+rnd.env$p$ia <- c(0,.5,0,.5)
+names(rnd.env$p$ia) <- rnd.env$mod.model
 
-rnd.env$p$bin <- c(0.,0.,.5,.5)
+rnd.env$p$bin <- c(0,0,.5,.5)
 names(rnd.env$p$bin) <- rnd.env$mod.model
 
-rnd.env$p$fve <- c(0.,0.,0.,1.)
+rnd.env$p$fve <- c(0,0,0,1)
 names(rnd.env$p$fve) <- rnd.env$mod.model
 
 #set up var mod probabilities

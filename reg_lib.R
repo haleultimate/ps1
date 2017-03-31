@@ -151,16 +151,34 @@ get_reg_names <- function(reg_model_vars,return_num=FALSE) { #take a list of var
 #clean_vcom.R
 clean_vcom <- function(verbose=FALSE) {
   if (verbose) print(paste("clean_vcom",Sys.time()))
-  keep_vcom_name <- names(com.env$model.stepwise$coefficients)[-1]  #get names from regression (not var_names)
+  reg_names <- names(com.env$model.stepwise$coefficients)[-1]  #get names from regression (not var_names)
   if (verbose) print("names from regression")
-  if (verbose) print(keep_vcom_name)
-  keep_vcom_name <- append(colnames(var.env$reg_data.df)[1],keep_vcom_name)
-  for (i in 1:length(keep_vcom_name)) { #convert binned variables to their var_name
-    nam <- keep_vcom_name[i]
+  if (verbose) print(reg_names)
+  reg_names <- append(colnames(var.env$reg_data.df)[1],reg_names)
+  keep_vcom_name <- NULL
+  for (nam in reg_names) { #convert binned variables and ID's to their var_name
     length_nam <- nchar(nam)
     if ((substr(nam,length_nam,length_nam) == 'h') | (substr(nam,length_nam,length_nam) == 'l')) {
-      keep_vcom_name[i] <- substr(nam,1,(length_nam-1))
+      nam <- substr(nam,1,(length_nam-1))
     }
+    if (substr(nam,1,1)=="v") { #find var_name of ID
+      name_found <- FALSE
+      nam <- substr(nam,2,nchar(nam)) #strip of "v"
+      for (vd in com.env$v.com) {
+        if (vd$ID == nam) {
+          nam <- vd$var_name
+          name_found <- TRUE
+          break
+        }
+      }
+      if (!name_found) {
+        print("ERROR in clean_vcom, ID not converted to var_name")
+        print(nam)
+        for (vd in com.env$v.com) print(vd$ID)
+        source("close_session.R")
+      }
+    }
+    keep_vcom_name <- c(keep_vcom_name,nam)
   }
   #print("keep_vcom_names from regression")
   #print(keep_vcom_name)
@@ -171,6 +189,7 @@ clean_vcom <- function(verbose=FALSE) {
   for (i in 1:length(keep_vcom_name)) {
     #print(keep_vcom_name[[i]])
     V1 <- com.env$v.com[[keep_vcom_name[[i]]]]
+    V1$requires <- get_requires_from_vd(V1)
     #print(V1$var_name)
     #print(V1$requires)
     vdlist[[i]] <- vcom2vdlist_req(V1)
@@ -185,67 +204,113 @@ clean_vcom <- function(verbose=FALSE) {
   #print(names(com.env$v.com))
 }
 
-eval_adj_r2 <- function(modvar_list=NULL,old_adj_r2=0,oos_data=FALSE,verbose=FALSE) {
-  if (!is.null(modvar_list)) {
+#if no mod list is given, function computes all vars in com.env$v.com and runs stepwise regression using each vd$name as given
+#if mod list is given, com.env$v.com is copied and modified 
+#    function computes only the new mod vars (appended to end of data frames in var.env) named with vd$longID_name [needed to keep small changes unique]
+#    single regression is run replacing the orig_var with mod_var [com.env$opt determines whether name->longID_name or longID_name->longID_name conversion]
+#    if adj_r2 improves keep com.env$v.com, otherwise revert to original com.env$v.com
+#oos_data determines if OOS date range is computed, verbose controls printing (for debugging)  [both passed directly to collect_data and regression routines]
+#Other parms modified: com.env$v.com, com.env$reg_names, com.env$best_adj_r2
+#Other parms accessed: com.env$opt, colnames(var.env$BAC) [hardcoded]
+eval_adj_r2 <- function(mod_list=NULL,oos_data=FALSE,verbose=FALSE) {
+  if (!is.null(mod_list)) {
     #print(paste("make_vars with modvar_list",Sys.time()))
     #print(names(modvar_list))
-    V1 <- modvar_list[[1]]
-    V2 <- make_vars(modvar_list[[2]])                   #make modified variable & update columns in vd (for all stock in var.env)
-    old.v.com <- com.env$v.com
-    com.env$v.com[[V2$vcom_num]] <- V2
-    names(com.env$v.com)[V2$vcom_num] <- V2$var_name
+    for (vd_pair in mod_list) {
+      V1 <- vd_pair[[1]]
+      V2 <- make_vars(vd_pair[[2]])                   #make modified variable & update columns in vd (for all stock in var.env)
+      old.v.com <- com.env$v.com
+      #if (V2$var_name %in% names(com.env$v.com)) {
+      #  print("Error in eval_adj_r2, trying to replace var with same name")
+      #  print(paste("V1=",V1$var_name,"V2=",V2$var_name))
+      #  print(names(com.env$v.com))
+      #  print(V1)
+      #  print(V2)
+      #  source("close_session.R")
+      #}
+      com.env$v.com[[V2$vcom_num]] <- V2
+      names(com.env$v.com)[V2$vcom_num] <- V2$var_name
+    }
   } else {
     make_vars()  #eval_adj_r2 normally
   }
   #print(paste("collect_data",Sys.time()))
   collect_data(oos_data)
   #print(paste("run_regression",Sys.time()))
-  if (is.null(modvar_list)) {
+  if (is.null(mod_list)) {
     run_regression(oos_data=oos_data,verbose=verbose)
   } else {                           #run_mod_regression        
-    #    if (!(length(V2$name) == length(V1$name))) {
-    #      print("bin var name lengths not the same, must run full regression")
-    #      run_regression(oos_data=oos_data,verbose=verbose)
-    #    } else {
-#    print("eval_adj_r2 with mod variable")
-#    print(V1$name)
-#    print(V2$name)
     reg_names <- com.env$reg_names
-#    print("reg_names:")
-#    print(reg_names)
+    #print(paste("reg_names",length(reg_names)))
+    #print(reg_names)
     new_reg_names <- reg_names
-    new_reg_names <- reg_names[!(reg_names %in% V1$name)]
-    name_found <- FALSE
-    error_text <- NULL
     cnBAC <- colnames(var.env$BAC)
-    if ((length(V2$name)>1) & (length(V1$name)==length(V2$name))) {
-      for (i in 1:length(V2$name)) {
-        if (V1$name[[i]] %in% reg_names) {
-          new_reg_names <- c(new_reg_names,V2$name[[i]])
-          if (!(V1$name[[i]] %in% cnBAC)) error_text <- paste(V1$name[[i]],"found in reg_names, but not in colnames var.env$BAC")
-          if (!(V2$name[[i]] %in% cnBAC)) error_text <- paste(V2$name[[i]],"found in new_reg_names, but not in colnames var.env$BAC")
-          name_found <- TRUE
+    for (vd_pair in mod_list) {
+      V1 <- vd_pair[[1]]
+      V2 <- vd_pair[[2]]
+      #print(V1$name)
+      #print(V2$longID_name)
+      #print(new_reg_names %in% V1$name)
+      #print(com.env$opt)
+      #print(new_reg_names %in% V1$longID_name)
+      if (com.env$opt) {
+        new_reg_names <- new_reg_names[!(new_reg_names %in% V1$longID_name)]
+      } else {
+        new_reg_names <- new_reg_names[!(new_reg_names %in% V1$name)]
+      }
+      #new_reg_names <- ifelse(com.env$opt,new_reg_names[!(new_reg_names %in% V1$longID_name)],new_reg_names[!(new_reg_names %in% V1$name)])
+      #print(new_reg_names)
+      #if (is.na(new_reg_names)) new_reg_names <- NULL
+      name_found <- FALSE
+      error_text <- NULL
+      if ((length(V2$name)>1) & (length(V1$name)==length(V2$name))) {  #new var and old var are bin vars
+        if (com.env$opt) {  #longID_name to longID_name
+          for (i in 1:length(V2$longID_name)) {
+            if (V1$longID_name[[i]] %in% reg_names) {
+              new_reg_names <- c(new_reg_names,V2$longID_name[[i]])
+              if (!(V1$longID_name[[i]] %in% cnBAC)) error_text <- paste(V1$longID_name[[i]],"found in reg_names, but not in colnames var.env$BAC")
+              if (!(V2$longID_name[[i]] %in% cnBAC)) error_text <- paste(V2$longID_name[[i]],"found in new_reg_names, but not in colnames var.env$BAC")
+              name_found <- TRUE
+            }
+          }
+        } else {            #named var to longID_name
+          for (i in 1:length(V2$name)) {
+            if (V1$name[[i]] %in% reg_names) {
+              new_reg_names <- c(new_reg_names,V2$longID_name[[i]])
+              if (!(V1$name[[i]] %in% cnBAC)) error_text <- paste(V1$name[[i]],"found in reg_names, but not in colnames var.env$BAC")
+              if (!(V2$longID_name[[i]] %in% cnBAC)) error_text <- paste(V2$longID_name[[i]],"found in new_reg_names, but not in colnames var.env$BAC")
+              name_found <- TRUE
+            }
+          }
+        }
+      } else {                                                        #no binning, added bin, or deleted bin
+        if (com.env$opt) {  #longID_name to longID_name
+          new_reg_names <- c(new_reg_names,V2$longID_name)
+          name_found <- ifelse((length(V1$longID_name) == 2),((V1$longID_name[[1]] %in% reg_names) | (V1$longID_name[[2]] %in% reg_names)),(V1$longID_name[[1]] %in% reg_names))
+          V1_in_colnames <- ifelse((length(V1$longID_name) == 2),((V1$longID_name[[1]] %in% cnBAC) | (V1$longID_name[[2]] %in% cnBAC)),(V1$longID_name[[1]] %in% cnBAC))
+          if (!(V1_in_colnames)) error_text <- paste(V1$name,"found in reg_names, but not in colnames var.env$BAC")
+          if (!(V2$longID_name %in% cnBAC)) error_text <- paste(V2$longID_name,"found in new_reg_names, but not in colnames var.env$BAC")
+        } else {            #named var to longID_name
+          new_reg_names <- c(new_reg_names,V2$longID_name)
+          name_found <- ifelse((length(V1$name) == 2),((V1$name[[1]] %in% reg_names) | (V1$name[[2]] %in% reg_names)),(V1$name[[1]] %in% reg_names))
+          V1_in_colnames <- ifelse((length(V1$name) == 2),((V1$name[[1]] %in% cnBAC) | (V1$name[[2]] %in% cnBAC)),(V1$name[[1]] %in% cnBAC))
+          if (!(V1_in_colnames)) error_text <- paste(V1$name,"found in reg_names, but not in colnames var.env$BAC")
+          if (!(V2$longID_name %in% cnBAC)) error_text <- paste(V2$longID_name,"found in new_reg_names, but not in colnames var.env$BAC")
         }
       }
-    } else {
-      new_reg_names <- c(new_reg_names,V2$name)
-      name_found <- ifelse((length(V1$name) == 2),((V1$name[[1]] %in% reg_names) | (V1$name[[2]] %in% reg_names)),(V1$name[[1]] %in% reg_names))
-      V1_in_colnames <- ifelse((length(V1$name) == 2),((V1$name[[1]] %in% cnBAC) | (V1$name[[2]] %in% cnBAC)),(V1$name[[1]] %in% cnBAC))
-      if (!(V1_in_colnames)) error_text <- paste(V1$name,"found in reg_names, but not in colnames var.env$BAC")
-      if (!(V2$name %in% cnBAC)) error_text <- paste(V2$name,"found in new_reg_names, but not in colnames var.env$BAC")
+      if (!name_found) error_text <- paste(V1$name,"not found in reg_names",length(V1$name),length(V2$name),reg_names)
+      if (!is.null(error_text)) {  #error checking to make sure names are available for regression
+        print(error_text)
+        source("close_session.R")
+      }
     }
-    if (!name_found) error_text <- paste(V1$name,"not found in reg_names",length(V1$name),length(V2$name),reg_names)
-    if (!is.null(error_text)) {  #error checking to make sure names are available for regression
-      print(error_text)
-      source("close_session.R")
-    }
-#    print("new_reg_names:")
-#    print(new_reg_names)
+    #print(paste("new_reg_names:",length(new_reg_names),"reg_names:",length(reg_names)))
+    #print(new_reg_names)
     run_mod_regression(new_reg_names)
   }
   new_adj_r2 <- 0
   if (length(com.env$model.stepwise) > 3) new_adj_r2 <- summary(com.env$model.stepwise)$adj.r.squared
-  if (!is.null(modvar_list) & (new_adj_r2 <= old_adj_r2)) { #revert to original com.env$v.com  #do we need to clean up var.env?
+  if (!is.null(mod_list) & (new_adj_r2 <= com.env$best_adj_r2)) { #revert to original com.env$v.com  #do we need to clean up var.env?
     #print(paste("Not better in eval_adj_r2 mod loop, old_adj_r2=",old_adj_r2,"new_adj_r2=",new_adj_r2))
     com.env$v.com <- old.v.com
   } else {
@@ -260,15 +325,17 @@ opt_model <- function(model_loops,add_vars,mod_var_loops) {
   #source("define_vars.R")                         #define predictor var, setup initial v.com
   print(paste("In opt_model, model_loops:",model_loops,"add_vars:",add_vars,"mod_var_loops:",mod_var_loops))
   com.env$best_adj_r2 <- 0
+  com.env$ID_tried <- NULL
   model_worse <- FALSE
   test_clean_vcom <- FALSE
   test_worse_vcom <- FALSE
   test_reverted_vcom <- TRUE
   for (l in 1:model_loops) {              #start model loop
     print(paste("model loop:",l,"/",model_loops,Sys.time()))
+    com.env$opt <- FALSE
     if (!model_worse) {
+      print("ADD VARS")
       for (i in 1:add_vars) make_new_model_var()    #add new vars to v.com
-      #for (i in 1:add_vars) new_var("model")       #add new vars to v.com
     }
     #print("eval_adj_r2 add var loop")
     #print(names(com.env$v.com))
@@ -301,7 +368,10 @@ opt_model <- function(model_loops,add_vars,mod_var_loops) {
       if (test_reverted_vcom) {
         orig_adj_r2 <- eval_adj_r2(verbose=FALSE)
         print(paste("Model reset to best_adj_r2:",orig_adj_r2," from:",com.env$best_adj_r2))
-        if (orig_adj_r2 != com.env$best_adj_r2) print("*************************************PROBLEM**********************************")
+        if (orig_adj_r2 != com.env$best_adj_r2) {
+          print("***********PROBLEM:changing best_adj_r2**********************************")
+          com.env$best_adj_r2 <- orig_adj_r2
+        }
         print("Removing var environment, reverted vcom and tested")
         rm(var.env,envir=globalenv())
         var.env <<- new.env(parent = globalenv())
@@ -342,82 +412,57 @@ opt_model <- function(model_loops,add_vars,mod_var_loops) {
     
     #mod vars
     loops <- 0
-    check_adj_r2 <- orig_adj_r2
+    check_adj_r2 <- com.env$best_adj_r2
     com.env$reg_names <- names(com.env$model.stepwise$coefficients)[-1]
-    #print("updating reg_names")
-    #print(com.env$reg_names)
     com.env$reg_vcom_names <- get_reg_names(com.env$reg_names)
-    #com.env$override_col <- NULL
-    #print(paste("reg_vars=",length(com.env$reg_names)))
-    #print(com.env$reg_vcom_names)
     model_worse <- TRUE
-    #don't mod variables on last loop 
-    while ((model_worse) & (loops < mod_var_loops) & (l<com.env$model_loops)) {
-      #print(names(com.env$v.com))
+    #com.env$ID_tried <- sort(com.env$ID_tried)
+    #print(com.env$ID_tried)
+    while ((model_worse) & (loops < mod_var_loops) & (l<com.env$model_loops)) {    #don't mod variables on last loop 
       loops <- loops + 1
-      #new_vd <- NULL
-      #new_vd$ID <- -1
-      #new_vd <- rnd_mod(reg_names=com.env$reg_vcom_names)
-      #print(new_vd)
       mod_list <- mod_var("model")
+      if (is.null(mod_list)) next()  #mod_var already tried, loop again
       #print("mod_var model")
-      print(mod_list[[1]]$math)
-      print(mod_list[[2]]$math)
-      new_adj_r2 <- eval_adj_r2(mod_list,old_adj_r2=orig_adj_r2)
-      #      if (new_vd$ID != -1) {
-        #print(paste("save away orig_vd",new_vd$vcom_num))
-#        orig_vd <- com.env$v.com[[new_vd$vcom_num]]       #store away original variable definition in vd_tmp
-        #print("eval_adj_r2 mod var loop")
-#        if (!check_dependencies()) {
-#          print("Dependency problem when modding var")
-#          print(names(com.env$v.com))
-#          model_worse <- FALSE
-#          com.env$best_adj_r2 <- 0
-#          new_adj_r2 <- 0
-#          break
-#        } else {
-#          new_adj_r2 <- eval_adj_r2(mod_list,old_adj_r2=orig_adj_r2)
-#        }
-      if (new_adj_r2 > orig_adj_r2) {
+      new_adj_r2 <- eval_adj_r2(mod_list=mod_list)
+      if (new_adj_r2 > com.env$best_adj_r2) {
         model_worse <- FALSE
-        print(paste("model improved",new_adj_r2,orig_adj_r2,"loop#",loops,mod_list[[2]]$var_name))
+        print(paste("model improved",new_adj_r2,orig_adj_r2,"loop#",loops,"/",com.env$mod_var_loops,Sys.time()))
+        for (vd_pair in mod_list) {
+          print(vd_pair[[1]]$math)
+          print(vd_pair[[2]]$math)
+        }
+        com.env$best_adj_r2 <- new_adj_r2
         com.env$reg_names <- names(com.env$model.stepwise$coefficients)[-1]
-        #print("updating reg_names")
-        #print(com.env$reg_names)
-        optimize_mod_list(mod_list, new_adj_r2)
-#          com.env$best_adj_r2 <- new_adj_r2
-#          com.env$override_col <- com.env$mod_col
-#          com.env$reg_names <- names(com.env$model.stepwise$coefficients)[-1]
-#          new_vd <- optimize_mod(orig_vd,new_vd,orig_adj_r2,new_adj_r2)
+        #print("OPT VAR")
+        com.env$opt <- TRUE
+        optimize_mod_list(mod_list)
       } else {
-        print(paste("model_worse",orig_adj_r2,new_adj_r2,"loop#",loops,"/",com.env$mod_var_loops,Sys.time()))
+        #print(paste("model_worse",orig_adj_r2,new_adj_r2,"loop#",loops,"/",com.env$mod_var_loops,Sys.time()))
       }
-#      } #end if new_vd is valid
     } #end mod while loop
     #print("Removing var environment, mod var loop")
     rm(var.env,envir=globalenv())
     var.env <<- new.env(parent = globalenv())
     #print(names(com.env$v.com))  
-    #ls(var.env)
     if (com.env$best_adj_r2 < check_adj_r2) {
-      print(paste("Adj_r2 got worse when modding vars",check_adj_r2,com.env$best_adj_r2))
+      print(paste("Adj_r2 got worse when modding vars, before:",check_adj_r2,"after mod:",com.env$best_adj_r2))
       print("Reverting to previous com.env$v.com*************************************************")
       com.env$v.com <- com.env$best_vcom
+      com.env$best_adj_r2 <- check_adj_r2
       next
+    } else if (length(com.env$v.com) != length(unique(names(com.env$v.com)))) { #check for duplicate var name
+      print(paste("Found better adj_r2",com.env$best_adj_r2,"but requires duplicate var name, reverting v.com"))
+      print(names(com.env$v.com))
+      com.env$v.com <- com.env$best_vcom
+      com.env$best_adj_r2 <- check_adj_r2
+      print(paste("Reverting to adj_r2",check_adj_r2))
+      print(names(com.env$v.com))
     } else {
       com.env$best_vcom <- com.env$v.com
       #check_ids(com.env$ID_tried)
     }
   }                                               #end model loop
-  
-  #print(paste("model loop:",l+1,"/",com.env$model_loops,Sys.time()))
-  #for (i in 1:com.env$add_vars) rnd_var()       #add new vars to v.com
-  #print("eval_adj_r2, oos_data=TRUE")
-  #orig_adj_r2 <- eval_adj_r2(oos_data=TRUE)
-  #print("clean_vcom")
-  #clean_vcom()
-  
-  
+
 } #end function opt_model
 
 load_model <- function(filename) { #loads model and sets com.env$predict.ret
