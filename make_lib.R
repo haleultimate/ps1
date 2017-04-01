@@ -317,6 +317,174 @@ mod_model_decay <- function(V1) {
   return(V1)
 }
 
+#returns calc var_name from math function (with quotes removed)
+#  math_type supported {from.var.env,calc_ia,calc_bin}
+get_calc_var_from_math <- function(math) {
+  #print(paste("get_calc_var_from_math",math))
+  math_parms <- strsplit(math,",")[[1]]
+  #print(math_parms)
+  math_type <- math_parms[1]
+  #print(math_type)
+  switch(math_type,
+         "from.var.env" = {
+           namePart <- gsub("'","",math_parms[2])
+         },
+         "calc_ia" = {
+           namePart <- gsub("'","",math_parms[3])
+         },
+         "calc_bin" = {
+           namePart <- gsub("'","",strsplit(math_parms[2],"=")[[1]][2])
+         },
+         "calc_constant" = {
+           namePart <- "constant"
+         },
+         {
+           print(paste("math_type",math_type,"not supported yet in get_calc_var_from_math"))
+         }
+        )
+  return(namePart)
+}
+
+#takes in var_name and math {from.var.env,calc_ia,calc_bin,calc_constant} and replaces var_name as calc_var parm
+#  calc_constant converted to from.var.env
+#  Does not change bin points if new calc_var has different scale_type [needs to be done separately]
+sub_calc_name_in_math <- function(math,var_name) {
+  #print(paste("sub_calc_name_in_math",math,var_name))
+  math_type <- strsplit(math,",")[[1]][1]
+  var_name <- paste0("'",var_name,"'")  
+  switch(math_type,
+         "calc_constant" = {
+           math <- paste("from.var.env",var_name,sep=",")
+         },
+         "from.var.env" = {
+           math <- paste("from.var.env",var_name,sep=",")
+         },
+         "calc_ia" = {
+           math_parms <- strsplit(math,",")[[1]]
+           if (length(math_parms) == 4) {
+             math <- paste(math_parms[1],math_parms[2],var_name,math_parms[4],sep=",")
+           } else if (length(math_parms) == 3) {
+             math <- paste(math_parms[1],math_parms[2],var_name,sep=",")
+           }
+         },
+         "calc_bin" = {
+           math_parms <- strsplit(math,",")[[1]]
+           math <- paste(math_parms[1],paste("bin_field",var_name,sep="="),math_parms[3],math_parms[4],sep=",")
+         },
+         {
+           print("ERROR sub_calc_name_in_math, math_type not supported")
+           print(math)
+           print(var_name)
+           print(math_type)
+           source("close_session.R")
+         })
+}
+
+#MODE1: (V1,i) Takes model_vd and index (1=from.var.env/calc_constant,2=calc_ia/calc_bin,3=calc_bin) and changes calc var
+#       If "existing_calc_var" changed model_vd is returned, otherwise new calc_vd is returned
+#MODE2: (V1) Takes in calc_vd, modifies it, returns it
+#If unable to perform operation, return V1
+mod_calc_var <- function(V1=NULL,i=NULL) {
+  #print(paste("mod_calc_var"))
+#  if (is.null(V1)) {
+#    vdlist <- vcom2vdlist_use("calc")
+#    V1 <- sample(vdlist,size=1)
+#  }
+#  if (V1$use != "calc") {
+#    print(paste("ERROR: wrong use type in mod_var_model",V1$var_name,V1$use))
+#    soure("close_session.R")
+#  }
+#  calc <- (grepl("calc_calc",V1$math))
+#  vlty <- (grepl("calc_vlty",V1$math))
+#  decay_only <- (length(V1$math) == 1)
+  
+  if (!is.null(V1) & !is.null(i)) { 
+  #modify calc_var name in model vd, return model vd if existing_calc_var, otherwise return new/mod calc vd
+    print(paste(i,V1$math[i]))  
+    if (V1$use != "model") {
+      print("ERROR in mod_var_calc, i passed in with non-model var")
+      print(V1)
+      print(i)
+      source("close_session.R")
+    }
+    calc_var_mod <- rnd_choice("calc_var_mod")
+    switch(calc_var_mod,
+           "existing_calc_var" = {
+             calc_list <- vcom2vdlist_use("calc")
+             #print("choosing random calc var in mod_calc_var from:")
+             #print(names(calc_list))
+             if (length(calc_list) < 2) {
+               print("Not enough calc_vars to choose existing_calc_var")
+               return(V1)
+             }
+             calc_list_names <- names(calc_list)
+             old_var_name <- get_calc_var_from_math(V1$math[i])
+             calc_list_names <- calc_list_names[!(calc_list_names %in% old_var_name)]
+             #print(calc_list_names)
+             new_var_name <- sample(calc_list_names,size=1)  
+             #print(new_var_name)
+             V1$math[i] <- sub_calc_name_in_math(V1$math[i],new_var_name)
+             #print(V1$math[i])
+             #over restricts calc_cmn, changing calc var may allow cmn to be calculated (but model cmns can't be used yet anyway)
+             V1$calc_cmn <- (V1$calc_cmn & com.env$v.com[[new_var_name]]$calc_cmn) 
+             return(V1)
+           },
+           "modify_calc_var" = ,
+           #         {
+           #         },
+           "new_calc_var" =,
+           #         {
+           #         },
+           {
+             print(paste(mod_fve,"not supported yet"))
+             source("close_session.R")
+           }
+    )
+  } else {
+    print("MODE2 and MODE3 in mod_calc_var not coded yet")
+    source("close_session.R")
+  }  
+}
+
+#takes in calc_bin math and converts it to new scale_type {(z:r->z),(r:z->r)}
+convert_bin_points <- function(math,scale_type) {
+  #print(paste("convert_bin_points",math,scale_type))
+  if (strsplit(math,",")[[1]][1] != "calc_bin") {
+    print("ERROR in convert_bin_points, math not calc_bin")
+    print(paste(math,scale_type))
+    source("close_session.R")
+  }
+  bp_pair <- get_bp_from_math(math)
+  #print(bp_pair)
+  b1 <- as.numeric(bp_pair[1])
+  b2 <- as.numeric(bp_pair[2])
+  if (scale_type == "z") { #convert from rank to z
+    if ((b1 < 0) | (b1 > 1) | (b2 < 0) | (b2 > 1)) {
+      print("ERROR in convert_bin_points, original bin points do not appear to be of scale_type rank")
+      print(math)
+      print(bp_pair)
+      print(paste("scale_type=",scale_type))
+      source("close_session.R")
+    }
+    new_bin_point_list <- rnd.env$bin_point.zlist
+    old_bin_point_list <- rnd.env$bin_point.rlist  
+  } else if (scale_type == "r") {
+    new_bin_point_list <- rnd.env$bin_point.rlist
+    old_bin_point_list <- rnd.env$bin_point.zlist  
+  } else {
+    print("ERROR scale type not recognized in convert_bin_points")
+    print(math)
+    print(paste("scale_type=",scale_type))
+    source("close_session.R")
+  }
+  b1_idx <- which(as.numeric(old_bin_point_list)==as.numeric(b1))
+  b2_idx <- which(as.numeric(old_bin_point_list)==as.numeric(b2))
+  bp1 <- new_bin_point_list[b1_idx]
+  bp2 <- new_bin_point_list[b2_idx]
+  new_math <- get_math_from_bp(bp1,bp2,math)
+  return(new_math)
+}
+
 #modify bin points of model variable [FUTURE: if no binning add binning]
 mod_model_bin <- function(V1) {
   #print("mod_model_bin")
@@ -350,23 +518,49 @@ mod_model_bin <- function(V1) {
       return(V1)
     }
   }
-  scale_type <- substr(V1$scale_type,1,1)
-  b1 <- rnd_choice(paste0("bin_points.",scale_type))
-  b2 <- b1                  
-  while(b1==b2) b2 <- rnd_choice(paste0("bin_points.",scale_type)) #make sure bin_point parms have at least 2 choices (otherwise infinite loop)
-  #print(paste("b1:",b1,"b2:",b2,"min:",min(b1,b2),"max:",max(b1,b2)))
-  bp1 <- min(as.numeric(b1),as.numeric(b2))
-  bp2 <- max(as.numeric(b1),as.numeric(b2))
-  #print(paste("bp1:",bp1,"bp2:",bp2))
   
-  if (bp2<bp1) {
-    print(paste("ERROR in mod_model_bin:bp2<bp1, bp1:",bp1,"bp2:",bp2))
-    source("close_session.R")
+  mod_bin <- ifelse (length(math_list) < 3,"bin_points",rnd_choice("mod_bin")) #rnd_choice: {bin_points or calc_var}
+  
+  if (mod_bin == "bin_points") {
+    scale_type <- substr(V1$scale_type,1,1)
+    b1 <- rnd_choice(paste0("bin_points.",scale_type))
+    b2 <- b1                  
+    while(b1==b2) b2 <- rnd_choice(paste0("bin_points.",scale_type)) #make sure bin_point parms have at least 2 choices (otherwise infinite loop)
+    #print(paste("b1:",b1,"b2:",b2,"min:",min(b1,b2),"max:",max(b1,b2)))
+    bp1 <- min(as.numeric(b1),as.numeric(b2))
+    bp2 <- max(as.numeric(b1),as.numeric(b2))
+    #print(paste("bp1:",bp1,"bp2:",bp2))
+    
+    if (bp2<bp1) {
+      print(paste("ERROR in mod_model_bin:bp2<bp1, bp1:",bp1,"bp2:",bp2))
+      source("close_session.R")
+    }
+    V1$math[[i]] <- paste(math_list[1],math_list[2],paste0("b1=",bp1),paste0("b2=",bp2),sep=",")
+    #print(V1$math)
+    return(V1)
   }
-  V1$math[[i]] <- paste(math_list[1],math_list[2],paste0("b1=",bp1),paste0("b2=",bp2),sep=",")
-  #print(V1$math)
-  return(V1)
+  
+  if (mod_bin == "calc_var") {
+    V2 <- mod_calc_var(V1=V1,i=i)
+    if (V2$use == "model") { #calc_var to existing calc_var, if scale type changed adjust bin_ponts
+      print("changed calc var to existing calc var")
+      orig_calc_var <- get_calc_var_from_math(V1$math[i])
+      new_calc_var <- get_calc_var_from_math(V2$math[i])
+      if (substr(com.env$v.com[[orig_calc_var]]$scale_type,1,1) != substr(com.env$v.com[[new_calc_var]]$scale_type,1,1)) {
+        V2$math[i] <- convert_bin_points(V2$math[i],substr(com.env$v.com[[new_calc_var]]$scale_type,1,1))
+        V2$scale_type <- com.env$v.com[[new_calc_var]]$scale_type
+      }
+    }
+    #print(V2$math[i])
+    return(V2)
+  }
+  
+  print("ERROR: should have returned before now in mod_model_bin, mod_bin not supported")
+  print(mod_bin)
+  source("close_session.R")
 }
+
+
 
 #modify calc_ia term in model variable
 #change signs, change ia type, delete ia
@@ -378,6 +572,12 @@ mod_model_ia <- function(V1) {
   i <- which(grepl('calc_ia',V1$math))
   if (length(i) == 0) {
     print("ERROR: mod_model_ia does not support adding ia")
+    print(V1)
+    source("close_session.R")
+  }
+  if (i != 2) {
+    print("ERROR: mod_model_ia must be second math function in model var")
+    print(V1)
     source("close_session.R")
   }
   mod_ia <- rnd_choice("mod_ia")
@@ -425,17 +625,14 @@ mod_model_ia <- function(V1) {
     return(V1)
   }
   
-  print("ERROR: should have returned before now in mod_model_ia")
-  source("close_session.R")
-}
-
-#modify calc_var given in from.var.env math
-#rename calc_var [need to manage name change in require fields in v.com, design still needed]
-#FUTURE: allow for changes that change require field in calc_var
-#FUTURE: allow for selection of new calc_var already existing in v.com
-#FUTURE: allow for creation of new calc_var
-mod_model_fve <- function() {
+  if (mod_ia == "calc_var") {  #FUTURE allow for different probs when called from mod_ia
+    V1 <- mod_calc_var(V1=V1,i=i)
+    return(V1)
+  }
   
+  print("ERROR: should have returned before now in mod_model_ia, mod_ia not supported")
+  print(mod_ia)
+  source("close_session.R")
 }
 
 #return a vdlist with last vd="model" var
@@ -530,27 +727,10 @@ make_new_model_var <- function() {
   #print(names(com.env$v.com))
 }
 
-#takes in a calc vd and returns a mod_list [orig_vd, mod_vd]
-#if V1 not provided a random one is selected from vcom list
-mod_var_calc <- function(V1=NULL) {
-  print(paste("mod_var_calc",V1$var_name,V1$use))
-  if (is.null(V1)) {
-    vdlist <- vcom2vdlist_use("calc")
-    V1 <- sample(vdlist,size=1)
-  }
-  if (V1$use != "calc") {
-    print(paste("ERROR: wrong use type in mod_var_model",V1$var_name,V1$use))
-    soure("close_session.R")
-  }
-  calc <- (grepl("calc_calc",V1$math))
-  vlty <- (grepl("calc_vlty",V1$math))
-  decay_only <- (length(V1$math) == 1)
-  
-  
-}
 
-#takes in a model vd and returns a mod_list [orig_vd, mod_vd]
-#if V1 is not provided a random one is selected from vcom list
+#takes in a model vd and returns a mod_pair [(orig_vd,mod_vd)] 
+#  vd pair may be calc vd (model vars requiring calc vd handled in get_adj_r2 and clean_vcom)  
+#if V1 is not provided a random one is selected from vcom list [may return calc vd pair used by model vd selected]
 mod_var_model <- function(V1=NULL) {
   #print(paste("mod_var_model",V1$var_name,V1$use))
   new_mod <- FALSE
@@ -578,33 +758,31 @@ mod_var_model <- function(V1=NULL) {
     } else {
       choice <- rnd_choice("fve")
     }
+    if ((choice == "constant") & (V1$math[1] == "calc_constant,1")) choice <- "fve"
     switch(choice,
            "decay" = {
              V2 <- mod_model_decay(V1)
            },
            "bin" = {
              V2 <- mod_model_bin(V1)
-             # i <- which(grepl('calc_bin',V2$math))
-             # if (length(i) != 0) {  #in case mod is "delete bin"
-             #   bp_pair <- get_bp_from_math(V2$math[i])
-             #   if (bp_pair[1]>=bp_pair[2]) {
-             #     print("ERROR in mod_var_model, bp1 >= bp2",bp_pair[1],bp_pair[2])
-             #     source("close_session.R")
-             #   }
-             # }
            },
            "ia" = {
-             print("mod_model_ia")
-             print(V1$math)
+             #print("mod_model_ia")
+             #print(V1$math)
              V2 <- mod_model_ia(V1)
-             print(V2$math)
+             #print(V2$math)
            },
-           "fve" =,
-#           {
-#             print(V1$math)
-#             V2 <-mod_model_fve(V1)
-#             print(V2$math)
-#           },
+           "fve" = {  #from.var.env or calc_constant,1
+             #print(V1$math)
+             V2 <- mod_calc_var(V1=V1,i=1)
+             #print(V2$math)
+           },
+           "constant" = {
+             #print(V1$math)
+             V2 <- V1
+             V2$math[1] <- "calc_constant,1"
+             #print(V2$math)
+           },
            {
              print(paste("Error: choice not supported in mod_var_model",choice))
              source("close_session.R")
@@ -623,7 +801,7 @@ mod_var_model <- function(V1=NULL) {
     source("close_session.R")
   }
   if (V2$ID %in% com.env$ID_tried) {
-    #print(paste("Variable mod already tried",V2$var_name,V2$ID))
+    print(paste("Variable mod already tried",V2$var_name,V2$ID))
     return(NULL)
   } else {
     #print(paste("try mod vd:",V2$ID))
@@ -632,14 +810,9 @@ mod_var_model <- function(V1=NULL) {
   #print("End of mod_var_model")
   #print(V1$math)
   #print(V2$math)
-  #modlist <- NULL
-  # cmd_string <- paste0("modlist$",V1$var_name," <- V1")
-  # eval(parse(text=cmd_string))
-  # cmd_string <- paste0("modlist$",V2$var_name," <- V2")
-  # eval(parse(text=cmd_string))
-  modlist <- list(list(V1,V2))
+  mod_pair <- list(V1,V2)
   
-  return(modlist)
+  return(mod_pair)
 }
 
 #randomly selects a vd from vcom list and modifies it
@@ -747,7 +920,6 @@ opt_decay <- function(math_pair,try_num) {
       }
     }
   } 
-  
   print(paste("opt_decay:",opt_math))
   return(opt_math)
 }
@@ -832,6 +1004,7 @@ opt_bin <- function(math_pair,scale_type,try) {
   eval(parse(text=cmd_string))
   orig_bp <- get_bp_from_math(orig_math)
   mod_bp <- get_bp_from_math(mod_math)
+  if ((orig_bp[1] == mod_bp[1]) & (orig_bp[2] == mod_bp[2])) return("opt") #must be bin_field change
   switch(try,
          "1" = {
            if ((orig_bp[1] == mod_bp[1]) | (orig_bp[2] == mod_bp[2])) {
@@ -977,10 +1150,10 @@ get_vd_diff <- function(vd_pair) {
     }
     if (mod_idx > length(mod_math_list)) {              #mod math ran out 
       math_pair <- c(orig_math_list[orig_idx],"none")
-      orig_idx <- orig_idx + 1
+      return(math_pair)
     } else if (orig_idx > length(orig_math_list)) {     #orig math ran out
       math_pair <- c("none",mod_math_list[mod_idx])
-      mod_idx <- mod_idx + 1
+      return(math_pair)
     } else {
       math_pair <- c(orig_math_list[orig_idx],mod_math_list[mod_idx])
       cmc <- compare_math_calc(math_pair)
@@ -989,14 +1162,20 @@ get_vd_diff <- function(vd_pair) {
         mod_idx <- mod_idx + 1
         orig_idx <- orig_idx + 1
       } else if (cmc[1] == "different") {
-        if (((cmc[2]=="calc_ia") & ((cmc[3]=="calc_bin") | (cmc[3]=="calc_decay"))) |
+        if ((cmc[2] == "from.var.env") | (cmc[3] == "from.var.env")) {
+          if ((cmc[2]!="calc_constant")&(cmc[3]!="calc_constant")) { #other cmc must be calc_constant
+            print("Error in vd_diff, from.var.env not paired with calc_constant (and different)")
+            source("close_session.R")
+          }
+          return(math_pair) 
+        } else if (((cmc[2]=="calc_ia") & ((cmc[3]=="calc_bin") | (cmc[3]=="calc_decay"))) |
             ((cmc[2]=="calc_bin") & (cmc[3]=="calc_decay"))) {                #no match in mod_math
           math_pair <- c(orig_math_list[orig_idx],"none")
-          orig_idx <- orig_idx + 1
+          return(math_pair)
         } else if ((((cmc[2]=="calc_bin") | (cmc[2]=="calc_decay")) & (cmc[3]=="calc_ia")) | 
                    ((cmc[2]=="calc_decay") & (cmc[3]=="calc_bin"))) {         #no match in orig_math
           math_pair <- c("none",mod_math_list[mod_idx])
-          mod_idx <- mod_idx + 1
+          return(math_pair)
         }
       } else {
         mod_idx <- mod_idx + 1
@@ -1046,12 +1225,14 @@ get_opt_vd <- function(vd_pair,try_num) {
          },
          "calc_bin" =
          {
+           if (mod_vd$scale_type != orig_vd$scale_type) return(list(mod_vd,"opt"))
            opt_math <- opt_bin(math_pair,mod_vd$scale_type,try_num)
          },
          "calc_ia" = ,
          "calc_scale" = ,
          "calc_calc" = ,
          "from.var.env" =,
+         "calc_constant" =,
          "calc_etf" =,
          "calc_stk" =,
          "calc_vlty" =,
@@ -1085,17 +1266,16 @@ get_opt_vd <- function(vd_pair,try_num) {
   return(list(mod_vd,opt_vd))
 }
 
-#function takes mod_list[1[orig_vd,mod_vd],2[orig_vd,mod_vd]...] and tests new vd's trying to find improvement
+#function takes mod_pair[orig_vd,mod_vd] and tests new vd's trying to find improvement
 #opt_math creates new vd based on try_num
 #eval_adj_r2 evaluates new_vd and if better places it into current com.env$v.com
 #continue until "opt" is returned from opt_math
-optimize_mod_list <- function(mod_list) {
+optimize_mod_pair <- function(mod_pair) {
   #print("optimize_code********************************************")
   try_num <- 1
   opt_not_found <- TRUE
   loop <- 0
-  while (opt_not_found) {
-    new_mod_list <- mod_list
+  while (opt_not_found) {  #could recursively call optimize_mod_pair instead
     loop <- loop + 1
     if (loop > 100) {
       print("infinite loop in optimize_mod_list")
@@ -1103,41 +1283,27 @@ optimize_mod_list <- function(mod_list) {
       print(try_num)
       source("close_session.R")
     }
-    mod_idx <- 0
-    for (vd_pair in mod_list) {
-      mod_idx <- mod_idx + 1
-      new_vd_pair <- get_opt_vd(vd_pair,try_num)
-      if (length(new_vd_pair[[2]]) == 1) {
-        if (new_vd_pair[[2]] == "try again") {
-          try_num <- try_num + 1
-          break
-        } else if (new_vd_pair[[2]] == "opt") {
-          opt_not_found <- FALSE
-          break
-        } else if (new_vd_pair[[2]] == "same") {
-          #cycle to find vd_pair with diff
-          if (mod_idx == length(mod_list)) opt_not_found <- FALSE #get_opt_vd returned identical mod_pair
-          next
-        }
+    new_vd_pair <- get_opt_vd(mod_pair,try_num)
+    if (length(new_vd_pair[[2]]) == 1) {
+      if (new_vd_pair[[2]] == "try again") {
+        try_num <- try_num + 1
+      } else if ((new_vd_pair[[2]] == "opt") | (new_vd_pair[[2]] == "same")) {
+        opt_not_found <- FALSE
+      }
+    } else {
+      new_adj_r2 <- eval_adj_r2(new_vd_pair)
+      if (new_adj_r2 > com.env$best_adj_r2) {
+        print(paste(try_num,"opt_math:",new_vd_pair[[2]]$math))
+        print(paste("opt model improved from: best_adj_r2:",com.env$best_adj_r2,"to:",new_adj_r2,"try:",try_num))
+        com.env$best_adj_r2 <- new_adj_r2
+        com.env$reg_names <- names(com.env$model.stepwise$coefficients)[-1]  #update reg_names with new mod var
+        mod_pair <- new_vd_pair
+        try_num <- 1             #for new mod pair
+        loop <- 0
       } else {
-        #print(new_vd_pair[[1]]$math)
-        #print(paste(try_num,"opt_math:",new_vd_pair[[2]]$math))
-        new_mod_list[[mod_idx]] <- new_vd_pair
-        new_adj_r2 <- eval_adj_r2(new_mod_list)
-        if (new_adj_r2 > com.env$best_adj_r2) {
-          print(paste(try_num,"opt_math:",new_vd_pair[[2]]$math))
-          print(paste("opt model improved from: best_adj_r2:",com.env$best_adj_r2,"to:",new_adj_r2,"try:",try_num))
-          mod_list <- new_mod_list
-          try_num <- 1 #for new mod list
-          com.env$best_adj_r2 <- new_adj_r2
-          com.env$reg_names <- names(com.env$model.stepwise$coefficients)[-1]  #update reg_names with new mod var
-          #print("updating reg_names")
-          #print(com.env$reg_names)
-        } else {
-          #print(new_vd_pair[[2]]$math)
-          print(paste("opt model did not improve: best_adj_r2:",com.env$best_adj_r2,"to:",new_adj_r2,"try:",try_num))
-          try_num <- try_num + 1
-        }
+        #print(new_vd_pair[[2]]$math)
+        print(paste("opt model did not improve: best_adj_r2:",com.env$best_adj_r2,"to:",new_adj_r2,"try:",try_num))
+        try_num <- try_num + 1
       }
     }
   }

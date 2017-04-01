@@ -13,7 +13,7 @@ rnd.env$known_mod_fun <- c(1:5)
 names(rnd.env$known_mod_fun) <- c('calc_cap','calc_z','calc_decay','calc_lag','calc_bin')
 
 #set up constants  #no leading zeros on numeric parameters (lengthens IDs)
-rnd.env$mod.model <- c("fve","ia","bin","decay")
+rnd.env$mod.model <- c("fve","ia","bin","decay","constant")
 
 rnd.env$raws <- c("ret","BC","V","C2C","TI")
 rnd.env$C2Clag_list <- c(3,5,8,13,21,34,55,89,144)
@@ -24,6 +24,10 @@ rnd.env$ia_list <- c("mul","div","add","sub","rsh","fth","none")
 
 rnd.env$bin_point.zlist <- c(-4,-3.5,-3,-2.5,-2,-1.5,-1,-.5,0,.5,1,1.5,2,2.5,3,3.5,4)
 rnd.env$bin_point.rlist <- c(.01,.02,.03,.05,.08,.13,.21,.34,.5,.66,.79,.87,.92,.95,.97,.98,.99)
+if (length(rnd.env$bin_point.zlist) != length(rnd.env$bin_point.rlist)) {
+  print("MUST keep zlist and rlist same length for conversion purposes")
+  source("close_session.R")
+}
 
 rnd.env$decay_list <- c(.89,.55,.34,.21,.13,.08,.05,.03,.02,.01)
 
@@ -103,6 +107,10 @@ names(rnd.env$p$pow) <- rnd.env$pow_list
 rnd.env$p$scale <- c(0.1,0.1,0.1,0) # must scale
 names(rnd.env$p$scale) <- rnd.env$scale_list
 
+#calc var mod, used in mod_fve, mod_ia, mod_bin
+rnd.env$p$calc_var_mod <- c(0.1,0,0)
+names(rnd.env$p$calc_var_mod) <- c("existing_calc_var","modify_calc_var","new_calc_var")
+
 #model interaction calcs
 rnd.env$p$ia_type <- c(0.1,0.1,0.1,0.1,1,0.1,3.5)       #c("mul","div","add","sub","rsh","fth","none")
 names(rnd.env$p$ia_type) <- rnd.env$ia_list
@@ -123,20 +131,23 @@ names(rnd.env$p$bin_points.r) <- rnd.env$bin_point.rlist
 rnd.env$p$delete_bin <- c(0.1,0.9)                      #when modding bin variable, chance to delete bins
 names(rnd.env$p$delete_bin) <- c("delete","keep")
 
+rnd.env$p$mod_bin <- c(0.5,0.5)  #selected after delete choice (if delete is an option)
+names(rnd.env$p$mod_bin) <- c("bin_points","calc_var")
+
 rnd.env$p$model_start <- c(0.1,0.9)                        #when creating model variable, chance to use intercept and bin
 names(rnd.env$p$model_start) <- c("constant","calc_var")
 
 #mod model var
-rnd.env$p$ia_bin <- c(0,.5,.5,.5)
-names(rnd.env$p$ia_bin) <- rnd.env$mod.model   #("fve","ia","bin","decay")
+rnd.env$p$ia_bin <- c(0.5,.5,.5,.5,.1)
+names(rnd.env$p$ia_bin) <- rnd.env$mod.model   #("fve","ia","bin","decay","constant")
 
-rnd.env$p$ia <- c(0,.5,0,.5)
+rnd.env$p$ia <- c(0.5,.5,0,.5,0)
 names(rnd.env$p$ia) <- rnd.env$mod.model
 
-rnd.env$p$bin <- c(0,0,.5,.5)
+rnd.env$p$bin <- c(0.5,0,.5,.5,.1)
 names(rnd.env$p$bin) <- rnd.env$mod.model
 
-rnd.env$p$fve <- c(0,0,0,1)
+rnd.env$p$fve <- c(0.5,0,0,1,0)
 names(rnd.env$p$fve) <- rnd.env$mod.model
 
 #set up var mod probabilities

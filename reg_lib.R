@@ -150,12 +150,12 @@ get_reg_names <- function(reg_model_vars,return_num=FALSE) { #take a list of var
 
 #clean_vcom.R
 clean_vcom <- function(verbose=FALSE) {
-  if (verbose) print(paste("clean_vcom",Sys.time()))
-  reg_names <- names(com.env$model.stepwise$coefficients)[-1]  #get names from regression (not var_names)
-  if (verbose) print("names from regression")
-  if (verbose) print(reg_names)
-  reg_names <- append(colnames(var.env$reg_data.df)[1],reg_names)
+  print(paste("clean_vcom",Sys.time()))
+  #reg_names <- names(com.env$model.stepwise$coefficients)[-1]  #get names from regression (not var_names)
+  #print("names from regression")
+  reg_names <- append(com.env$predict.ret,com.env$reg_names)
   keep_vcom_name <- NULL
+  print(paste("reg_names from coefs + predictor:",length(reg_names)))
   for (nam in reg_names) { #convert binned variables and ID's to their var_name
     length_nam <- nchar(nam)
     if ((substr(nam,length_nam,length_nam) == 'h') | (substr(nam,length_nam,length_nam) == 'l')) {
@@ -163,10 +163,11 @@ clean_vcom <- function(verbose=FALSE) {
     }
     if (substr(nam,1,1)=="v") { #find var_name of ID
       name_found <- FALSE
-      nam <- substr(nam,2,nchar(nam)) #strip of "v"
+      nam <- substr(nam,2,nchar(nam)) #strip off "v"
       for (vd in com.env$v.com) {
         if (vd$ID == nam) {
           nam <- vd$var_name
+          #print(nam)
           name_found <- TRUE
           break
         }
@@ -184,6 +185,7 @@ clean_vcom <- function(verbose=FALSE) {
   #print(keep_vcom_name)
   keep_vcom_name <- unique(keep_vcom_name)
   print(paste("#reg vars:",length(keep_vcom_name)))
+  #print(keep_vcom_name)
   
   vdlist <- NULL
   for (i in 1:length(keep_vcom_name)) {
@@ -212,24 +214,27 @@ clean_vcom <- function(verbose=FALSE) {
 #oos_data determines if OOS date range is computed, verbose controls printing (for debugging)  [both passed directly to collect_data and regression routines]
 #Other parms modified: com.env$v.com, com.env$reg_names, com.env$best_adj_r2
 #Other parms accessed: com.env$opt, colnames(var.env$BAC) [hardcoded]
-eval_adj_r2 <- function(mod_list=NULL,oos_data=FALSE,verbose=FALSE) {
-  if (!is.null(mod_list)) {
+eval_adj_r2 <- function(mod_pair=NULL,oos_data=FALSE,verbose=FALSE) {
+  if (!is.null(mod_pair)) {
     #print(paste("make_vars with modvar_list",Sys.time()))
-    #print(names(modvar_list))
-    for (vd_pair in mod_list) {
-      V1 <- vd_pair[[1]]
-      V2 <- make_vars(vd_pair[[2]])                   #make modified variable & update columns in vd (for all stock in var.env)
-      old.v.com <- com.env$v.com
-      #if (V2$var_name %in% names(com.env$v.com)) {
-      #  print("Error in eval_adj_r2, trying to replace var with same name")
-      #  print(paste("V1=",V1$var_name,"V2=",V2$var_name))
-      #  print(names(com.env$v.com))
-      #  print(V1)
-      #  print(V2)
-      #  source("close_session.R")
-      #}
-      com.env$v.com[[V2$vcom_num]] <- V2
-      names(com.env$v.com)[V2$vcom_num] <- V2$var_name
+    V1 <- mod_pair[[1]]
+    V2 <- make_vars(mod_pair[[2]])                   #make modified variable & update columns in vd (for all stock in var.env)
+    old.v.com <- com.env$v.com
+    com.env$v.com[[V2$vcom_num]] <- V2
+    names(com.env$v.com)[V2$vcom_num] <- V2$var_name
+    if (V2$use == "model") {        #only one var to calculate
+      mod_list <- list(mod_pair)
+    } else if (V2$use == "calc") {  #must get all model vars requiring calc var (fix com.env$v.com in clean_vcom)
+      #not coded yet, create mod_list starting with calc var, then all model vars requiring calc_var 
+      print("Support for calc vars not coded yet in eval_adj_r2")
+      print(mod_pair[[1]])
+      print(mod_pair[[2]])
+      source("close_session.R")
+    } else {
+      print("Can't modify raw or data vars in eval_adj_r2")
+      print(mod_pair[[1]])
+      print(mod_pair[[2]])
+      source("close_session.R")
     }
   } else {
     make_vars()  #eval_adj_r2 normally
@@ -237,7 +242,7 @@ eval_adj_r2 <- function(mod_list=NULL,oos_data=FALSE,verbose=FALSE) {
   #print(paste("collect_data",Sys.time()))
   collect_data(oos_data)
   #print(paste("run_regression",Sys.time()))
-  if (is.null(mod_list)) {
+  if (is.null(mod_pair)) {
     run_regression(oos_data=oos_data,verbose=verbose)
   } else {                           #run_mod_regression        
     reg_names <- com.env$reg_names
@@ -310,7 +315,7 @@ eval_adj_r2 <- function(mod_list=NULL,oos_data=FALSE,verbose=FALSE) {
   }
   new_adj_r2 <- 0
   if (length(com.env$model.stepwise) > 3) new_adj_r2 <- summary(com.env$model.stepwise)$adj.r.squared
-  if (!is.null(mod_list) & (new_adj_r2 <= com.env$best_adj_r2)) { #revert to original com.env$v.com  #do we need to clean up var.env?
+  if (!is.null(mod_pair) & (new_adj_r2 <= com.env$best_adj_r2)) { #revert to original com.env$v.com  #do we need to clean up var.env?
     #print(paste("Not better in eval_adj_r2 mod loop, old_adj_r2=",old_adj_r2,"new_adj_r2=",new_adj_r2))
     com.env$v.com <- old.v.com
   } else {
@@ -380,6 +385,8 @@ opt_model <- function(model_loops,add_vars,mod_var_loops) {
     }
     
     com.env$best_adj_r2 <- orig_adj_r2
+    com.env$reg_names <- names(com.env$model.stepwise$coefficients)[-1]
+    com.env$reg_vcom_names <- get_reg_names(com.env$reg_names)
     if (test_clean_vcom) com.env$best_vcom <- com.env$v.com
     clean_vcom()
 
@@ -413,31 +420,28 @@ opt_model <- function(model_loops,add_vars,mod_var_loops) {
     #mod vars
     loops <- 0
     check_adj_r2 <- com.env$best_adj_r2
-    com.env$reg_names <- names(com.env$model.stepwise$coefficients)[-1]
-    com.env$reg_vcom_names <- get_reg_names(com.env$reg_names)
     model_worse <- TRUE
     #com.env$ID_tried <- sort(com.env$ID_tried)
     #print(com.env$ID_tried)
     while ((model_worse) & (loops < mod_var_loops) & (l<com.env$model_loops)) {    #don't mod variables on last loop 
       loops <- loops + 1
-      mod_list <- mod_var("model")
-      if (is.null(mod_list)) next()  #mod_var already tried, loop again
+      mod_pair <- mod_var("model")
+      if (is.null(mod_pair)) next()  #mod_var already tried, loop again
       #print("mod_var model")
-      new_adj_r2 <- eval_adj_r2(mod_list=mod_list)
+      new_adj_r2 <- eval_adj_r2(mod_pair=mod_pair)
       if (new_adj_r2 > com.env$best_adj_r2) {
         model_worse <- FALSE
         print(paste("model improved",new_adj_r2,orig_adj_r2,"loop#",loops,"/",com.env$mod_var_loops,Sys.time()))
-        for (vd_pair in mod_list) {
-          print(vd_pair[[1]]$math)
-          print(vd_pair[[2]]$math)
-        }
+        print(mod_pair[[1]]$math)
+        print(mod_pair[[2]]$math)
         com.env$best_adj_r2 <- new_adj_r2
         com.env$reg_names <- names(com.env$model.stepwise$coefficients)[-1]
         #print("OPT VAR")
         com.env$opt <- TRUE
-        optimize_mod_list(mod_list)
+        optimize_mod_pair(mod_pair)  
+        #if calc_name returned need to clean com.env$v.com [longID_name <- calc_name]
       } else {
-        #print(paste("model_worse",orig_adj_r2,new_adj_r2,"loop#",loops,"/",com.env$mod_var_loops,Sys.time()))
+        print(paste("model_worse",orig_adj_r2,new_adj_r2,"loop#",loops,"/",com.env$mod_var_loops,Sys.time()))
       }
     } #end mod while loop
     #print("Removing var environment, mod var loop")
@@ -458,6 +462,7 @@ opt_model <- function(model_loops,add_vars,mod_var_loops) {
       print(paste("Reverting to adj_r2",check_adj_r2))
       print(names(com.env$v.com))
     } else {
+      clean_vcom()
       com.env$best_vcom <- com.env$v.com
       #check_ids(com.env$ID_tried)
     }
