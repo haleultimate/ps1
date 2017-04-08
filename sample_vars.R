@@ -1,11 +1,28 @@
 source("rnd_parms.R")
 
-#sample vars
+# CODE IN define_vars.R  [at some point might want to make rnd_parms.R, define_vars.R, sample_vars.R a single library of functions]
+# com.env$v.com <- NULL
+# 
+# #set up predictor variable
+# V1 <- NULL
+# V1$requires <- NULL
+# V1$type <- "ret"
+# V1$use <- "model"
+# V1$calc_cmn <- TRUE
+# V1$math[1] <- paste0("calc_look_forward,-",com.env$look_forward)  #only calc function that can handle empty data.env
+# V1$math[2] <- "calc_cap,abscap=0.05"
+# V1 <- add_vd(V1)
+# com.env$predict.ret <- V1$var_name #always first variable [hard coded when loading model]
+# rm(V1)
+
+
+#set up sample vars, prices, returns, volumes
+#FUTURE: TI
 V1 <- NULL
-V1$use <- "data"
+V1$use <- "def"
 V1$calc_cmn <- TRUE
 V1$type <- "prc"
-V1$math[1] <- "from.data.env,'.Adjusted'"
+V1$math[1] <- "from.data.env,'Adjusted'"
 V1 <- set_name(V1)
 cmd_string <- paste0("rnd.env$vs.com$",V1$var_name," <- V1")   
 eval(parse(text=cmd_string))
@@ -13,9 +30,9 @@ eval(parse(text=cmd_string))
 V1 <- NULL
 V1$type <- "prc"
 V1$requires <- NULL
-V1$use <- "data"
+V1$use <- "def"
 V1$calc_cmn <- TRUE
-V1$math[1] <- "calc_adj,'High'"
+V1$math[1] <- "from.data.env,'H'"
 V1 <- set_name(V1)
 cmd_string <- paste0("rnd.env$vs.com$",V1$var_name," <- V1")   
 eval(parse(text=cmd_string))
@@ -23,29 +40,9 @@ eval(parse(text=cmd_string))
 V1 <- NULL
 V1$type <- "prc"
 V1$requires <- NULL
-V1$use <- "data"
+V1$use <- "def"
 V1$calc_cmn <- TRUE
-V1$math[1] <- "calc_adj,'Low'"
-V1 <- set_name(V1)
-cmd_string <- paste0("rnd.env$vs.com$",V1$var_name," <- V1")   
-eval(parse(text=cmd_string))
-
-V1 <- NULL
-V1$type <- "prc"
-V1$requires <- c('H','L','C')
-V1$use <- "data"
-V1$calc_cmn <- TRUE
-V1$math[1] <- "calc_math,c('H','L','C'),'XX0N <- (XX1*XX2*XX3)^(1/3)'"
-V1 <- set_name(V1)
-cmd_string <- paste0("rnd.env$vs.com$",V1$var_name," <- V1")   
-eval(parse(text=cmd_string))
-
-V1 <- NULL
-V1$type <- "prc"
-V1$requires <- c('H','L')
-V1$use <- "data"
-V1$calc_cmn <- TRUE
-V1$math[1] <- "calc_math,c('H','L'),'XX0N <- sqrt(XX1*XX2)'"
+V1$math[1] <- "from.data.env,'L'"
 V1 <- set_name(V1)
 cmd_string <- paste0("rnd.env$vs.com$",V1$var_name," <- V1")   
 eval(parse(text=cmd_string))
@@ -53,19 +50,41 @@ eval(parse(text=cmd_string))
 V1 <- NULL
 V1$type <- "prc"
 V1$requires <- NULL
-V1$use <- "data"
+V1$use <- "def"
 V1$calc_cmn <- TRUE
-V1$math[1] <- "calc_adj,'Open'"
+V1$math[1] <- "from.data.env,'R'"
+#V1$math[1] <- "calc_math,c('H','L','C'),'XX0N <- (XX1*XX2*XX3)^(1/3)'"
 V1 <- set_name(V1)
 cmd_string <- paste0("rnd.env$vs.com$",V1$var_name," <- V1")   
 eval(parse(text=cmd_string))
 
 V1 <- NULL
 V1$type <- "prc"
-V1$requires <- "C"
-V1$use <- "data"
+V1$requires <- NULL
+V1$use <- "def"
 V1$calc_cmn <- TRUE
-V1$math[1] <- "from.var.env,'C'"
+V1$math[1] <- "from.data.env,'J'"
+#V1$math[1] <- "calc_math,c('H','L'),'XX0N <- sqrt(XX1*XX2)'"
+V1 <- set_name(V1)
+cmd_string <- paste0("rnd.env$vs.com$",V1$var_name," <- V1")   
+eval(parse(text=cmd_string))
+
+V1 <- NULL
+V1$type <- "prc"
+V1$requires <- NULL
+V1$use <- "def"
+V1$calc_cmn <- TRUE
+V1$math[1] <- "from.data.env,'O'"
+V1 <- set_name(V1)
+cmd_string <- paste0("rnd.env$vs.com$",V1$var_name," <- V1")   
+eval(parse(text=cmd_string))
+
+V1 <- NULL
+V1$type <- "prc"
+V1$requires <- NULL
+V1$use <- "def"
+V1$calc_cmn <- TRUE
+V1$math[1] <- "from.data.env,'Adjusted'"
 V1$math[2] <- "calc_lag,1"
 V1 <- set_name(V1)
 cmd_string <- paste0("rnd.env$vs.com$",V1$var_name," <- V1")   
@@ -73,78 +92,85 @@ eval(parse(text=cmd_string))
 
 V1 <- NULL
 V1$type <- "prc"
-V1$requires <- "H"
-V1$use <- "data"
+V1$requires <- NULL
+V1$use <- "def"
 V1$calc_cmn <- TRUE
-V1$math[1] <- "from.var.env,'H'"
+V1$math[1] <- "from.data.env,'H'"
 V1$math[2] <- "calc_lag,1"
 V1 <- set_name(V1)
 cmd_string <- paste0("rnd.env$vs.com$",V1$var_name," <- V1")   
+#print(cmd_string)
 eval(parse(text=cmd_string))
 
 V1 <- NULL
 V1$type <- "prc"
-V1$requires <- "L"
-V1$use <- "data"
+V1$requires <- NULL
+V1$use <- "def"
 V1$calc_cmn <- TRUE
-V1$math[1] <- "from.var.env,'L'"
+V1$math[1] <- "from.data.env,'L'"
 V1$math[2] <- "calc_lag,1"
 V1 <- set_name(V1)
 cmd_string <- paste0("rnd.env$vs.com$",V1$var_name," <- V1")   
+#print(cmd_string)
 eval(parse(text=cmd_string))
 
 V1 <- NULL
 V1$type <- "prc"
-V1$requires <- c('H','L','C','R')
-V1$use <- "data"
+V1$requires <- NULL
+V1$use <- "def"
 V1$calc_cmn <- TRUE
-V1$math[1] <- "from.var.env,'R'"
+V1$math[1] <- "from.data.env,'R'"
 V1$math[2] <- "calc_lag,1"
 V1 <- set_name(V1)
 cmd_string <- paste0("rnd.env$vs.com$",V1$var_name," <- V1")   
+#print(cmd_string)
 eval(parse(text=cmd_string))
 
 V1 <- NULL
 V1$type <- "prc"
-V1$requires <- c('H','L','J')
-V1$use <- "data"
+V1$requires <- NULL
+V1$use <- "def"
 V1$calc_cmn <- TRUE
-V1$math[1] <- "from.var.env,'J'"
+V1$math[1] <- "from.data.env,'J'"
 V1$math[2] <- "calc_lag,1"
 V1 <- set_name(V1)
 cmd_string <- paste0("rnd.env$vs.com$",V1$var_name," <- V1")   
+#print(cmd_string)
 eval(parse(text=cmd_string))
 
 V1 <- NULL
 V1$type <- "prc"
-V1$requires <- "O"
-V1$use <- "data"
+V1$requires <- NULL
+V1$use <- "def"
 V1$calc_cmn <- TRUE
-V1$math[1] <- "from.var.env,'O'"
+V1$math[1] <- "from.data.env,'O'"
 V1$math[2] <- "calc_lag,1"
 V1 <- set_name(V1)
 cmd_string <- paste0("rnd.env$vs.com$",V1$var_name," <- V1")   
+#print(cmd_string)
 eval(parse(text=cmd_string))
 
 V1 <- NULL
 V1$type <- "prc"
-V1$requires <- "C"
-V1$use <- "data"
+V1$requires <- NULL
+V1$use <- "def"
 V1$calc_cmn <- TRUE
-V1$math[1] <- "from.var.env,'C'"
+V1$math[1] <- "from.data.env,'Adjusted'"
 V1$math[2] <- "calc_lag,2"
 V1 <- set_name(V1)
 cmd_string <- paste0("rnd.env$vs.com$",V1$var_name," <- V1")   
+#print(cmd_string)
 eval(parse(text=cmd_string))
 
 #set up returns from prices
 max_j <- length(rnd.env$vs.com)
-rnd.env$ret_list <- NULL
+#rnd.env$ret_list <- NULL
+#print(names(rnd.env$vs.com))
 for (i in 1:6) {
   vd_end_price <- rnd.env$vs.com[[i]]
   for (j in (i+1):max_j) {
     V1 <- NULL
-    V1$use <- "ret"
+    V1$use <- "def"
     V1$calc_cmn <- TRUE
     vd_start_price <- rnd.env$vs.com[[j]]
     V1$type <- "ret"
@@ -153,43 +179,43 @@ for (i in 1:6) {
     V1 <- set_name(V1)
     cmd_string <- paste0("rnd.env$vs.com$",V1$var_name," <- V1")   
     eval(parse(text=cmd_string))
-    rnd.env$ret_list <- c(rnd.env$ret_list,length(rnd.env$vs.com))
+    #rnd.env$ret_list <- c(rnd.env$ret_list,length(rnd.env$vs.com))
   }
 }
 rm(vd_end_price,vd_start_price)
+rnd.env$ret_list <- (max_j+1):length(rnd.env$vs.com)
 
-#set up Dollar (D) and log Dollar (lD) volume
+#set up Dollar (D) and log Dollar (V) volume
 V1 <- NULL
 V1$requires <- NULL
 V1$type <- "vol"
-V1$use <- "data"
+V1$use <- "def"
 V1$calc_cmn <- TRUE
-V1$math[1] <- "calc_dol,price='R'"
+V1$math[1] <- "from.data.env,'D'"
 V1 <- set_name(V1)
 cmd_string <- paste0("rnd.env$vs.com$",V1$var_name," <- V1")   
 eval(parse(text=cmd_string))
 
 V1 <- NULL
-V1$col <- 1
-V1$tier <- 2
-V1$requires <- "D"
+V1$requires <- NULL
 V1$type <- "vol"
-V1$use <- "raw"
+V1$use <- "def"
 V1$calc_cmn <- TRUE
+V1$math[1] <- "from.data.env,'V'"
 #V1$math[1] <- "from.var.env,field='D'"
-V1$math[1] <- "calc_math,c('D'),math_str='XX0N <- log(XX1) - 18.5'"
+#V1$math[1] <- "calc_math,c('D'),math_str='XX0N <- log(XX1) - 18.5'"
 V1 <- set_name(V1)
 cmd_string <- paste0("rnd.env$vs.com$",V1$var_name," <- V1")   
 eval(parse(text=cmd_string))
-rnd.env$vol_raw <- length(rnd.env$vs.com)
+#rnd.env$vol_raw <- length(rnd.env$vs.com)
 #rnd.env$vol_list <- c(rnd.env$vol_list,length(rnd.env$vs.com))
 
 #set up CC3 for use as template for CC# raws
 V1 <- NULL
 V1$col <- 1
-V1$requires <- "C"
+V1$requires <- NULL
 V1$type <- "ret"
-V1$use <- "raw"
+V1$use <- "def"
 V1$calc_cmn <- TRUE
 V1$math[1] <- "calc_look_forward,3"
 V1 <- set_name(V1)
@@ -273,7 +299,7 @@ V1 <- NULL
 #Force Index = return * Dollars
 V1$type <- "ti"
 V1$requires <- c('C','B','BC','D')
-V1$use <- "calc"
+V1$use <- "scale"
 V1$calc_cmn <- TRUE
 V1$math[1] <- "calc_math,c('BC','D'),math_str='XX0N <- XX1*XX2'"
 V1 <- set_name(V1)

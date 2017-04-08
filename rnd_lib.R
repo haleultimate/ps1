@@ -59,11 +59,14 @@ set_name = function(V1,orig_name=NULL,vdlist=NULL) {
     parms <- gsub("^[^,]*,","",math_str) #get everything after first comma (parameters) 
     switch(math, 
            "from.data.env" = {
-             V1$var_name <- "C"
+             if (parms=="'Adjusted'") {
+               V1$var_name <- "C"
+             } else {
+               V1$var_name <- gsub("'","",parms)
+             }
              V1$ID <- which(V1$var_name == LETTERS)
              V1$ID <- formatC(V1$ID, width = 2, format = "d", flag = "0")
-             break
-           },
+            },
            "calc_constant" = {
              #parms <- gsub(parms,".","")  #remove decimal if necessary
              namePart <- "i"
@@ -103,19 +106,19 @@ set_name = function(V1,orig_name=NULL,vdlist=NULL) {
                       IDPart <- "98"
                     },
                     "'mul'" = {
-                      namePart <- "p"
+                      namePart <- "x"
                       IDPart <- which(namePart == letters) + 26
                     },
                     "'div'" = {
-                      namePart <- "q"
+                      namePart <- "y"
                       IDPart <- which(namePart == letters) + 26
                     },
                     "'add'" = {
-                      namePart <- "a"
+                      namePart <- "p"
                       IDPart <- which(namePart == letters) + 26
                     },
                     "'sub'" = {
-                      namePart <- "s"
+                      namePart <- "q"
                       IDPart <- which(namePart == letters) + 26
                     },
                     "'rsh'" = {
@@ -267,8 +270,13 @@ set_name = function(V1,orig_name=NULL,vdlist=NULL) {
              IDPart <- formatC(IDPart, width = 2, format = "d", flag = "0")
              IDPart <- paste0(IDPart, formatC(which(substr(parms,6,6) == LETTERS), width = 2, format = "d", flag = "0"))
            },
-           "calc_lag" = {
+           "calc_lag" = {  #reserved for "def" vars, shouldn't lag 'D' [only 'V', log dollars, should be lagged] 
+             print(paste(V1$var_name,math_str))
              if(V1$var_name %in% LETTERS){
+               if (V1$var_name == 'D') {
+                 print("Dollar lagging not supported in set_name, should use decay,1")
+                 source("close_session.R")
+               }
                index <- which(V1$var_name == LETTERS)
                V1$var_name <- LETTERS[index-as.numeric(parms)]
                V1$ID <- which(V1$var_name == LETTERS)
@@ -295,7 +303,8 @@ set_name = function(V1,orig_name=NULL,vdlist=NULL) {
              #print(paste("calc_decay naming:",parms,numPart))
              numPart <- get_decay_from_math(math_str)
              if (numPart < 1) {
-               namePart <- substr(gsub("[^0-9]","",numPart),2,3)  #remove decimal
+               #namePart <- substr(gsub("[^0-9]","",numPart),2,3)  #remove decimal
+               namePart <- which(as.numeric(numPart)==as.numeric(rnd.env$decay_list))
                IDPart <- paste0("30",namePart)
                namePart <- paste0("d",namePart)
              } else if (numPart > 2) {
@@ -309,22 +318,22 @@ set_name = function(V1,orig_name=NULL,vdlist=NULL) {
            },
            "calc_bin" = {
              binning <- TRUE
-             if(grepl("E",parms)){
-               namePart <- "bE"
-               IDPart <- "2805"
-             } else if(grepl("T",parms)){
-               namePart <- "bT"
-               IDPart <- "2820"
-             } else if(grepl("D",parms)){
-               namePart <- "bD"
-               IDPart <- "2804"
-             } else if(grepl("S",parms)){
-               namePart <- "bS"
-               IDpart <- "2819"
-             } else{
-               namePart <- "bW"
-               IDPart <- "2823"
-             }  
+             # if(grepl("E",parms)){
+             #   namePart <- "bE"
+             #   IDPart <- "2805"
+             # } else if(grepl("T",parms)){
+             #   namePart <- "bT"
+             #   IDPart <- "2820"
+             # } else if(grepl("D",parms)){
+             #   namePart <- "bD"
+             #   IDPart <- "2804"
+             # } else if(grepl("S",parms)){
+             #   namePart <- "bS"
+             #   IDpart <- "2819"
+             # } else{
+             #   namePart <- "bW"
+             #   IDPart <- "2823"
+             # }  
              parm_list <- strsplit(parms,split=",")[[1]]
              name <- gsub(".*=","",parm_list[1])
              name <- gsub("'","",name)
@@ -346,18 +355,26 @@ set_name = function(V1,orig_name=NULL,vdlist=NULL) {
                    print(V1)
              }
              if (is.null(b11) | is.null(b12)) print(paste("b1=",b1,"b2=",b2,"st=",st,"b11=",b11,"b12=",b12))
-             IDPart <- paste0(IDPart,sumID(vdlist[[name]]$ID,vdlist[[name]]),st,b11,b12)
+             IDPart <- paste0(IDPart,"28",sumID(vdlist[[name]]$ID,vdlist[[name]]),st,b11,b12)
+             namePart <- paste0("b",name)
            },
-           "calc_vlty" = {
-             namePart <- gsub("'","",parms)
-             #print(paste("calc_vlty",namePart))
-             if (is.null(vdlist[[namePart]]$ID)) {
-                   print(paste("calc_vlty",namePart))
-                   print(vdlist[[namePart]])
-                   print(V1)
+           "calc_vlty" = {  #doesn't support field and window
+             parm_list <- strsplit(parms,",")[[1]]
+             if (grepl("window",parms[1])) {
+               vlty_idx <- which(paste0("v",strsplit(parms[1],"=")[[1]][2])==rnd.env$vlty_list)
+               IDPart <- paste0("20",vlty_idx)
+               namePart <- paste0("T",vlty_idx)
+             } else {
+               namePart <- gsub("'","",parm_list[1])
+               #print(paste("calc_vlty",namePart))
+               if (is.null(vdlist[[namePart]]$ID)) {
+                 print(paste("calc_vlty",namePart))
+                 print(vdlist[[namePart]])
+                 print(V1)
+               }
+               IDPart <- paste0("20",sumID(vdlist[[namePart]]$ID,vdlist[[namePart]]))
+               namePart <- paste0(namePart,"T")
              }
-             IDPart <- paste0("20",sumID(vdlist[[namePart]]$ID,vdlist[[namePart]]))
-             namePart <- paste0(namePart,"T")
            },
            "calc_dm" = {
              namePart <- ifelse(substr(parms,2,2)=="G","pdm","ndm")
@@ -387,20 +404,31 @@ set_name = function(V1,orig_name=NULL,vdlist=NULL) {
     V1$ID <- paste0(V1$ID,IDPart)
     #print(paste(V1$var_name,V1$ID))
   }
-  if (V1$use %in% c("model","calc")) {
+  if (V1$use %in% c("raw","model","scale")) {
     #print(paste("model var, appending ID",V1$var_name))
     if (is.null(V1$ID)) print(V1)
-    V1$ID <- ifelse(V1$use=="model",paste0(V1$ID,"39"),paste0(V1$ID,"29")) #model=39,calc=29
+    switch(V1$use,
+           "model" = {V1$ID <- paste0(V1$ID,"39")},  # 'm'
+           "scale" = {V1$ID <- paste0(V1$ID,"45")},  # 's'
+           "raw"   = {V1$ID <- paste0(V1$ID,"49")})  # 'w'
     if (is.null(V1$ID)) {
-      print("set_name (model or calc var)")
+      print("set_name (raw, model, or calc var)")
       print(V1)
     }
-    var_name <- paste0(V1$var_name,substr(V1$use,1,1),sumID(V1$ID,V1))
+    letter_id <- substr(V1$use,1,1)
+    if (letter_id=="r") letter_id <- "w"
+    var_name <- paste0(V1$var_name,letter_id,sumID(V1$ID,V1))
+    if (V1$use == "scale") {
+      var_name <- gsub("w[[:digit:]]+","",var_name)     #shorten raw names by removing "w[sumID]"
+      var_name <- gsub("l1","",var_name)                #remove l1 on raw vars
+    }
     if (V1$use == "model") {
+      var_name <- gsub("w[[:digit:]]+","",var_name)     #shorten raw names by removing "w[sumID]"
+      var_name <- gsub("s[[:digit:]]+","",var_name)     #shorten scale names by removing "s[sumID]"
       var_name <- gsub("l1","",var_name)
       var_name <- gsub("Z","",var_name)
       var_name <- gsub("z","",var_name)
-      var_name <- gsub("r","",var_name)              #shorten model names by removing scaling and lag1
+      var_name <- gsub("r","",var_name)                 #shorten model names by removing scaling and lag1
     }
     if (nchar(var_name) > 25) {
       print("*************************************************************")
@@ -427,7 +455,7 @@ set_name = function(V1,orig_name=NULL,vdlist=NULL) {
       }
     }
   }
-  #if (V1$var_name %in% names(com.env$v.com) & (V1$use %in% c("model","calc"))) {
+  #if (V1$var_name %in% names(com.env$v.com) & (V1$use %in% c("model","scale"))) {
   #  print(paste("*****************Warning in set_name, var_name already in com.env$v.com",V1$var_name))
     #print(names(com.env$v.com))
     #source("close_session.R")

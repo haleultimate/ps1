@@ -6,6 +6,64 @@ isNameinKeep <- rm.list %in% keep.list
 rm.list <- c(rm.list[!isNameinKeep],"keep.list","isNameinKeep","rm.list")
 rm(list = rm.list)  #clear environment except for loaded stock data and some com.env variables
 
+#function pre-calculates adjusted prices and dollars in data environment
+calc_adjusted_HLOV <- function(symbol_list) {
+  print("calc_adjusted_HLOV")
+  first_pass <- TRUE
+  for (ticker in symbol_list) {
+    if (ticker == "FNV") first_pass <- TRUE
+    df <- paste0("data.env$",ticker)
+    de.adjc <- paste0(df,"[,'",ticker,".Adjusted']")
+    de.c <- paste0(df,"[,'",ticker,".Close']")
+    de.L <- paste0(df,"[,'",ticker,".L']")
+    de.H <- paste0(df,"[,'",ticker,".H']")
+    de.J <- paste0(df,"[,'",ticker,".J']")
+    de.R <- paste0(df,"[,'",ticker,".R']")
+    de.Volume <- paste0(df,"[,'",ticker,".Volume']")
+    de.D <- paste0(df,"[,'",ticker,".D']")
+    de.V <- paste0(df,"$",ticker,".","V")
+    
+    for (field in c("High","Low","Open")) {
+      de.xts <- paste(df,"[,'",ticker,".",field,"']",sep="")
+      cmd_string <- paste0(df," <- cbind(",df,",",de.xts,"*",de.adjc,"/",de.c,")")
+      if (first_pass) print(cmd_string)
+      eval(parse(text=cmd_string))
+      cmd_string <- paste0("colnames(",df,")[length(colnames(",df,"))] <- '",ticker,".",substr(field,1,1),"'")
+      if (first_pass) print(cmd_string)
+      eval(parse(text=cmd_string))
+    }
+    cmd_string <- paste0(df," <- cbind(",df,",(",de.L,"*",de.H,")^(0.5))")
+    if (first_pass) print(cmd_string)
+    eval(parse(text=cmd_string))
+    cmd_string <- paste0("colnames(",df,")[length(colnames(",df,"))] <- '",ticker,".J'")
+    if (first_pass) print(cmd_string)
+    eval(parse(text=cmd_string))
+    cmd_string <- paste0(df," <- cbind(",df,",(",de.L,"*",de.H,"*",de.adjc,")^(1/3))")
+    if (first_pass) print(cmd_string)
+    eval(parse(text=cmd_string))
+    cmd_string <- paste0("colnames(",df,")[length(colnames(",df,"))] <- '",ticker,".R'")
+    if (first_pass) print(cmd_string)
+    eval(parse(text=cmd_string))
+    cmd_string <- paste0(df," <- cbind(",df,",(",de.Volume,"*",de.R,"))")
+    if (first_pass) print(cmd_string)
+    eval(parse(text=cmd_string))
+    cmd_string <- paste0("colnames(",df,")[length(colnames(",df,"))] <- '",ticker,".D'")
+    if (first_pass) print(cmd_string)
+    eval(parse(text=cmd_string))
+    cmd_string <- paste0(df," <- cbind(",df,",log(",de.D,") - 18.5)")
+    if (first_pass) print(cmd_string)
+    eval(parse(text=cmd_string))
+    cmd_string <- paste0("colnames(",df,")[length(colnames(",df,"))] <- '",ticker,".V'")
+    if (first_pass) print(cmd_string)
+    eval(parse(text=cmd_string))
+    cmd_string <- paste0(de.V,"[!(is.finite(",de.V,"))] <- -18.5")
+    if (first_pass) print(cmd_string)
+    eval(parse(text=cmd_string))
+    first_pass <- FALSE
+  }
+}
+
+
 #setup output to go to logfile
 com.env$original_wd <- getwd()
 com.env$logdir <- paste(com.env$original_wd,"/logs",sep="")
@@ -27,6 +85,8 @@ if (!exists("data.env")) data.env <- new.env(parent=globalenv())
 var.env <- new.env(parent=globalenv())
 rnd.env <- new.env(parent=globalenv())
 
+#source("calc_lib.R")                     #calc functions (calc_adjusted_HLOJRlD needed early)
+
 #Init data_load vars
 Sys.setenv(TZ = "UTC")
 adjustment <- TRUE
@@ -40,6 +100,7 @@ if (!exists("stx_list.old")) {         #only load if stx_list has changed
              from = start_date, 
              to = end_date, 
              adjust = adjustment)
+  calc_adjusted_HLOV(com.env$stx_list)
   stx_list.old <- com.env$stx_list
 } else if (!identical(com.env$stx_list,stx_list.old)) {
   isNameinStxold <- com.env$stx_list %in% stx_list.old
@@ -51,9 +112,13 @@ if (!exists("stx_list.old")) {         #only load if stx_list has changed
              from = start_date, 
              to = end_date, 
              adjust = adjustment)
+  calc_adjusted_HLOJRlD(stx_list.new)
   rm(stx_list.new,isNameinStxold)
   stx_list.old <- com.env$stx_list
 }
+
+#print(colnames(data.env$FNV))
+#print(all(is.finite(data.env$FNV$FNV.V)))
 
 com.env$load_model <- FALSE
 com.env$save_model <- FALSE
@@ -62,7 +127,7 @@ com.env$look_forward <- 1
 com.env$save_var_n <- 0
 com.env$opt_model <- TRUE
 com.env$model_loops <- 10
-com.env$add_vars <- 3
+com.env$add_var_levels <- c(5,20,30)
 com.env$mod_var_loops <- 20
 com.env$run_sim <- FALSE
 
@@ -119,8 +184,8 @@ for (i in 1:com.env$stx) {
   eval(parse(text=cmd_string))
   if ( (not_enough_history) | (corr.val < com.env$corr.threshold) ) {
     #print(paste("remove",ticker,"from stx list, not correlated with cmn",corr.val))
-    com.env$stx.symbols <- com.env$stx.symbols[-which(com.env$stx.symbols == ticker)] #remove from stx list
-    com.env$stx_list <- com.env$stx_list[-which(com.env$stx_list == ticker)]
+    com.env$stx.symbols <- com.env$stx.symbols[-which(com.env$stx.symbols == ticker)] #stx.symbols - only stocks
+    com.env$stx_list <- com.env$stx_list[-which(com.env$stx_list == ticker)]          #stx_list - contains etfs
   } #else print(corr.val)
 }
 rm(static.stx.symbols,corr.val,corr.data)
@@ -128,4 +193,4 @@ rm(static.stx.symbols,corr.val,corr.data)
 com.env$stx <- length(com.env$stx.symbols)
 com.env$port_size <- com.env$init_equity <- 10000*com.env$stx
 
-
+print(com.env$stx_list)

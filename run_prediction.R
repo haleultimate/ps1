@@ -12,7 +12,7 @@ if (com.env$load_model) load_model(com.env$model_filename)
 print(paste("com.env$predict.ret",com.env$predict.ret))
 
 print("opt model")
-if (com.env$opt_model) opt_model(com.env$model_loops,com.env$add_vars,com.env$mod_var_loops)
+if (com.env$opt_model) opt_model(com.env$model_loops,com.env$add_var_levels,com.env$mod_var_loops)
 
 if (com.env$save_model) save_model(com.env$model_filename)
 

@@ -2,40 +2,35 @@
 if (com.env$verbose) print("calling define_vars.R")
 
 com.env$v.com <- NULL
-com.env$vcom_names <- NULL
+#com.env$vcom_names <- NULL
 #com.env$ind_names <- NULL
 #com.env$bin_names <- NULL
 
-V1 <- NULL
-V1$col <- 1
-V1$name <- "C"
-V1$tier <- 1
-V1$use <- "data"
-V1$calc_cmn <- TRUE
-V1$type <- "Price"
-V1$math[1] <- "from.data.env,'.Adjusted'"
-#print(V1$name)
-add_vd(V1)
-#V1 <- set_name(V1)
-#cmd_string <- paste0("com.env$v.com$",V1$var_name," <- V1")
-#eval(parse(text=cmd_string))
-rm(V1)
+# V1 <- NULL
+# V1$col <- 1
+# V1$name <- "C"
+# V1$tier <- 1
+# V1$use <- "data"
+# V1$calc_cmn <- TRUE
+# V1$type <- "Price"
+# V1$math[1] <- "from.data.env,'.Adjusted'"
+# #print(V1$name)
+# add_vd(V1)
+# #V1 <- set_name(V1)
+# #cmd_string <- paste0("com.env$v.com$",V1$var_name," <- V1")
+# #eval(parse(text=cmd_string))
+# rm(V1)
 
-V2 <- NULL
-V2$col <- 2
-V2$tier <- 2
-V2$requires <- "C"
-V2$type <- "Ret"
-V2$use <- "model"
-V2$calc_cmn <- TRUE
-V2$math[1] <- paste0("calc_look_forward,-",com.env$look_forward)
-V2$math[2] <- "calc_cap,abscap=0.05"
-V2 <- add_vd(V2)
-#V2 <- set_name(V2)
-#cmd_string <- paste0("com.env$v.com$",V2$var_name," <- V2")
-#eval(parse(text=cmd_string))
-com.env$predict.ret <- V2$var_name #always second variable [hard coded when loading model]
-rm(V2)
+V1 <- NULL
+V1$requires <- NULL
+V1$type <- "ret"
+V1$use <- "model"
+V1$calc_cmn <- TRUE
+V1$math[1] <- paste0("calc_look_forward,-",com.env$look_forward)  #only calc function that can handle empty data.env
+V1$math[2] <- "calc_cap,abscap=0.05"
+V1 <- add_vd(V1)
+com.env$predict.ret <- V1$var_name #always first variable [hard coded when loading model]
+rm(V1)
 
 # V2 <- NULL
 # V2$col <- 2

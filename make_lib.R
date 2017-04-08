@@ -20,7 +20,7 @@ vcom2vdlist_req <- function(V1,env_lookup="com.env") {  #look in com.env$v.com, 
   return(vdlist)
 }
 
-#create list of all v.com vars of either "model" or "calc" use
+#create list of all v.com vars of either "model" or "scale" use
 vcom2vdlist_use <- function(use) {
   vdlist <- NULL
   for (vd in com.env$v.com) {
@@ -97,7 +97,7 @@ get_math_from_decay <- function(decay,math=NULL,var_cnt=NULL) {
 }
 
 #return list (bp1,bp2) from calc_bin math string
-#assumes math in form "calc_bin,bin_field='calc_var',b1=bp1,b2=bp2"
+#assumes math in form "calc_bin,bin_field='scale_var',b1=bp1,b2=bp2"
 get_bp_from_math <- function(math) {
   #print(paste("get_bp_from_math",math))
   if (math == "none") return(c(0,0))
@@ -138,13 +138,16 @@ get_math_from_bp <- function(bp1,bp2,math) {
 
 #create requires list from math of vd (using com.env$v.com to find vars if vdlist is not provided)
 #extracts var names from math functions and appends var's require list and var name to new require list
-#only works for calc and model vars (can't handle calc_math,calc_dol,from.data.env,calc_adjret,calc_ret)
+#only works for scale and model vars (can't handle calc_math,calc_dol,from.data.env,calc_adjret,calc_ret)
 get_requires_from_vd <- function(vd,vdlist=NULL) {
   #print(paste("get_requires_from_vd",vd$var_name))
   #print(vd$requires)
   #print(vd$math)
-  if (!(vd$use %in% c("model","calc"))) {
-    print("ERROR get_requires_from_vd only works on calc or model vars")
+  if (is.null(vd)) {
+    print("ERROR in get_requires_from_vd passed in NULL vd")
+  }
+  if (!(vd$use %in% c("model","scale"))) {
+    print("ERROR get_requires_from_vd only works on scale or model vars")
     print(vd)
     source("close_session.R")
   }
@@ -156,35 +159,36 @@ get_requires_from_vd <- function(vd,vdlist=NULL) {
     split_math <- strsplit(math,",")[[1]]
     math_type <- split_math[1]
     if (math_type %in% c("from.var.env","calc_vlty","calc_stk","calc_etf")) {
-      calc_var <- split_math[2]
+      scale_var <- split_math[2]
     } else if (math_type == "calc_bin") {
-      calc_var <- strsplit(split_math[2],"=")[[1]][2]
+      scale_var <- strsplit(split_math[2],"=")[[1]][2]
     } else if (math_type == "calc_ia") {
-      if (grepl("[[:alpha:]]",split_math[3])) { #calc_ia using calc_var 
-        calc_var <- split_math[3]
+      if (grepl("[[:alpha:]]",split_math[3])) { #calc_ia using scale_var 
+        scale_var <- split_math[3]
       } else {                                  #numeric parameter in calc_ia
-        calc_var <- NULL 
+        scale_var <- NULL 
       }
     } else if (math_type %in% "calc_look_forward") {
-      requires <- c(requires,'C')
-      calc_var <- NULL
+      #requires <- c(requires,'C')
+      scale_var <- NULL
     } else if (math_type %in% c("calc_math","calc_dol","from.data.env","calc_adjret","calc_ret")) {
       print(paste("ERROR in get_requires_from_vd, can't handle math_type,",math_type))
       print(vd)
       source("close_session.R")
     } else {
-      calc_var <- NULL
+      scale_var <- NULL
     }
-    #print(paste(math,"calc_var:",calc_var))
-    newname <- gsub("'", "",calc_var)
-    if (!is.null(calc_var)) requires <- c(requires,vdlist[[newname]]$requires,vdlist[[newname]]$var_name)
+    #print(paste(math,"scale_var:",scale_var))
+    newname <- gsub("'", "",scale_var)
+    if (!is.null(scale_var)) requires <- c(requires,vdlist[[newname]]$requires,vdlist[[newname]]$var_name)
   }
   #print(paste("requires:",requires))
-  if (is.null(requires)) {
+  if (is.null(requires) & (vd$var_name != com.env$predict.ret)) {
     print("Problem in get_requires_from_vd*********************")
-    for (math in vd$math) {
-      print(strsplit(math,",")[[1]])
-    }
+    #for (math in vd$math) {
+    #  print(strsplit(math,",")[[1]])
+    #}
+    print(vd)
   }
   return(requires)
 }
@@ -201,7 +205,7 @@ get_raw_list <- function(raw_type = NULL) {
            V1 <- rnd.env$vs.com[[which("BC" == names(rnd.env$vs.com))]]
          },
          "V" = {
-           V1 <- rnd.env$vs.com[[which("lD" == names(rnd.env$vs.com))]]
+           V1 <- rnd.env$vs.com[[which("V" == names(rnd.env$vs.com))]]
          },
          "C2C" = {
            V1 <- rnd.env$vs.com[[which("C3" == names(rnd.env$vs.com))]]
@@ -215,6 +219,12 @@ get_raw_list <- function(raw_type = NULL) {
            source("close_session.R")
          }
   )
+  decay <- rnd_choice(paste0(raw_type,".d"))
+  if (substr(decay,1,1) == "v") {
+    V1$math[length(V1$math)+1] <- paste0("calc_vlty,window=",substr(decay,2,nchar(decay)))
+  } else {    
+    V1$math[length(V1$math)+1] <- get_math_from_decay(decay)  #paste0("calc_decay,",decay)
+  }
   V1$use <- "raw"
   #print(paste("call raw set_name",V1$math))
   V1 <- set_name(V1)
@@ -222,40 +232,27 @@ get_raw_list <- function(raw_type = NULL) {
   return(vcom2vdlist_req(V1,env_lookup="rnd.env"))
 }
 
-#return vdlist with last vd="calc" var
-#calc math in the form of "decay:calc:cap:scale","decay;get(stk/ETF):calc:cap:scale","vlty:calc:cap:scale"
-get_calc_list <- function() {
-  #FUTURE: allow existing calc to be chosen
+#return vdlist with last vd="scale" var
+#scale math in the form of "get(raw/stk/ETF):calc:cap:scale"
+get_scale_list <- function() {
+  #FUTURE: allow existing scale var to be chosen
   #select raw
   raw_type <- rnd_choice("raw")
-  vdlist <- get_raw_list(raw_type=raw_type)
+  vdlist <- get_raw_list(raw_type)
   V1 <- vdlist[[length(vdlist)]]
-  #print(paste("Create new calc var",V1$var_name)) 
+  #print(paste("Create new scale var",V1$var_name)) 
   V1$requires <- c(V1$requires,V1$var_name)
-  calc_type <- rnd_choice(paste0(raw_type,".type"))
-  if (calc_type == "T") { #if volatility calc_vlty, otherwise calc_decay
-    V1$math <- paste0("calc_vlty,'",V1$var_name,"'")
-    next_math <- 2
-  } else { #select decay
-    decay <- rnd_choice(paste0(raw_type,".d"))
+  V1$calc_cmn <- FALSE
+  
+  resid_type <- ifelse(grepl("T",V1$var_name),"W",rnd_choice(paste0(raw_type,".resid"))) #vlty raws shouldn't use S/E
+  if (resid_type == "W") {
     V1$math <- paste0("from.var.env,'",V1$var_name,"'")
-    V1$math[2] <- get_math_from_decay(decay)  #paste0("calc_decay,",decay)
-    next_math <- 3
-    if (calc_type %in% c("S","E")) { #add V1 to vdlist (so ETF can be calculated), restart new V1 with calc_stk or calc_etf
-      #print(paste("call S/E set_name",V1$math))
-      V1 <- set_name(V1,vdlist=vdlist)
-      cmd_string <- paste0("vdlist$",V1$var_name," <- V1")
-      #print(cmd_string)
-      eval(parse(text=cmd_string))
-      #vdlist <- append(vdlist,V1)
-      #names(vdlist)[length(vdlist)] <- V1$var_name
-      V1$requires <- c(V1$requires,V1$var_name)
-      V1$calc_cmn <- FALSE
-      V1$math <- ifelse(calc_type=="S",paste0("calc_stk,'",V1$var_name,"'"),paste0("calc_etf,'",V1$var_name,"'"))
-      if (V1$type == "ret") V1$type <- ifelse(calc_type=="S","stk","etf")
-      next_math <- 2
-    }
-  } 
+  } else if (resid_type == "S") {
+    V1$math <- paste0("calc_stk,'",V1$var_name,"'")
+  } else if (resid_type == "E") {
+    V1$math <- paste0("calc_etf,'",V1$var_name,"'")
+  }
+  next_math <- 2
   #select calc
   calc <- rnd_choice("calc")
   if (calc != "none") {
@@ -287,7 +284,7 @@ get_calc_list <- function() {
     V1$math[next_math] <- "calc_rank,10"  #use deciles to approx rank
     V1$scale_type <- "rank"
   }
-  V1$use <- "calc"  #only after scaling can a variable be considered "calc" type
+  V1$use <- "scale"  #only after scaling can a variable be considered "scale" type
   #print(paste("call calc set_name",V1$math))
   #for (vd in vdlist) if (is.null(vd$ID)) print(vd)
   V1 <- set_name(V1,vdlist=vdlist)
@@ -317,10 +314,10 @@ mod_model_decay <- function(V1) {
   return(V1)
 }
 
-#returns calc var_name from math function (with quotes removed)
+#returns scale var_name from math function (with quotes removed)
 #  math_type supported {from.var.env,calc_ia,calc_bin}
-get_calc_var_from_math <- function(math) {
-  #print(paste("get_calc_var_from_math",math))
+get_scale_var_from_math <- function(math) {
+  #print(paste("get_scale_var_from_math",math))
   math_parms <- strsplit(math,",")[[1]]
   #print(math_parms)
   math_type <- math_parms[1]
@@ -339,16 +336,16 @@ get_calc_var_from_math <- function(math) {
            namePart <- "constant"
          },
          {
-           print(paste("math_type",math_type,"not supported yet in get_calc_var_from_math"))
+           print(paste("math_type",math_type,"not supported yet in get_scale_var_from_math"))
          }
         )
   return(namePart)
 }
 
-#takes in var_name and math {from.var.env,calc_ia,calc_bin,calc_constant} and replaces var_name as calc_var parm
+#takes in var_name and math {from.var.env,calc_ia,calc_bin,calc_constant} and replaces var_name as scale_var parm
 #  calc_constant converted to from.var.env
-#  Does not change bin points if new calc_var has different scale_type [needs to be done separately]
-sub_calc_name_in_math <- function(math,var_name) {
+#  Does not change bin points if new scale_var has different scale_type [needs to be done separately]
+sub_scale_name_in_math <- function(math,var_name) {
   #print(paste("sub_calc_name_in_math",math,var_name))
   math_type <- strsplit(math,",")[[1]][1]
   var_name <- paste0("'",var_name,"'")  
@@ -372,7 +369,7 @@ sub_calc_name_in_math <- function(math,var_name) {
            math <- paste(math_parms[1],paste("bin_field",var_name,sep="="),math_parms[3],math_parms[4],sep=",")
          },
          {
-           print("ERROR sub_calc_name_in_math, math_type not supported")
+           print("ERROR sub_scale_name_in_math, math_type not supported")
            print(math)
            print(var_name)
            print(math_type)
@@ -380,59 +377,111 @@ sub_calc_name_in_math <- function(math,var_name) {
          })
 }
 
+#takes in scale vd (raw/stk/etf:calc:cap:scale) modifies cap and returns it
+modify_scale_var <- function(V1) {
+  print("modify_scale_var")
+  cap_idx <- NULL
+  for (i in 1:length(V1$math)) {
+    if (grepl("calc_cap",V1$math[i])) cap_idx <- i
+  }
+  
+  cap_type <- "none"
+  if (is.null(cap_idx)) {
+    print("cap_idx is null, getting rnd_choice(cap_type) [can't be none = delete]")
+    while (cap_type=="none") cap_type <- rnd_choice("cap_type")
+    mod_or_delete_cap <- FALSE  #adding cap      
+    cap <- rnd_choice(cap_type)
+    V1$math <- append(V1$math,paste0("calc_cap,",cap_type,"=",cap),length(V1$math)-1) #calc_cap comes right before scale
+  } else {
+    orig_cap <- V1$math[cap_idx]
+    mod_or_delete_cap <- TRUE
+    cap_type <- rnd_choice("cap_type")
+    if (cap_type != "none") {
+      cap <- rnd_choice(cap_type)
+      V1$math[cap_idx] <- paste0("calc_cap,",cap_type,"=",cap)
+    } else {                     #delete cap
+      V1$math <- V1$math[-cap_idx]
+    }
+  }
+  if (mod_or_delete_cap) {
+    while (orig_cap==V1$math[cap_idx]) {
+      print("modify_scale_var while loop")
+      V1 <- modify_scale_var(V1)  #keep trying until a different cap is found
+    }
+  }
+  #V1 <- set_name(V1)  #need to keep original name so original var can be found, will be set in mod_var_model
+  return(V1)
+}
+
 #MODE1: (V1,i) Takes model_vd and index (1=from.var.env/calc_constant,2=calc_ia/calc_bin,3=calc_bin) and changes calc var
-#       If "existing_calc_var" changed model_vd is returned, otherwise new calc_vd is returned
-#MODE2: (V1) Takes in calc_vd, modifies it, returns it
+#       If "existing_scale_var" changed model_vd is returned, otherwise new scale_vd is returned
+#MODE2: (V1) Takes in scale_vd, modifies it, returns it
+#MODE3: (V1==NULL) return existing_scale_var in V1
 #If unable to perform operation, return V1
-mod_calc_var <- function(V1=NULL,i=NULL) {
-  #print(paste("mod_calc_var"))
+mod_scale_var <- function(V1=NULL,i=NULL) {
+  #print(paste("mod_scale_var"))
 #  if (is.null(V1)) {
-#    vdlist <- vcom2vdlist_use("calc")
+#    vdlist <- vcom2vdlist_use("scale")
 #    V1 <- sample(vdlist,size=1)
 #  }
-#  if (V1$use != "calc") {
+#  if (V1$use != "scale") {
 #    print(paste("ERROR: wrong use type in mod_var_model",V1$var_name,V1$use))
 #    soure("close_session.R")
 #  }
 #  calc <- (grepl("calc_calc",V1$math))
 #  vlty <- (grepl("calc_vlty",V1$math))
 #  decay_only <- (length(V1$math) == 1)
-  
   if (!is.null(V1) & !is.null(i)) { 
-  #modify calc_var name in model vd, return model vd if existing_calc_var, otherwise return new/mod calc vd
+  #modify scale_var name in model vd, return model vd if existing_scale_var, otherwise return new/mod scale vd
     print(paste(i,V1$math[i]))  
     if (V1$use != "model") {
-      print("ERROR in mod_var_calc, i passed in with non-model var")
+      print("ERROR in mod_scale_var, i passed in with non-model var")
       print(V1)
       print(i)
       source("close_session.R")
     }
-    calc_var_mod <- rnd_choice("calc_var_mod")
-    switch(calc_var_mod,
-           "existing_calc_var" = {
-             calc_list <- vcom2vdlist_use("calc")
-             #print("choosing random calc var in mod_calc_var from:")
-             #print(names(calc_list))
-             if (length(calc_list) < 2) {
-               print("Not enough calc_vars to choose existing_calc_var")
+    scale_var_mod <- rnd_choice("scale_var_mod")
+    if (is.null(V1)) scale_var_mod <- "existing_scale_var"
+    switch(scale_var_mod,
+           "existing_scale_var" = {
+             scale_list <- vcom2vdlist_use("scale")
+             #print("choosing random scale var in mod_scale_var from:")
+             #print(names(scale_list))
+             if (length(scale_list) < 2) {
+               print("Not enough scale_vars to choose existing_scale_var")
                return(V1)
              }
-             calc_list_names <- names(calc_list)
-             old_var_name <- get_calc_var_from_math(V1$math[i])
-             calc_list_names <- calc_list_names[!(calc_list_names %in% old_var_name)]
-             #print(calc_list_names)
-             new_var_name <- sample(calc_list_names,size=1)  
+             scale_list_names <- names(scale_list)
+             old_var_name <- get_scale_var_from_math(V1$math[i])
+             scale_list_names <- scale_list_names[!(scale_list_names %in% old_var_name)]
+             #print(scale_list_names)
+             new_var_name <- sample(scale_list_names,size=1)  
              #print(new_var_name)
-             V1$math[i] <- sub_calc_name_in_math(V1$math[i],new_var_name)
+             V1$math[i] <- sub_scale_name_in_math(V1$math[i],new_var_name)
              #print(V1$math[i])
-             #over restricts calc_cmn, changing calc var may allow cmn to be calculated (but model cmns can't be used yet anyway)
+             #over restricts calc_cmn, changing scale var may allow cmn to be calculated (but model cmns can't be used yet anyway)
              V1$calc_cmn <- (V1$calc_cmn & com.env$v.com[[new_var_name]]$calc_cmn) 
              return(V1)
            },
-           "modify_calc_var" = ,
-           #         {
-           #         },
-           "new_calc_var" =,
+           "modify_scale_var" = {  #longer name for modifying scale var
+             if (is.null(i)) { #scale var passed in
+               if (is.null(V1)) print("ERROR in modify mod_scale_var, no V1 passed in")
+               V3 <- modify_scale_var(V1)
+               return(V3)
+             } else { #model var, get scale var in math, find it in var.env$v.com, modify it, and return modified scale var
+               old_var_name <- get_scale_var_from_math(V1$math[i])
+               print(paste("mod_scale_var:",old_var_name))
+               V2 <- com.env$v.com[[old_var_name]]
+               if (is.null(V2)) {
+                 print(paste("Error in mod_scale_var",old_var_name,"not found"))
+                 source("close_session.R")
+               }
+               V3 <- modify_scale_var(V2)
+               #return scale var with original name
+               return(V3)
+             }
+           },
+           "new_scale_var" =,
            #         {
            #         },
            {
@@ -441,7 +490,7 @@ mod_calc_var <- function(V1=NULL,i=NULL) {
            }
     )
   } else {
-    print("MODE2 and MODE3 in mod_calc_var not coded yet")
+    print("MODE2 and MODE3 in mod_scale_var not coded yet")
     source("close_session.R")
   }  
 }
@@ -495,7 +544,7 @@ mod_model_bin <- function(V1) {
   }
   math_list <- strsplit(V1$math[[i]],split=",")[[1]]  #bin points are items 3 and 4 
   #print(math_list)
-  if ((length(math_list) > 2) & (V1$scale_type != "constant")) { #either new var or binning constant, binning not to be deleted
+  if ((length(math_list) > 2) & (V1$math[1] != "calc_constant,1")) { #either new var or binning constant, binning not to be deleted
     if (rnd_choice("delete_bin") == "delete") {
       if (grepl("calc_decay",V1$math[length(V1$math)])) {
         if (!grepl("var_cnt=2",V1$math[length(V1$math)])) print(V1)
@@ -519,7 +568,7 @@ mod_model_bin <- function(V1) {
     }
   }
   
-  mod_bin <- ifelse (length(math_list) < 3,"bin_points",rnd_choice("mod_bin")) #rnd_choice: {bin_points or calc_var}
+  mod_bin <- ifelse (length(math_list) < 3,"bin_points",rnd_choice("mod_bin")) #rnd_choice: {bin_points or scale_var}
   
   if (mod_bin == "bin_points") {
     scale_type <- substr(V1$scale_type,1,1)
@@ -540,15 +589,16 @@ mod_model_bin <- function(V1) {
     return(V1)
   }
   
-  if (mod_bin == "calc_var") {
-    V2 <- mod_calc_var(V1=V1,i=i)
-    if (V2$use == "model") { #calc_var to existing calc_var, if scale type changed adjust bin_ponts
-      print("changed calc var to existing calc var")
-      orig_calc_var <- get_calc_var_from_math(V1$math[i])
-      new_calc_var <- get_calc_var_from_math(V2$math[i])
-      if (substr(com.env$v.com[[orig_calc_var]]$scale_type,1,1) != substr(com.env$v.com[[new_calc_var]]$scale_type,1,1)) {
-        V2$math[i] <- convert_bin_points(V2$math[i],substr(com.env$v.com[[new_calc_var]]$scale_type,1,1))
-        V2$scale_type <- com.env$v.com[[new_calc_var]]$scale_type
+  if (mod_bin == "scale_var") {
+    print("calling mod_scale_var from mod_model_bin")
+    V2 <- mod_scale_var(V1=V1,i=i)
+    if (V2$use == "model") { #scale_var to existing scale_var, if scale type changed adjust bin_ponts
+      print("changed scale var to existing scale var")
+      orig_scale_var <- get_scale_var_from_math(V1$math[i])
+      new_scale_var <- get_scale_var_from_math(V2$math[i])
+      if (substr(com.env$v.com[[orig_scale_var]]$scale_type,1,1) != substr(com.env$v.com[[new_scale_var]]$scale_type,1,1)) {
+        V2$math[i] <- convert_bin_points(V2$math[i],substr(com.env$v.com[[new_scale_var]]$scale_type,1,1))
+        V2$scale_type <- com.env$v.com[[new_scale_var]]$scale_type
       }
     }
     #print(V2$math[i])
@@ -564,8 +614,8 @@ mod_model_bin <- function(V1) {
 
 #modify calc_ia term in model variable
 #change signs, change ia type, delete ia
-#ASSUMES calc_var is variable (not numeric parameter)
-#FUTURE: add ia, change calc_var [first choosing another existing calc var, then creating new calc var]
+#ASSUMES scale_var is variable (not numeric parameter)
+#FUTURE: add ia, change scale_var [first choosing another existing scale var, then creating new scale var]
 mod_model_ia <- function(V1) {
   #print("mod_model_ia")
   #print(V1$math)
@@ -590,9 +640,9 @@ mod_model_ia <- function(V1) {
   
   math_list <- strsplit(V1$math[[i]],split=",")[[1]]   #[1] = 'calc_ia', [2] = ia_type, [3] = calc_var, [4] = sign (if exists)
   ia_type <- math_list[2]
-  calc_var <- math_list[3]
-  if (!grepl("[[:alpha:]]",calc_var)) {
-    print("ERROR: mod_model_ia assumes calc_var is variable not numeric parameter")
+  scale_var <- math_list[3]
+  if (!grepl("[[:alpha:]]",scale_var)) {
+    print("ERROR: mod_model_ia assumes scale_var is variable not numeric parameter")
     print(V1)
     source("close_session.R")
   }
@@ -601,7 +651,7 @@ mod_model_ia <- function(V1) {
   if (mod_ia == "sign") { #if add or sub change to mul or div and pick sign
     #print(paste("ia_type:",ia_type,"sign:",sign))
     if (ia_type %in% c("'rsh'","'fth'")) {
-      V1$math[i] <- ifelse(sign=="none",paste('calc_ia',ia_type,calc_var,'sign=-1',sep=','),paste('calc_ia',ia_type,calc_var,sep=','))
+      V1$math[i] <- ifelse(sign=="none",paste('calc_ia',ia_type,scale_var,'sign=-1',sep=','),paste('calc_ia',ia_type,scale_var,sep=','))
       return(V1)
     }
     if (ia_type == "add") ia_type <- "mul"
@@ -613,20 +663,21 @@ mod_model_ia <- function(V1) {
       while (new_sign == sign) new_sign <- paste0('sign=',sample(0:3,size=1))
       sign <- ifelse(new_sign=="sign=0","none",new_sign)
     }
-    V1$math[i] <- ifelse(sign=="none",paste('calc_ia',ia_type,calc_var,sep=','),paste('calc_ia',ia_type,calc_var,sign,sep=','))
+    V1$math[i] <- ifelse(sign=="none",paste('calc_ia',ia_type,scale_var,sep=','),paste('calc_ia',ia_type,scale_var,sign,sep=','))
     return(V1)
   }
   
   if (mod_ia == "ia_type") {  #remove any sign
     new_ia_type <- ia_type
     while ((new_ia_type == ia_type) | (new_ia_type == "none")) new_ia_type <- rnd_choice("ia_type")
-    V1$math[i] <- paste('calc_ia',paste0("'",new_ia_type,"'"),calc_var,sep=",")
+    V1$math[i] <- paste('calc_ia',paste0("'",new_ia_type,"'"),scale_var,sep=",")
     #print(paste("ia_type change, i:",i,new_ia_type,V1$math[i]))
     return(V1)
   }
   
-  if (mod_ia == "calc_var") {  #FUTURE allow for different probs when called from mod_ia
-    V1 <- mod_calc_var(V1=V1,i=i)
+  if (mod_ia == "scale_var") {  #FUTURE allow for different probs when called from mod_ia
+    print("calling mod_scale_var from mod_model_ia")
+    V1 <- mod_scale_var(V1=V1,i=i)
     return(V1)
   }
   
@@ -636,22 +687,22 @@ mod_model_ia <- function(V1) {
 }
 
 #return a vdlist with last vd="model" var
-#math in the form of "get_calc_var,ia,bin,bin_decay"
-#ia in c("mul","div","add","sub","rsh","fth") with a chosen calc_var
-#bin points chosen based on scaling of bin var (zscore or rank) [bin var = calc_var]
+#math in the form of "get_scale_var,ia,bin,bin_decay"
+#ia in c("mul","div","add","sub","rsh","fth") with a chosen scale_var
+#bin points chosen based on scaling of bin var (zscore or rank) [bin var = scale_var]
 #FUTURE: Allow model vars to ia / bin
 get_model_list <- function() {
   #print("In get_model_list")
-  #get new calc_var
+  #get new scale_var
   vdlist <- NULL
   model_start <- rnd_choice("model_start")
-  if (model_start == "calc_var") {
-    calc_list <- vcom2vdlist_use("calc")
-    if (runif(1,0,1)<length(calc_list)/(length(calc_list)+length(rnd.env$vs.com))) { #"existing_calc_var"
-      V1 <- sample(calc_list,size=1)[[1]]
+  if (model_start == "scale_var") {
+    scale_list <- vcom2vdlist_use("scale")
+    if (runif(1,0,1)<length(scale_list)/(length(scale_list)+length(rnd.env$vs.com))) { #"existing_scale_var"
+      V1 <- sample(scale_list,size=1)[[1]]
       vdlist <- vcom2vdlist_req(V1)
-    } else {                                                                         #"new_calc_var"
-      vdlist <- get_calc_list()
+    } else {                                                                         #"new_scale_var"
+      vdlist <- get_scale_list()
       V1 <- vdlist[[length(vdlist)]]
     }
     V1$requires <- c(V1$requires,V1$var_name)
@@ -663,7 +714,7 @@ get_model_list <- function() {
   ia <- ifelse(model_start=="constant","none",rnd_choice("ia_type"))
   #print(ia)
   if (ia != "none") {  #FUTURE: add in sign choices, add in rnd weightings for add/sub
-    vdlist2 <- get_calc_list()
+    vdlist2 <- get_scale_list()
     vdlist <- c(vdlist,vdlist2)     #may have replicated var definitions, will be managed in vdlist2vcom
     V2 <- vdlist[[length(vdlist)]]
     V1$requires <- unique(c(V1$requires,V2$requires,V2$var_name))
@@ -684,7 +735,7 @@ get_model_list <- function() {
   binning <- ifelse(model_start=="constant","bin",rnd_choice("bin"))
   #print(paste("binning =",binning,"next_math=",next_math))
   if (binning != "none") {  #FUTURE: add chance to reuse ia var
-    vdlist2 <- get_calc_list()
+    vdlist2 <- get_scale_list()
     vdlist <- c(vdlist,vdlist2)
     V2 <- vdlist[[length(vdlist)]]
     V1$requires <- unique(c(V1$requires,V2$requires,V2$var_name))
@@ -722,15 +773,15 @@ make_new_model_var <- function() {
   } else {
     com.env$ID_tried <- c(com.env$ID_tried,model_vd$ID)
     vdlist2vcom(vdlist)
-    #print(paste("make_new_model_var:",vdlist[[length(vdlist)]]$var_name))
+    print(paste("make_new_model_var:",vdlist[[length(vdlist)]]$var_name))
   }
   #print(names(com.env$v.com))
 }
 
 
 #takes in a model vd and returns a mod_pair [(orig_vd,mod_vd)] 
-#  vd pair may be calc vd (model vars requiring calc vd handled in get_adj_r2 and clean_vcom)  
-#if V1 is not provided a random one is selected from vcom list [may return calc vd pair used by model vd selected]
+#  vd pair may be scale vd (model vars requiring scale vd handled in get_adj_r2 and clean_vcom)  
+#if V1 is not provided a random one is selected from vcom list [may return scale vd pair used by model vd selected]
 mod_var_model <- function(V1=NULL) {
   #print(paste("mod_var_model",V1$var_name,V1$use))
   new_mod <- FALSE
@@ -774,7 +825,8 @@ mod_var_model <- function(V1=NULL) {
            },
            "fve" = {  #from.var.env or calc_constant,1
              #print(V1$math)
-             V2 <- mod_calc_var(V1=V1,i=1)
+             print("calling mod_scale_var from mod_var_model fve choice")
+             V2 <- mod_scale_var(V1=V1,i=1)
              #print(V2$math)
            },
            "constant" = {
@@ -788,7 +840,11 @@ mod_var_model <- function(V1=NULL) {
              source("close_session.R")
            }
     )
+    if (V2$use == "scale") {  #model var passed in, modified scale var returned, must find orignal scale vd for mod_pair 
+      V1 <- com.env$v.com[[V2$var_name]]
+    }
     V2 <- set_name(V2)
+    
     new_mod <- (V1$ID != V2$ID)
   }
   
@@ -824,8 +880,9 @@ mod_var <- function(mod_use=NULL) {
   }
   if (mod_use == "model") {
     mod_list <- mod_var_model()
-  } else if (mod_use == "calc") {
-    mod_list <- mod_var_calc()    
+  } else if (mod_use == "scale") {
+    print("calling mod_scale_var from mod_var")
+    mod_list <- mod_scale_var()    
   }
   return(mod_list)
 }
@@ -943,26 +1000,29 @@ opt_cap <- function(math_pair,try_num) {
   orig_math <- math_pair[[1]]
   mod_math <- math_pair[[2]]
   
-  if (orig_math == "none") {
-    cap_type <- strsplit(strsplit(mod_math,split=",")[[1]][2],split="=")[[1]][1] #inherit from mod_math
-    orig_parm <- 0
-  } else {
-    cap_type <- strsplit(strsplit(orig_math,split=",")[[1]][2],split="=")[[1]][1] 
-    orig_parm <- strsplit(strsplit(orig_math,split=",")[[1]][2],split="=")[[1]][2]
-  }
   if (mod_math == "none") {
+    mod_cap_type <- strsplit(strsplit(orig_math,split=",")[[1]][2],split="=")[[1]][1] #inherit from orig_math
     mod_parm <- 0
   } else {
+    mod_cap_type <- strsplit(strsplit(mod_math,split=",")[[1]][2],split="=")[[1]][1] 
     mod_parm <- strsplit(strsplit(mod_math,split=",")[[1]][2],split="=")[[1]][2]
   }
+  if (orig_math == "none") {
+    orig_parm <- 0
+    orig_cap_type <- mod_cap_type
+  } else {
+    orig_cap_type <- strsplit(strsplit(mod_math,split=",")[[1]][2],split="=")[[1]][1] 
+    orig_parm <- strsplit(strsplit(orig_math,split=",")[[1]][2],split="=")[[1]][2]
+  }
   
-  if (cap_type == "abscap") {
+  if ((mod_cap_type == "abscap") | (orig_cap_type == "abscap")) {
     return("opt")
   }
   
-  cap_index_list <- ifelse(cap_type=="cap_pct",c(0,rnd.env$cap_pct_list),c(0,rnd.env$zcap_list)) #else "zcap"
-  orig_index <- which(mod_parm == cap_index_list)
-  mod_index <- which(mod_parm == cap_index_list)
+  orig_cap_index_list <- ifelse(orig_cap_type=="cap_pct",c(0,rnd.env$cap_pct_list),c(0,rnd.env$zcap_list))
+  mod_cap_index_list <- ifelse(mod_cap_type=="cap_pct",c(0,rnd.env$cap_pct_list),c(0,rnd.env$zcap_list)) #else "zcap"
+  orig_index <- which(orig_parm == orig_cap_index_list)
+  mod_index <- which(mod_parm == mod_cap_index_list)
   if (try_num == 1) {
     new_index <- move_out_index(orig_index,mod_index,length(cap_index_list))
     if (new_index==0) return("try again")
@@ -972,16 +1032,16 @@ opt_cap <- function(math_pair,try_num) {
   } else {
     return("opt")
   }
-  new_cap <- cap_index_list[new_index]
+  new_cap <- mod_cap_index_list[new_index]  #from mod_cap_type
   opt_math <- paste0("calc_cap,",cap_type,"=",new_cap)
   print(opt_math)
   return(opt_math)
 }
                   
-#opt_bin - need to code
+#opt_bin - should not be called if bin_points in math_pair of different scale type
 #takes in math_pair [orig_math,mod_math] and returns opt_math
 #if no move, and more tries possible, opt_math="try again", if no move and no tries left, opt_math="opt"
-#orig_math is "calc_bin,bin_field='calc_var',b1=bp1,b2=bp2"
+#orig_math is "calc_bin,bin_field='scale_var',b1=bp1,b2=bp2"
 #try1: move bp1 and bp2 in same direction (outside)
 #try2: move bp1 and bp2 in same direction (inside)
 #try3: move bp1 in same direction (outside) (hold bp2 constant) 
@@ -1128,8 +1188,8 @@ get_vd_diff <- function(vd_pair) {
   orig_math_list <- orig_vd$math
   mod_math_list <- mod_vd$math
   
-  if (orig_vd$use != "model" | mod_vd$use != "model") {
-    print("Error: Non-model vd types not supported in get_vd_diff yet")
+  if (orig_vd$use == "raw" | mod_vd$use == "raw") {
+    print("Error: raw vd types not supported in get_vd_diff yet")
     print(orig_vd)
     print(mod_vd)
     source("close_session.R")
@@ -1162,24 +1222,41 @@ get_vd_diff <- function(vd_pair) {
         mod_idx <- mod_idx + 1
         orig_idx <- orig_idx + 1
       } else if (cmc[1] == "different") {
-        if ((cmc[2] == "from.var.env") | (cmc[3] == "from.var.env")) {
+        if ((orig_vd$use == "model") & (cmc[2] == "from.var.env") | (cmc[3] == "from.var.env")) {
           if ((cmc[2]!="calc_constant")&(cmc[3]!="calc_constant")) { #other cmc must be calc_constant
             print("Error in vd_diff, from.var.env not paired with calc_constant (and different)")
             source("close_session.R")
           }
-          return(math_pair) 
+          return(math_pair)
+        } else if ((orig_vd$use == "scale") & (mod_idx == 1)) {  #shouldn't be different (yet)
+          print("ERROR in vd_diff for scale var")
+          print("First math should not be different")
+          print(cmc)
+          print(orig_math_list)
+          print(mod_math_list)
+          source("close_session.R")
         } else if (((cmc[2]=="calc_ia") & ((cmc[3]=="calc_bin") | (cmc[3]=="calc_decay"))) |
-            ((cmc[2]=="calc_bin") & (cmc[3]=="calc_decay"))) {                #no match in mod_math
+            ((cmc[2]=="calc_bin") & (cmc[3]=="calc_decay")) |
+            (cmc[2]=="calc_calc") |
+            (cmc[2]=="calc_cap") & (cmc[3]=="calc_scale")) {                #no match in mod_math
           math_pair <- c(orig_math_list[orig_idx],"none")
           return(math_pair)
         } else if ((((cmc[2]=="calc_bin") | (cmc[2]=="calc_decay")) & (cmc[3]=="calc_ia")) | 
-                   ((cmc[2]=="calc_decay") & (cmc[3]=="calc_bin"))) {         #no match in orig_math
+                   ((cmc[2]=="calc_decay") & (cmc[3]=="calc_bin")) |
+                   (cmc[3]=="calc_calc") |
+                   (cmc[2]=="calc_scale") & (cmc[3]=="calc_cap")) {         #no match in orig_math
           math_pair <- c("none",mod_math_list[mod_idx])
           return(math_pair)
         }
       } else {
-        mod_idx <- mod_idx + 1
-        orig_idx <- mod_idx + 1
+        #mod_idx <- mod_idx + 1
+        #orig_idx <- mod_idx + 1
+        if ((orig_vd$use == "scale") & (cmc[1] != "calc_cap")) {
+          print("ERROR in get_vd_diff, only calc_cap should be different in scale vars")  #currently
+          source("close_session.R")
+        }
+        #difference found
+        return(math_pair)
       }
     }
   }
