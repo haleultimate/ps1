@@ -379,7 +379,7 @@ sub_scale_name_in_math <- function(math,var_name) {
 
 #takes in scale vd (raw/stk/etf:calc:cap:scale) modifies cap and returns it
 modify_scale_var <- function(V1) {
-  print("modify_scale_var")
+  #print("modify_scale_var")
   cap_idx <- NULL
   for (i in 1:length(V1$math)) {
     if (grepl("calc_cap",V1$math[i])) cap_idx <- i
@@ -387,7 +387,7 @@ modify_scale_var <- function(V1) {
   
   cap_type <- "none"
   if (is.null(cap_idx)) {
-    print("cap_idx is null, getting rnd_choice(cap_type) [can't be none = delete]")
+    #print("cap_idx is null, getting rnd_choice(cap_type) [can't be none = delete]")
     while (cap_type=="none") cap_type <- rnd_choice("cap_type")
     mod_or_delete_cap <- FALSE  #adding cap      
     cap <- rnd_choice(cap_type)
@@ -420,20 +420,9 @@ modify_scale_var <- function(V1) {
 #If unable to perform operation, return V1
 mod_scale_var <- function(V1=NULL,i=NULL) {
   #print(paste("mod_scale_var"))
-#  if (is.null(V1)) {
-#    vdlist <- vcom2vdlist_use("scale")
-#    V1 <- sample(vdlist,size=1)
-#  }
-#  if (V1$use != "scale") {
-#    print(paste("ERROR: wrong use type in mod_var_model",V1$var_name,V1$use))
-#    soure("close_session.R")
-#  }
-#  calc <- (grepl("calc_calc",V1$math))
-#  vlty <- (grepl("calc_vlty",V1$math))
-#  decay_only <- (length(V1$math) == 1)
   if (!is.null(V1) & !is.null(i)) { 
   #modify scale_var name in model vd, return model vd if existing_scale_var, otherwise return new/mod scale vd
-    print(paste(i,V1$math[i]))  
+    #print(paste(i,V1$math[i]))  
     if (V1$use != "model") {
       print("ERROR in mod_scale_var, i passed in with non-model var")
       print(V1)
@@ -441,7 +430,11 @@ mod_scale_var <- function(V1=NULL,i=NULL) {
       source("close_session.R")
     }
     scale_var_mod <- rnd_choice("scale_var_mod")
-    if (is.null(V1)) scale_var_mod <- "existing_scale_var"
+    if (is.null(V1)) {
+      scale_var_mod <- "existing_scale_var"
+    } else {
+      if (get_scale_var_from_math(V1$math[i]) == "constant") scale_var_mod = "existing_scale_var"  #can't modify constant
+    }
     switch(scale_var_mod,
            "existing_scale_var" = {
              scale_list <- vcom2vdlist_use("scale")
@@ -470,7 +463,7 @@ mod_scale_var <- function(V1=NULL,i=NULL) {
                return(V3)
              } else { #model var, get scale var in math, find it in var.env$v.com, modify it, and return modified scale var
                old_var_name <- get_scale_var_from_math(V1$math[i])
-               print(paste("mod_scale_var:",old_var_name))
+               #print(paste("mod_scale_var:",old_var_name))
                V2 <- com.env$v.com[[old_var_name]]
                if (is.null(V2)) {
                  print(paste("Error in mod_scale_var",old_var_name,"not found"))
@@ -590,10 +583,10 @@ mod_model_bin <- function(V1) {
   }
   
   if (mod_bin == "scale_var") {
-    print("calling mod_scale_var from mod_model_bin")
+    #print("calling mod_scale_var from mod_model_bin")
     V2 <- mod_scale_var(V1=V1,i=i)
     if (V2$use == "model") { #scale_var to existing scale_var, if scale type changed adjust bin_ponts
-      print("changed scale var to existing scale var")
+      #print("changed scale var to existing scale var")
       orig_scale_var <- get_scale_var_from_math(V1$math[i])
       new_scale_var <- get_scale_var_from_math(V2$math[i])
       if (substr(com.env$v.com[[orig_scale_var]]$scale_type,1,1) != substr(com.env$v.com[[new_scale_var]]$scale_type,1,1)) {
@@ -676,7 +669,7 @@ mod_model_ia <- function(V1) {
   }
   
   if (mod_ia == "scale_var") {  #FUTURE allow for different probs when called from mod_ia
-    print("calling mod_scale_var from mod_model_ia")
+    #print("calling mod_scale_var from mod_model_ia")
     V1 <- mod_scale_var(V1=V1,i=i)
     return(V1)
   }
@@ -825,7 +818,7 @@ mod_var_model <- function(V1=NULL) {
            },
            "fve" = {  #from.var.env or calc_constant,1
              #print(V1$math)
-             print("calling mod_scale_var from mod_var_model fve choice")
+             #print("calling mod_scale_var from mod_var_model fve choice")
              V2 <- mod_scale_var(V1=V1,i=1)
              #print(V2$math)
            },
@@ -881,7 +874,7 @@ mod_var <- function(mod_use=NULL) {
   if (mod_use == "model") {
     mod_list <- mod_var_model()
   } else if (mod_use == "scale") {
-    print("calling mod_scale_var from mod_var")
+    #print("calling mod_scale_var from mod_var")
     mod_list <- mod_scale_var()    
   }
   return(mod_list)
@@ -977,7 +970,7 @@ opt_decay <- function(math_pair,try_num) {
       }
     }
   } 
-  print(paste("opt_decay:",opt_math))
+  #print(paste("opt_decay:",opt_math))
   return(opt_math)
 }
 
@@ -996,7 +989,7 @@ opt_decay <- function(math_pair,try_num) {
 #  return "opt"
 #Assumes math form: "calc_cap,CAP_TYPE=parm"  where CAP_TYPE in (cap_pct,zcap,abscap)
 opt_cap <- function(math_pair,try_num) {
-  print(paste("opt_cap",math_pair[1],math_pair[2],try_num))
+  #print(paste("opt_cap",math_pair[1],math_pair[2],try_num))
   orig_math <- math_pair[[1]]
   mod_math <- math_pair[[2]]
   
@@ -1011,7 +1004,7 @@ opt_cap <- function(math_pair,try_num) {
     orig_parm <- 0
     orig_cap_type <- mod_cap_type
   } else {
-    orig_cap_type <- strsplit(strsplit(mod_math,split=",")[[1]][2],split="=")[[1]][1] 
+    orig_cap_type <- strsplit(strsplit(orig_math,split=",")[[1]][2],split="=")[[1]][1] 
     orig_parm <- strsplit(strsplit(orig_math,split=",")[[1]][2],split="=")[[1]][2]
   }
   
@@ -1019,21 +1012,39 @@ opt_cap <- function(math_pair,try_num) {
     return("opt")
   }
   
-  orig_cap_index_list <- ifelse(orig_cap_type=="cap_pct",c(0,rnd.env$cap_pct_list),c(0,rnd.env$zcap_list))
-  mod_cap_index_list <- ifelse(mod_cap_type=="cap_pct",c(0,rnd.env$cap_pct_list),c(0,rnd.env$zcap_list)) #else "zcap"
-  orig_index <- which(orig_parm == orig_cap_index_list)
-  mod_index <- which(mod_parm == mod_cap_index_list)
+  #orig_cap_index_list <- ifelse(orig_cap_type=="cap_pct",c(0,rnd.env$cap_pct_list),c(0,rnd.env$zcap_list))
+  #mod_cap_index_list <- ifelse(mod_cap_type=="cap_pct",c(0,rnd.env$cap_pct_list),c(0,rnd.env$zcap_list)) #else "zcap"
+  if (orig_cap_type == "cap_pct") {
+    orig_cap_index_list <- c(0,rnd.env$cap_pct_list)
+  } else { #zcap
+    orig_cap_index_list <- c(0,rnd.env$zcap_list)
+  }
+  if (mod_cap_type == "cap_pct") {
+    mod_cap_index_list <- c(0,rnd.env$cap_pct_list)
+  } else { #zcap
+    mod_cap_index_list <- c(0,rnd.env$zcap_list)
+  }
+  orig_index <- which(as.numeric(orig_parm) == orig_cap_index_list)
+  mod_index <- which(as.numeric(mod_parm) == mod_cap_index_list)
   if (try_num == 1) {
-    new_index <- move_out_index(orig_index,mod_index,length(cap_index_list))
+    if (orig_index == mod_index) {
+      new_index <- ifelse(mod_index<length(mod_cap_index_list),mod_index+1,0)  
+    } else {
+      new_index <- move_out_index(orig_index,mod_index,length(mod_cap_index_list))
+    }
     if (new_index==0) return("try again")
   } else if (try_num == 2) {
-    new_index <- move_in_index(orig_index,mod_index)
+    if (orig_index == mod_index) {
+      new_index <- ifelse(mod_index>1,mod_index-1,0)
+    } else {
+      new_index <- move_in_index(orig_index,mod_index)
+    } 
     if (new_index==0) return("opt")
   } else {
     return("opt")
   }
   new_cap <- mod_cap_index_list[new_index]  #from mod_cap_type
-  opt_math <- paste0("calc_cap,",cap_type,"=",new_cap)
+  opt_math <- paste0("calc_cap,",mod_cap_type,"=",new_cap)
   print(opt_math)
   return(opt_math)
 }
@@ -1238,13 +1249,13 @@ get_vd_diff <- function(vd_pair) {
         } else if (((cmc[2]=="calc_ia") & ((cmc[3]=="calc_bin") | (cmc[3]=="calc_decay"))) |
             ((cmc[2]=="calc_bin") & (cmc[3]=="calc_decay")) |
             (cmc[2]=="calc_calc") |
-            (cmc[2]=="calc_cap") & (cmc[3]=="calc_scale")) {                #no match in mod_math
+            (cmc[2]=="calc_cap") & ((cmc[3]=="calc_z") | (cmc[3]=="calc_rank"))) {                #no match in mod_math
           math_pair <- c(orig_math_list[orig_idx],"none")
           return(math_pair)
         } else if ((((cmc[2]=="calc_bin") | (cmc[2]=="calc_decay")) & (cmc[3]=="calc_ia")) | 
                    ((cmc[2]=="calc_decay") & (cmc[3]=="calc_bin")) |
                    (cmc[3]=="calc_calc") |
-                   (cmc[2]=="calc_scale") & (cmc[3]=="calc_cap")) {         #no match in orig_math
+                   ((cmc[2]=="calc_z") | (cmc[2]=="calc_rank")) & (cmc[3]=="calc_cap")) {         #no match in orig_math
           math_pair <- c("none",mod_math_list[mod_idx])
           return(math_pair)
         }
@@ -1287,7 +1298,7 @@ get_opt_vd <- function(vd_pair,try_num) {
   
   #only occurs on a deletion, cmc[1]=="different"
   if (length(cmc) == 3) {
-    print(cmc)
+    #print(cmc)
     #print(orig_vd$math)
     #print(mod_vd$math)
     return(list(mod_vd,"opt"))
@@ -1345,7 +1356,7 @@ get_opt_vd <- function(vd_pair,try_num) {
 
 #function takes mod_pair[orig_vd,mod_vd] and tests new vd's trying to find improvement
 #opt_math creates new vd based on try_num
-#eval_adj_r2 evaluates new_vd and if better places it into current com.env$v.com
+#eval_adj_r2 evaluates new_vd and if better places it into current com.env$v.com, updating com.env$best_adj_r2
 #continue until "opt" is returned from opt_math
 optimize_mod_pair <- function(mod_pair) {
   #print("optimize_code********************************************")
@@ -1370,10 +1381,11 @@ optimize_mod_pair <- function(mod_pair) {
     } else {
       new_adj_r2 <- eval_adj_r2(new_vd_pair)
       if (new_adj_r2 > com.env$best_adj_r2) {
-        print(paste(try_num,"opt_math:",new_vd_pair[[2]]$math))
+        #print(paste(try_num,"opt_math:",new_vd_pair[[2]]$math))
         print(paste("opt model improved from: best_adj_r2:",com.env$best_adj_r2,"to:",new_adj_r2,"try:",try_num))
         com.env$best_adj_r2 <- new_adj_r2
-        com.env$reg_names <- names(com.env$model.stepwise$coefficients)[-1]  #update reg_names with new mod var
+        com.env$best_reg_names <- com.env$reg_names
+        #com.env$reg_names <- names(com.env$model.stepwise$coefficients)[-1]  #update reg_names with new mod var
         mod_pair <- new_vd_pair
         try_num <- 1             #for new mod pair
         loop <- 0

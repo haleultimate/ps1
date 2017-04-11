@@ -271,7 +271,7 @@ set_name = function(V1,orig_name=NULL,vdlist=NULL) {
              IDPart <- paste0(IDPart, formatC(which(substr(parms,6,6) == LETTERS), width = 2, format = "d", flag = "0"))
            },
            "calc_lag" = {  #reserved for "def" vars, shouldn't lag 'D' [only 'V', log dollars, should be lagged] 
-             print(paste(V1$var_name,math_str))
+             #print(paste(V1$var_name,math_str))
              if(V1$var_name %in% LETTERS){
                if (V1$var_name == 'D') {
                  print("Dollar lagging not supported in set_name, should use decay,1")
@@ -1397,7 +1397,7 @@ optimize_mod <- function(orig_vd,new_vd,orig_adj_r2,new_adj_r2,try_num=NULL,impr
     #print("evaluating new vd")
     #print(paste(vd_list$name,orig_vd$name))
     #com.env$override_col <- com.env$mod_col
-    com.env$reg_names <- names(com.env$model.stepwise$coefficients)[-1]
+    #com.env$reg_names <- names(com.env$model.stepwise$coefficients)[-1]
     adj_r2 <- eval_adj_r2(vd=vd_list,orig_vd=orig_vd)
   }
   if (adj_r2 > new_adj_r2) {
@@ -1405,7 +1405,7 @@ optimize_mod <- function(orig_vd,new_vd,orig_adj_r2,new_adj_r2,try_num=NULL,impr
     best_vd <- vd_list
     com.env$best_adj_r2 <- adj_r2
     #com.env$override_col <- com.env$mod_col
-    com.env$reg_names <- names(com.env$model.stepwise$coefficients)[-1]
+    #com.env$reg_names <- names(com.env$model.stepwise$coefficients)[-1]
     return(optimize_mod(new_vd,best_vd,new_adj_r2,com.env$best_adj_r2,try_num,improve=TRUE))
   } else {
     #print(paste("optimize model did not improve",adj_r2,new_adj_r2,improve,try_num))
