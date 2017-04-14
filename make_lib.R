@@ -1350,6 +1350,17 @@ get_opt_vd <- function(vd_pair,try_num) {
       #print(paste("try opt_vd:",opt_vd$ID))
       com.env$ID_tried <- c(com.env$ID_tried,opt_vd$ID)
     }
+  } else {
+    if (opt_vd$use == "scale") {
+      if (opt_vd$ID %in% com.env$ID_scale_opt) {
+        print(paste("opt_vd already tried for scale var, quit opt",opt_vd$var_name,opt_vd$ID))
+        print(opt_vd$math)
+        return(list(mod_vd,"opt"))
+      } else {
+        print(paste("try ID_scale_opt:",opt_vd$ID))
+        com.env$ID_scale_opt <- c(com.env$ID_scale_opt,opt_vd$ID)
+      }
+    }
   }
   return(list(mod_vd,opt_vd))
 }
@@ -1384,6 +1395,7 @@ optimize_mod_pair <- function(mod_pair) {
         #print(paste(try_num,"opt_math:",new_vd_pair[[2]]$math))
         print(paste("opt model improved from: best_adj_r2:",com.env$best_adj_r2,"to:",new_adj_r2,"try:",try_num))
         com.env$best_adj_r2 <- new_adj_r2
+        #cat('best_reg_names set in opt model improved\n')
         com.env$best_reg_names <- com.env$reg_names
         #com.env$reg_names <- names(com.env$model.stepwise$coefficients)[-1]  #update reg_names with new mod var
         mod_pair <- new_vd_pair

@@ -176,6 +176,7 @@ for (i in 1:6) {
     V1$type <- "ret"
     V1$requires <- unique(c(vd_end_price$requires,vd_start_price$requires,vd_start_price$name,vd_end_price$name))
     V1$math[1] <- paste0("calc_ret,'",vd_start_price$name,"','",vd_end_price$name,"'")
+    V1$math[2] <- "calc_cap,abscap=0.08"
     V1 <- set_name(V1)
     cmd_string <- paste0("rnd.env$vs.com$",V1$var_name," <- V1")   
     eval(parse(text=cmd_string))
@@ -192,6 +193,7 @@ V1$type <- "vol"
 V1$use <- "def"
 V1$calc_cmn <- TRUE
 V1$math[1] <- "from.data.env,'D'"
+V1$math[2] <- "calc_cap,cap_pct=0.005"
 V1 <- set_name(V1)
 cmd_string <- paste0("rnd.env$vs.com$",V1$var_name," <- V1")   
 eval(parse(text=cmd_string))
@@ -202,6 +204,7 @@ V1$type <- "vol"
 V1$use <- "def"
 V1$calc_cmn <- TRUE
 V1$math[1] <- "from.data.env,'V'"
+V1$math[2] <- "calc_cap,cap_pct=0.005"
 #V1$math[1] <- "from.var.env,field='D'"
 #V1$math[1] <- "calc_math,c('D'),math_str='XX0N <- log(XX1) - 18.5'"
 V1 <- set_name(V1)

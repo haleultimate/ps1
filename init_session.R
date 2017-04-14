@@ -81,6 +81,7 @@ library(quantmod)
 library(dplyr)
 library(forecast)
 library(leaps)
+library(fmsb)
 if (!exists("data.env")) data.env <- new.env(parent=globalenv())
 var.env <- new.env(parent=globalenv())
 rnd.env <- new.env(parent=globalenv())
@@ -126,8 +127,8 @@ com.env$model_filename <- "lf1_mar3.vcom"
 com.env$look_forward <- 1
 com.env$save_var_n <- 0
 com.env$opt_model <- TRUE
-com.env$model_loops <- 10
-com.env$add_var_levels <- c(5,20,30)
+com.env$model_loops <- 20
+com.env$add_var_levels <- c(10,15,20,30)
 com.env$mod_var_loops <- 20
 com.env$run_sim <- FALSE
 

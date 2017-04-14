@@ -229,7 +229,7 @@ set_name = function(V1,orig_name=NULL,vdlist=NULL) {
              switch(parm_split[1],
                     "cap_pct" = { IDPart <- paste0("1",which(as.numeric(rnd.env$cap_pct_list)==as.numeric(parm_split[2]))) },
                     "zcap" = { IDPart <- paste0("2",which(as.numeric(rnd.env$zcap_list)==as.numeric(parm_split[2]))) },
-                    "abscap" = { IDPart <- paste0("3",gsub("[^0-9]", "", parm_split[2]))})
+                    "abscap" = { IDPart <- "308"})
              if (nchar(IDPart)<2) print(paste(parm_split,IDPart))
              IDPart <- paste0("29",IDPart)
            },
@@ -382,17 +382,17 @@ set_name = function(V1,orig_name=NULL,vdlist=NULL) {
              IDPart <- ifelse(substr(parms,2,2)=="G","59","60")
            },
            "calc_z" = {
-             if (grepl("TRUE",parms)) {  #Zscore "Z"
+             if (grepl("TRUE",parms)) {  #Zscore "Z"  ID's for Z,z,r chosen so they don't sum to same thing
                namePart <- "Z"
-               IDPart <- "52"
+               IDPart <- "1"
              } else {                    #Zscale "z"
                namePart <- "z"
-               IDPart <- "26"
+               IDPart <- "5"
              }
            },
            "calc_rank" = {
              namePart <- "r"
-             IDPart <- "18"              #rank "r"
+             IDPart <- "9"               #rank "r"
            },
            print(paste("calc_function not found in set_name",math_str,math,parms))
     )
@@ -416,7 +416,7 @@ set_name = function(V1,orig_name=NULL,vdlist=NULL) {
       print(V1)
     }
     letter_id <- substr(V1$use,1,1)
-    if (letter_id=="r") letter_id <- "w"
+    if (V1$use == "raw") letter_id <- "w"
     var_name <- paste0(V1$var_name,letter_id,sumID(V1$ID,V1))
     if (V1$use == "scale") {
       var_name <- gsub("w[[:digit:]]+","",var_name)     #shorten raw names by removing "w[sumID]"
