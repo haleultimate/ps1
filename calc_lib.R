@@ -444,6 +444,7 @@ calc_etf <- function(ve.xts,coln,field,first_pass=FALSE) {
   ticker <- sub("var.env$","",ve.xts,fixed=TRUE)
   cmn <- com.env$cmn_lookup[ticker]
   cmd_string <- paste("cmn.xts <- merge(",ve.xts,"[,'",com.env$predict.ret,"'],var.env$",cmn,"[,'",field,"'])",sep="")
+  #print(cmd_string)
   eval(parse(text=cmd_string))
   cmn.xts[,2][is.na(cmn.xts[,2])] <- 0
   cmn.xts <- na.omit(cmn.xts)
@@ -681,13 +682,20 @@ calc_ia <- function(ve.xts,coln,type,parm=NULL,sign=0,first_pass=FALSE) {
 calc_rank <- function(ve.xts,coln,qcount,first_pass=FALSE) {
   #print(paste("calc_rank",ve.xts,coln,first_pass))
   data_string <- paste0(ve.xts,"[com.env$reg_date_range,",coln,"]")
+  cmd_string <- paste0("check_single_value <- (max(",data_string,",na.rm=TRUE)==min(",data_string,",na.rm=TRUE))")
+  eval(parse(text=cmd_string))
   out_string <- paste0(ve.xts,"[,",coln,"]")
-  cmd_string <- paste0("deciles <- quantile(",data_string,",probs=seq(0,1,(1/",qcount,")),na.rm = TRUE)")
-  #if(first_pass) print(cmd_string)
-  eval(parse(text=cmd_string))
-  cmd_string <- paste0(out_string,"<- approx(deciles,(as.numeric(sub('%','',names(deciles)))/100),",out_string,",yleft=0,yright=1)$y")
-  #if(first_pass) print(cmd_string)
-  eval(parse(text=cmd_string))
+  if (check_single_value) {
+    cmd_string <- paste0(out_string,"<- 1")
+    cat("Warning: rank data is all the same in",data_string,"setting",out_string,"to 1.\n")
+  } else {
+    cmd_string <- paste0("deciles <- quantile(",data_string,",probs=seq(0,1,(1/",qcount,")),na.rm = TRUE)")
+    #if(first_pass) print(cmd_string)
+    eval(parse(text=cmd_string))
+    cmd_string <- paste0(out_string,"<- approx(deciles,(as.numeric(sub('%','',names(deciles)))/100),",out_string,",yleft=0,yright=1)$y")
+    #if(first_pass) print(cmd_string)
+    eval(parse(text=cmd_string))
+  }
 }
 
 #make_vars.R
@@ -771,7 +779,7 @@ make_vars <- function(vd = NULL) {
 
 calc_vd <- function(vd) { #for use in computing MU,ADJRET,VLTY  #appended to each var.env$ticker xts object
   #print("calc VD")
-  print(paste("calc_vd",vd$name,vd$math[1]))
+  #print(paste("calc_vd",vd$name,vd$math[1]))
   first_pass <- TRUE
   #print("starting stk loop")
   for (stk in 1:(com.env$stx+com.env$cmns)) {
@@ -795,7 +803,7 @@ calc_vd <- function(vd) { #for use in computing MU,ADJRET,VLTY  #appended to eac
       math <- strsplit(vd$math[m],split=",")[[1]]
       parms <- gsub("^[^,]*,","",vd$math[m])
       fun_call <- paste(math[1],"('",ve.xts,"',",coln,",",parms,",first_pass=first_pass)",sep="")
-      if (first_pass) print(fun_call)
+      #if (first_pass) print(fun_call)
       eval(parse(text=fun_call))
     }
     #print(coln-1+length(vd$name))
@@ -805,7 +813,7 @@ calc_vd <- function(vd) { #for use in computing MU,ADJRET,VLTY  #appended to eac
 }
 
 stk_matrix <- function(type,index=0) {
-  print(paste("stk_oos_matrix",type,index))
+  #print(paste("stk_oos_matrix",type,index))
   col_lu <- type
   if (index != 0) {type = paste0(type,index)}
   type <- paste0("var.env$",type)
@@ -859,5 +867,94 @@ vlty_calc <- function() {
   stk_matrix("VLTY")
 }
 
+make_mu <- function() {
+  if (com.env$save_var_n == 0) {  #if saving vars model evaluation has already been done
+    print(paste("Evaluating 1st model in make_mu",Sys.time()))
+    eval_adj_r2(oos_data=TRUE)
+  }
+  mu_calc()
+  adjret_calc()
+  vlty_calc()
+  if (com.env$load_multi_model) {
+    for (i in 2:length(com.env$model_list)) {
+      print("clearing var.env")
+      var_env_list <- ls(var.env)
+      keep_list <- c("MU","VLTY","ADJRET")
+      var_env_list <- var_env_list[!(var_env_list %in% keep_list)]
+      rm(list=var_env_list,envir=var.env)
+      #    for (del_var in var_env_list) {
+      #      if (del_var %in% keep_list) next
+      #      cmd_string <- paste0("rm('",del_var,"',envir=var.env)")
+      #      print(cmd_string)
+      #      eval(parse(text=cmd_string))
+      #    }
+      print(ls(var.env))
+      load_model(com.env$model_list[i])
+      print(paste("Evaluating model,",i,com.env$model_list[i],Sys.time()))
+      eval_adj_r2(oos_data=TRUE)
+      mu_calc(i)
+      cmd_string <- paste0("var.env$MU <- var.env$MU + var.env$MU",i)
+      print(cmd_string)
+      eval(parse(text=cmd_string))
+    }
+  }
+}  
   
-  
+#function pre-calculates adjusted prices and dollars in data environment, used once per data load
+calc_adjusted_HLOJRlD <- function(symbol_list) {
+  print("calc_adjusted_HLOJRlD")
+  first_pass <- TRUE
+  for (ticker in symbol_list) {
+    if (ticker == "FNV") first_pass <- TRUE
+    df <- paste0("data.env$",ticker)
+    de.adjc <- paste0(df,"[,'",ticker,".Adjusted']")
+    de.c <- paste0(df,"[,'",ticker,".Close']")
+    de.L <- paste0(df,"[,'",ticker,".L']")
+    de.H <- paste0(df,"[,'",ticker,".H']")
+    de.J <- paste0(df,"[,'",ticker,".J']")
+    de.R <- paste0(df,"[,'",ticker,".R']")
+    de.Volume <- paste0(df,"[,'",ticker,".Volume']")
+    de.D <- paste0(df,"[,'",ticker,".D']")
+    de.V <- paste0(df,"$",ticker,".","V")
+    
+    for (field in c("High","Low","Open")) {
+      de.xts <- paste(df,"[,'",ticker,".",field,"']",sep="")
+      cmd_string <- paste0(df," <- cbind(",df,",",de.xts,"*",de.adjc,"/",de.c,")")
+      if (first_pass) print(cmd_string)
+      eval(parse(text=cmd_string))
+      cmd_string <- paste0("colnames(",df,")[length(colnames(",df,"))] <- '",ticker,".",substr(field,1,1),"'")
+      if (first_pass) print(cmd_string)
+      eval(parse(text=cmd_string))
+    }
+    cmd_string <- paste0(df," <- cbind(",df,",(",de.L,"*",de.H,")^(0.5))")
+    if (first_pass) print(cmd_string)
+    eval(parse(text=cmd_string))
+    cmd_string <- paste0("colnames(",df,")[length(colnames(",df,"))] <- '",ticker,".J'")
+    if (first_pass) print(cmd_string)
+    eval(parse(text=cmd_string))
+    cmd_string <- paste0(df," <- cbind(",df,",(",de.L,"*",de.H,"*",de.adjc,")^(1/3))")
+    if (first_pass) print(cmd_string)
+    eval(parse(text=cmd_string))
+    cmd_string <- paste0("colnames(",df,")[length(colnames(",df,"))] <- '",ticker,".R'")
+    if (first_pass) print(cmd_string)
+    eval(parse(text=cmd_string))
+    cmd_string <- paste0(df," <- cbind(",df,",(",de.Volume,"*",de.R,"))")
+    if (first_pass) print(cmd_string)
+    eval(parse(text=cmd_string))
+    cmd_string <- paste0("colnames(",df,")[length(colnames(",df,"))] <- '",ticker,".D'")
+    if (first_pass) print(cmd_string)
+    eval(parse(text=cmd_string))
+    cmd_string <- paste0(df," <- cbind(",df,",log(",de.D,") - 18.5)")
+    if (first_pass) print(cmd_string)
+    eval(parse(text=cmd_string))
+    cmd_string <- paste0("colnames(",df,")[length(colnames(",df,"))] <- '",ticker,".V'")
+    if (first_pass) print(cmd_string)
+    eval(parse(text=cmd_string))
+    cmd_string <- paste0(de.V,"[!(is.finite(",de.V,"))] <- -18.5")
+    if (first_pass) print(cmd_string)
+    eval(parse(text=cmd_string))
+    first_pass <- FALSE
+  }
+}
+
+

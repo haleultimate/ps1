@@ -193,6 +193,12 @@ get_requires_from_vd <- function(vd,vdlist=NULL) {
   return(requires)
 }
 
+rnd_choice <- function(choice) {
+  #print(paste('rnd_choice',choice))
+  cmd_string <- paste0("return(sample(names(rnd.env$p$",choice,"),size=1,prob=rnd.env$p$",choice,"))")
+  eval(parse(text=cmd_string))
+}
+
 #return vdlist with last vd="raw" var [types generally derived from set rnd.env$vs.com sample vars]
 get_raw_list <- function(raw_type = NULL) {
   if (is.null(raw_type)) raw_type <- rnd_choice("raw")
@@ -1045,7 +1051,7 @@ opt_cap <- function(math_pair,try_num) {
   }
   new_cap <- mod_cap_index_list[new_index]  #from mod_cap_type
   opt_math <- paste0("calc_cap,",mod_cap_type,"=",new_cap)
-  print(opt_math)
+  #print(opt_math)
   return(opt_math)
 }
                   
@@ -1357,7 +1363,7 @@ get_opt_vd <- function(vd_pair,try_num) {
         print(opt_vd$math)
         return(list(mod_vd,"opt"))
       } else {
-        print(paste("try ID_scale_opt:",opt_vd$ID))
+        #print(paste("try ID_scale_opt:",opt_vd$ID))
         com.env$ID_scale_opt <- c(com.env$ID_scale_opt,opt_vd$ID)
       }
     }
@@ -1403,7 +1409,7 @@ optimize_mod_pair <- function(mod_pair) {
         loop <- 0
       } else {
         #print(new_vd_pair[[2]]$math)
-        print(paste("opt model did not improve: best_adj_r2:",com.env$best_adj_r2,"to:",new_adj_r2,"try:",try_num))
+        #print(paste("opt model did not improve: best_adj_r2:",com.env$best_adj_r2,"to:",new_adj_r2,"try:",try_num))
         try_num <- try_num + 1
       }
     }

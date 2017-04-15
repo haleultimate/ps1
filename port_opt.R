@@ -1,7 +1,47 @@
-#make into function
+#run portfolio optimizatoin [lp_sim; below] with expectations as is
+#then reverses expectations and reruns portfolio optimization
+run_sim <- function() {
+  make_mu()       #calc MU,VLTY,ADJRET for each var.env xts object
+  print(paste("Total equity:",com.env$init_equity))
+  for (alpha_wt in c(16000)) {
+    com.env$alpha_wt <- alpha_wt
+    print(paste("alpha_wt:",com.env$alpha_wt))
+    lp_sim()      #source("blotter_sim.R") #run sim, plot daily profit
+  }
+  var.env$MU <- -var.env$MU
+  print("reversing MU")
+  lp_sim()  #source("blotter_sim.R")
+}
+
+#lp_sim sim calls port_opt_lp [optimizes portfolio position daily; below]
+#calculates profit by multiplying daily (cc_return)*(position in dollars [aka shares])
+#add in ordering logic
+#should we pass in sim_start_date, sim_end_date?
+lp_sim <- function() {
+  print (paste("Running Sim",Sys.time()))
+  shares <- matrix(nrow=length(com.env$sim_date_index),ncol=length(com.env$stx.symbols))
+  for (SimDate_i in 1:(length(com.env$sim_date_index))) {
+    SimDate <- com.env$sim_date_index[SimDate_i]
+    equity <- com.env$init_equity 
+    #print(paste("DATE:",SimDate,"Equity:",equity))
+    port.pos <- port_opt_lp(as.vector(var.env$MU[SimDate]),as.vector(var.env$VLTY[SimDate]),equity)
+    shares[SimDate_i,] <- port.pos
+    #print(port.pos)
+  }
+  
+  ADJRET.matrix <- as.matrix(var.env$ADJRET[com.env$sim_date_index])
+  ADJRET_shares <- ADJRET.matrix*shares
+  dayprofit <- rowSums(ADJRET_shares)
+  stockprofit <- colSums(ADJRET_shares)
+  totalprofit <- cumsum(dayprofit)
+  print(paste("total profit:",totalprofit[length(totalprofit)]))
+  
+  plot(com.env$sim_date_index,totalprofit)
+  points(com.env$sim_date_index,dayprofit,col="red")
+}
+
 #pass in mu, vlty, port_size
 #future: add in order vars (take into account order costs)
-
 port_opt_lp <- function (lp.mu, lp.vlty, lp.port_size) {
   
   if (!exists("lp.first_run")) {

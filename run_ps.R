@@ -1,35 +1,14 @@
 # run_ps.R
-source("init_session.R")                        #clean environment, setup com parms
+print(paste("Start time:",Sys.time()))
+if (!exists("stx_list.loaded")) stx_list.loaded <- NULL 
+rm(list = ls(all=TRUE)[!ls(all=TRUE) %in% c("data.env","stx_list.loaded")]) #clean workspace except for (data.env, stx.list.old) so we don't have to reload data
 
-#source("rnd_parms.R")
-source("rnd_lib.R")
-source("make_lib.R")
-source("calc_lib.R")   
-source("model_select.R") 
-source("reg_lib.R")
-source("port_opt.R")                            #function libraries
+source("init_lib.R")            #library needed to load other libraries 
 
-source("run_prediction.R")                      #prediction model
+stx_list.loaded <- init_session(stx_list.loaded)    #load libraries, set com parms, load/clean data (if not loaded)
 
-if ((com.env$save_var_n > 0) | (com.env$run_sim)) {
-  print(paste("Evaluating model,",Sys.time()))
-  eval_adj_r2(oos_data=TRUE)
-}
+run_prediction()                #prediction model (reg_lib.R)
 
-if (com.env$save_var_n > 0) save_vars(com.env$save_var_n) #get top vars
-
-if (com.env$run_sim) {
-  source("make_mu.R")                             #calc MU,VLTY,ADJRET for each var.env xts object
-  print(paste("Total equity:",com.env$init_equity))
-  for (alpha_wt in c(16000)) {
-    com.env$alpha_wt <- alpha_wt
-    print(paste("alpha_wt:",com.env$alpha_wt))
-    source("blotter_sim.R")                         #run sim, plot daily profit
-  }
-  var.env$MU <- -var.env$MU
-  print("reversing MU")
-  source("blotter_sim.R")
-}
+if (com.env$run_sim) run_sim()  #portfolio optimization (port_opt.R)
 
 print(paste("End time:",Sys.time()))
-#source("close_session.R")
