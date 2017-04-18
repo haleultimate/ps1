@@ -11,12 +11,6 @@ name.var <- function(ve.xts,col_num,new_name,first_pass=FALSE) { #always name co
   }
 } 
 
-#takes in ticker, math_calc, returns col containing calculation (stored temporarily in var.env$col.xts)
-#calc_math <- function(ticker,math_calc,first_pass=FALSE) {
-#  if (first_pass) print(paste("In calc_math",ticker,math_calc))
-#  
-#}
-
 #takes in ticker and vd and returns column containing vd values (stored temporarily in var.env$col.xts)
 calc_col_vd <- function(ve.xts,vd,first_pass=FALSE) {
   #if (first_pass) print(paste(ve.xts,vd$var_name))
@@ -687,7 +681,7 @@ calc_rank <- function(ve.xts,coln,qcount,first_pass=FALSE) {
   out_string <- paste0(ve.xts,"[,",coln,"]")
   if (check_single_value) {
     cmd_string <- paste0(out_string,"<- 1")
-    cat("Warning: rank data is all the same in",data_string,"setting",out_string,"to 1.\n")
+    #if (first_pass) cat("Warning: rank data is all the same in",data_string,"setting",out_string,"to 1.\n")
   } else {
     cmd_string <- paste0("deciles <- quantile(",data_string,",probs=seq(0,1,(1/",qcount,")),na.rm = TRUE)")
     #if(first_pass) print(cmd_string)

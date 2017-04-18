@@ -152,129 +152,110 @@ oos.r2 <- function(model,df.oos,reverse=FALSE) {
 
 #vif_func<-function(in_frame,thresh=10,trace=T,...){  #... removed by RHB
 vif_func<-function(in_frame,keep=NULL,thresh=10,trace=T){
-  if (trace==T) {
-    cat('In vif_func, trying to determine which vars are colinear and need to be removed\n')
-    if (!is.null(keep)) {
-      cat('Cannot remove:',keep,'\n')
-    } else {
-      cat('keep == NULL\n')
-    }
-  }
+  # if (trace==T) {
+  #   cat('In vif_func, trying to determine which vars are colinear and need to be removed\n')
+  #   if (!is.null(keep)) {
+  #     cat('Cannot remove:',keep,'\n')
+  #     cat('Able to remove:',names(in_frame)[!names(in_frame) %in% keep],'\n')
+  #     if (length(keep[!keep %in% names(in_frame)])>0) {
+  #       print("ERROR: Names in keep not in in_frame")
+  #       print(keep[!keep %in% names(in_frame)])
+  #     }
+  #   } else {
+  #     cat('keep == NULL\n')
+  #   }
+  # }
   #require(fmsb)
-  #detach(package:dplyr) #RHB
-  
   if(class(in_frame) != 'data.frame') in_frame<-data.frame(in_frame)
-  
-  #get initial vif value for all comparisons of variables
-  vif_init<-NULL
-  var_names <- names(in_frame)
-  #if(trace==T) print(var_names)
-  for(val in var_names){
-    regressors <- var_names[-which(var_names == val)]
-    form <- paste(regressors, collapse = '+')
-    form_in <- formula(paste(val, '~', form))
-    #vif_init<-rbind(vif_init, c(val, VIF(lm(form_in, data = in_frame, ...)))) #RHB
-    vif_init<-rbind(vif_init, c(val, VIF(lm(form_in, data = in_frame))))
-  }
-  keep.dat <- !(vif_init[,2] %in% c("NaN","Inf")) #RHB
-  vif_init <- vif_init[keep.dat,]                 #RHB
-  in_frame <- in_frame[,keep.dat]                 #RHB
-  var_names <- names(in_frame)                    #RHB
-  vif_max  <- max(as.numeric(vif_init[,2]))
-  
-  if(vif_max < thresh){
-    if(trace==T){ #print output of each iteration
-      #prmatrix(vif_init,collab=c('var','vif'),rowlab=rep('',nrow(vif_init)),quote=F)
-      #cat('\n')
-      cat(paste('All variables have VIF < ', thresh,', max VIF ',round(vif_max,2), sep=''),'\n\n')
-    }
-    return(var_names)
-  }
-  else{
-    
-    in_dat<-in_frame
-    
-    removed_vals <- NULL
-    #backwards selection of explanatory variables, stops when all VIF values are below 'thresh'
-    while(vif_max >= thresh){
-      
-      vif_vals<-NULL
-      var_names <- names(in_dat)
-      
-      for(val in var_names){
-        regressors <- var_names[-which(var_names == val)]
-        form <- paste(regressors, collapse = '+')
-        form_in <- formula(paste(val, '~', form))
-        #vif_add<-VIF(lm(form_in, data = in_dat, ...))
-        vif_add<-VIF(lm(form_in, data = in_dat))     #RHB
-        vif_vals<-rbind(vif_vals,c(val,vif_add))
-      }
-      max_row<-which(vif_vals[,2] == max(as.numeric(vif_vals[,2])))[1]
-      
-      vif_max<-as.numeric(vif_vals[max_row,2])
-      
-      if(vif_max<thresh) break
-      
-      if (!is.null(keep)) { #RHB, sort by vif (values and var_names)
-        sort_vif <- sort(as.numeric(vif_vals[,2]),decreasing=TRUE)
-        sort_var_names <- vif_vals[order(as.numeric(vif_vals[,2]),decreasing=TRUE),1]
-        if (trace==T) print(rbind(sort_vif,sort_var_names))
-      }
-      
-      if(trace==T){ #print output of each iteration
-        prmatrix(vif_vals,collab=c('var','vif'),rowlab=rep('',nrow(vif_vals)),quote=F)
-        cat('\n')
-        cat('removed: ',max_row,vif_vals[max_row,1],vif_max,'\n')
-        if (!is.null(removed_vals)) cat('Previously removed vals:',removed_vals,'\n')
-        #if (!is.null(keep)) { #RHB, print sorted vif (values and var_names)
-        #  cat('sorted vif values and var_names\n')          
-        #  print(sort_vif)
-        #  print(sort_var_names)
-        #}
-        flush.console()
-      }
-      
-      if (is.null(keep)) {
-        if (trace==T) cat('removing:',vif_vals[max_row,1],'\n')
-        in_dat<-in_dat[,!names(in_dat) %in% vif_vals[max_row,1]]  #original code (without keep functionality
-        removed_vals <- c(removed_vals,vif_vals[max_row,1])
+  problem_vals_last_time <-FALSE
+  removed_vals <- NULL         #vars to remove from in_frame
+  vif_calcs <- NULL            #list containing vif values for all var_names
+  check_vals <- names(in_frame)
+  vif_max <- thresh+1          #forces loop 
+  while (vif_max > thresh) {   #compute VIF for each var; construct vif_calcs list
+    # if(trace==T) {
+    #   cat("removed_vals:",removed_vals,'\n')
+    #   cat("check_vals:",check_vals,'\n')
+    # }
+    in_dat <- in_frame[,!(names(in_frame) %in% removed_vals)]
+    var_names <- names(in_dat)
+    #vif_vals <- NULL             #array containing var_names, vif_calcs (vif_vals[,1],vif_vals[,2])
+    vif_calcs <- vif_calcs[!names(vif_calcs) %in% removed_vals]
+    for (val in check_vals) {
+      regressors <- var_names[-which(var_names == val)]
+      form <- paste(regressors, collapse = '+')
+      form_in <- formula(paste(val, '~', form))
+      if (val %in% names(vif_calcs)) {
+        vif_calcs[val] <- VIF(lm(form_in,data=in_dat))
       } else {
-        max_vif <- sort_var_names[1]
-        if (trace==T) cat('max_viv (regardless of keep vars):',sort_var_names[1],'\n')
-        removable_var_names <- sort_var_names[!(sort_var_names %in% keep)]  #keep passed in from com.env$best_reg_names, vars not to remove
-        if (trace==T) {
-          print("sort_var_names with keep names removed")
-          print(removable_var_names)
-        }
-        if (is.null(removable_var_names)) {
-          print("Can't keep vars requested AND get vif < thresh")
-          print(keep)
-          cat('thresh:',thresh)
-          return(keep)
-        } else {
-          if (trace==T) cat('max_viv (given keep vars):',removable_var_names[1],'\n')
-          if(max_vif != removable_var_names[1]) 
-            cat('Because of keep list',max_vif,vif_vals[max_row,2],'kept,',
-                'removed',removable_var_names[1],sort_vif[which(removable_var_names[1]==sort_var_names)],'\n')
-          in_dat <- in_dat[,!(names(in_dat) %in% removable_var_names[1])]
-          removed_vals <- c(removed_vals,removable_var_names[1])
-        }
-      }
-      
-      if (any(names(in_dat) %in% removed_vals)) {
-        print("WARNING: In VIF function, data remains in_dat after being removed")
-        cat('removed_vals:',removed_vals,'\n')
-        cat('names(id_dat):',names(in_dat),'\n')
-      }
-      if (any(keep %in% removed_vals)) {
-        print("WARNING: In VIF function, removing vals asked to be kept")
-        cat('removed_vals:',removed_vals,'\n')
-        cat('keep:',keep,'\n')
+        vif_calcs <- c(vif_calcs,VIF(lm(form_in,data=in_dat)))
+        names(vif_calcs)[length(vif_calcs)] <- val               
       }
     }
-    
-    return(names(in_dat))
-    
+    problem_vals <- names(vif_calcs[vif_calcs %in% c("NaN","Inf")]) 
+    if (length(problem_vals)>0) {                     
+      # if(trace==T) {
+      #   cat("problem_vals:",problem_vals,'\n')
+      #   print(vif_calcs)
+      # }
+      if (problem_vals_last_time) {
+        print("ERROR in vif_func: problem with data in keep list")
+        print(keep)
+        print(problem_vals)
+        print(vif_calcs[vif_calcs %in% c("NaN","Inf")])
+        print(var_names)
+        source("close_session.R")
+      }
+      problem_vals_last_time <- TRUE
+      removed_vals <- c(removed_vals,problem_vals[!problem_vals %in% keep])
+      var_names <- var_names[!var_names %in% removed_vals]
+      check_vals <- names(in_frame[,!(names(in_frame) %in% removed_vals)])
+      vif_init <- NULL
+      next
+    } else {
+      problem_vals_last_time <- FALSE
+    }
+    sort_vif_calcs <- sort(vif_calcs,decreasing=TRUE)
+    #if(trace==T) print(sort_vif_calcs)
+    vif_max <- sort_vif_calcs[1]
+    if (vif_max <= thresh) break
+    check_vals <- NULL
+    starting_removed_count <- length(removed_vals)
+    for (vif_max_name in names(sort_vif_calcs)) {
+      if ((!vif_max_name %in% keep) & (length(removed_vals)==starting_removed_count)) {
+        removed_vals <- c(removed_vals,vif_max_name)
+      } else {
+        if (vif_calcs[vif_max_name] > thresh) check_vals <- c(check_vals,vif_max_name)
+      }
+      if (vif_calcs[vif_max_name] <= thresh) break
+    }
+    if (length(removed_vals) == starting_removed_count) {
+      print("Can't keep vars requested AND get vif < thresh, keep vars:")
+      print(keep)
+      cat('thresh:',thresh,'max_vif:',sort_vif_calcs[1],'\n')
+      print(sort_vif_calcs)
+      cat('Calling vif_func without trying to keep com.env$best_reg_names, resetting best_vars\n')
+      com.env$best_adj_r2 <- 0
+      com.env$best_reg_names <- 0
+      com.env$best_vcom <- NULL
+      return(vif_func(in_frame,keep=NULL,thresh=5,trace=T))  #reduce threshold to make model less colinear
+    }
   }
-  
+  # DEBUGGING
+  if (trace==T) {
+    if (any(var_names %in% removed_vals)) {
+      print("WARNING: In VIF function, data remains in_dat after being removed")
+      cat('removed_vals:',removed_vals,'\n')
+      cat('names(id_dat):',names(in_dat),'\n')
+    }
+    if (any(keep %in% removed_vals)) {
+      print("WARNING: In VIF function, removing vals asked to be kept")
+      cat('removed_vals:',removed_vals,'\n')
+      cat('keep:',keep,'\n')
+    }
+    print(sort_vif_calcs)
+    cat("removing names from reg_data.df:",removed_vals,'\n')
+  }
+  return(var_names)
 }
+

@@ -517,49 +517,49 @@ save_vcom_vars <- function(var_num_list) {  #take var_num and create com.env$VCO
   }
 }
 
-load_rnd_var <- function() {
-  #print("load_rnd_var")
-  saved_var_files <- list.files(path=com.env$vardir)
-  #print(saved_var_files)
-  #print(com.env$var_files_tried)
-  saved_var_files <- saved_var_files[!(saved_var_files %in% com.env$var_files_tried)]
-  #print(saved_var_files)
-  if (length(saved_var_files) > 0) {
-    varfile_name <- sample(saved_var_files,size=1)
-    print(paste(varfile_name,",",length(saved_var_files),"left"))
-    com.env$var_files_tried <- c(com.env$var_files_tried,varfile_name)
-    varfile <- paste(com.env$vardir,"/",varfile_name,sep="")
-    load(file=varfile,envir=rnd.env)
-    #print(names(rnd.env$VCOM))
-    for (i in 1:length(names(rnd.env$VCOM))) {
-      V1 <- set_name(rnd.env$VCOM[[i]])
-      vname <- V1$var_name
-      #print(vname)
-      match <- FALSE
-      if (vname %in% names(com.env$v.com)) {
-        match <- length(com.env$v.com[[which(vname == names(com.env$v.com))]]$math) == length(rnd.env$VCOM[[vname]]$math)
-        if (match) match <- 
-            all(com.env$v.com[[which(vname == names(com.env$v.com))]]$math == rnd.env$VCOM[[vname]]$math)
-        if (!match) {
-          print("Can't load sample var, same name in requires list, but different math")
-          return(-1)
-        }
-      }
-      if (!match) {
-        print(paste("Loading variable:",V1$var_name))
-        #add_vd(V1)
-            #MUST CHANGE THIS TO ADD variable and all of its dependencies
-      } else {
-        #print(paste(vname,"already in v.com"))
-      }
-    }
-    return(0)
-  } else {
-    rnd.env$prob$type.wts[length(rnd.env$prob$type.wts)] <- 0. #prob of selecting var from file set to zero
-    rnd.env$prob$type.bv.wts[length(rnd.env$prob$type.bv.wts)] <- 0. #prob of selecting var from file set to zero
-    return(-1)                                                  #file always last entry in type.wts
-  }
-}
+# load_rnd_var <- function() {
+#   #print("load_rnd_var")
+#   saved_var_files <- list.files(path=com.env$vardir)
+#   #print(saved_var_files)
+#   #print(com.env$var_files_tried)
+#   saved_var_files <- saved_var_files[!(saved_var_files %in% com.env$var_files_tried)]
+#   #print(saved_var_files)
+#   if (length(saved_var_files) > 0) {
+#     varfile_name <- sample(saved_var_files,size=1)
+#     print(paste(varfile_name,",",length(saved_var_files),"left"))
+#     com.env$var_files_tried <- c(com.env$var_files_tried,varfile_name)
+#     varfile <- paste(com.env$vardir,"/",varfile_name,sep="")
+#     load(file=varfile,envir=rnd.env)
+#     #print(names(rnd.env$VCOM))
+#     for (i in 1:length(names(rnd.env$VCOM))) {
+#       V1 <- set_name(rnd.env$VCOM[[i]])
+#       vname <- V1$var_name
+#       #print(vname)
+#       match <- FALSE
+#       if (vname %in% names(com.env$v.com)) {
+#         match <- length(com.env$v.com[[which(vname == names(com.env$v.com))]]$math) == length(rnd.env$VCOM[[vname]]$math)
+#         if (match) match <- 
+#             all(com.env$v.com[[which(vname == names(com.env$v.com))]]$math == rnd.env$VCOM[[vname]]$math)
+#         if (!match) {
+#           print("Can't load sample var, same name in requires list, but different math")
+#           return(-1)
+#         }
+#       }
+#       if (!match) {
+#         print(paste("Loading variable:",V1$var_name))
+#         #add_vd(V1)
+#             #MUST CHANGE THIS TO ADD variable and all of its dependencies
+#       } else {
+#         #print(paste(vname,"already in v.com"))
+#       }
+#     }
+#     return(0)
+#   } else {
+#     rnd.env$prob$type.wts[length(rnd.env$prob$type.wts)] <- 0. #prob of selecting var from file set to zero
+#     rnd.env$prob$type.bv.wts[length(rnd.env$prob$type.bv.wts)] <- 0. #prob of selecting var from file set to zero
+#     return(-1)                                                  #file always last entry in type.wts
+#   }
+# }
 # add_vd <- function(V1,vcom_num=NULL) {  #if var_num is null append V1 to v.com list, otherwise place it at var_num
 #   if (is.null(vcom_num)) {
 #     V1 <- set_name(V1)
@@ -602,7 +602,7 @@ check_dependencies <- function() {
 
 #Needed if creating model from scratch, first variable is dependent variable to predict
 define_predict_ret <- function() {
-  print("In define_vars")
+  #print("In define_vars")
   com.env$v.com <- NULL
   V1 <- NULL
   V1$requires <- NULL
@@ -617,12 +617,13 @@ define_predict_ret <- function() {
   eval(parse(text=cmd_string))
   #V1 <- add_vd(V1)
   com.env$predict.ret <- V1$var_name #always first variable [hard coded when loading model]
+  print(paste("In define_predict_return: com.env$predict.ret",com.env$predict.ret))
 }
 
 #set up rnd_parms.R [parms controlling how to randomly create and modify vars]
 #set up sample vars in rnd.env$vs.com for import into com.env$v.com as needed
 sample_vars <- function() {
-  print("sample_vars.R")
+  print("Setting up sample vars in rnd.env$vs.com")
   source("rnd_parms.R")          #set rnd_parms.R in rnd.env
   
   #set up sample vars, prices, returns, volumes

@@ -1,16 +1,17 @@
 #init_lib.R
 #parms that should be changed by user manually to control run_ps.R behavior
 set_control_parms <- function() {
-  com.env$load_model <- FALSE
-  com.env$save_model <- FALSE
-  com.env$model_filename <- "lf1_may14.vcom"
-  com.env$look_forward <- 1
-  com.env$save_var_n <- 0
-  com.env$opt_model <- TRUE
   com.env$model_loops <- 3
   com.env$add_var_levels <- c(3,15) #,20,25,30)
-  com.env$mod_var_loops <- 10
-  com.env$run_sim <- TRUE
+  com.env$opt_model <- TRUE
+  com.env$load_vars <- FALSE
+  com.env$load_model <- FALSE
+  com.env$save_model <- FALSE
+  com.env$save_var_n <- 0
+  com.env$look_forward <- 1
+  com.env$model_filename <- "lf1_may16.vcom"
+  com.env$mod_var_loops <- 20
+  com.env$run_sim <- FALSE
   
   com.env$load_multi_model <- FALSE
   com.env$model_list <- c("lf1_mar3.vcom","lf2_mar3.vcom","lf3_mar3.vcom","lf5_mar3.vcom",
@@ -31,15 +32,19 @@ set_control_parms <- function() {
     com.env$save_var_n <- 0
   }
   
-  if ((com.env$load_model & (com.env$save_var_n > 0)) |  #check logical load/save/opt model options
-      (com.env$load_model & com.env$save_model) |
-      ((com.env$save_var_n >0) & !com.env$opt_model) |
+  if (((com.env$save_var_n >0) & !com.env$opt_model) |     #check logical load/save/opt model options
       (com.env$save_model & !com.env$opt_model) ) {
     cat("initial load/save/opt model options don't make sense\n")  
     cat("com.env$load_model",com.env$load_model,"com.env$opt_model",com.env$opt_model,"\n")
     cat("com.env$save_model",com.env$save_model,"com.env$save_var_n",com.env$save_var_n,"\n")
     source("close_session.R")
   }
+  if (com.env$opt_model & com.env$load_vars) {
+    com.env$saved_var_files <- list.files(path=com.env$vardir)
+    print(paste("Available saved_var_files:",length(com.env$saved_var_files)))
+    #print(com.env$saved_var_files)
+  }
+  
   
   com.env$days2remove <- 60
   com.env$reg_start_date <- as.POSIXct("2004-07-01 UTC")

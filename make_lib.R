@@ -686,6 +686,20 @@ mod_model_ia <- function(V1) {
 }
 
 #return a vdlist with last vd="model" var
+#file loaded into rnd.env$VCOM (temporary holding space for loading/saving model vars)
+load_saved_model_var <- function() {
+  #print(paste("saved_var_files count",length(com.env$saved_var_files)))
+  varfile_name <- sample(com.env$saved_var_files,size=1)
+  com.env$saved_var_files <- com.env$saved_var_files[!com.env$saved_var_files %in% varfile_name]
+  print(paste("load from file:",varfile_name,",",length(com.env$saved_var_files),"left"))
+  varfile <- paste(com.env$vardir,"/",varfile_name,sep="")
+  load(file=varfile,envir=rnd.env)
+  vdlist <- rnd.env$VCOM
+  #print(names(vdlist))
+  return(vdlist)
+}
+
+#return a vdlist with last vd="model" var
 #math in the form of "get_scale_var,ia,bin,bin_decay"
 #ia in c("mul","div","add","sub","rsh","fth") with a chosen scale_var
 #bin points chosen based on scaling of bin var (zscore or rank) [bin var = scale_var]
@@ -696,13 +710,18 @@ get_model_list <- function() {
   vdlist <- NULL
   model_start <- rnd_choice("model_start")
   if (model_start == "scale_var") {
-    scale_list <- vcom2vdlist_use("scale")
-    if (runif(1,0,1)<length(scale_list)/(length(scale_list)+length(rnd.env$vs.com))) { #"existing_scale_var"
+    scale_list <- vcom2vdlist_use("scale")   #all scale vars currently in v.com
+    total_vars <- length(scale_list) + length(rnd.env$vs.com)   # + all scale vars in vs.com
+    if (com.env$load_vars) total_vars <- total_vars + length(com.env$saved_var_files) # + all saved model vars
+    roll_die <- runif(1,0,1)
+    if (roll_die < length(scale_list)/total_vars) {                                       #"existing_scale_var"
       V1 <- sample(scale_list,size=1)[[1]]
       vdlist <- vcom2vdlist_req(V1)
-    } else {                                                                         #"new_scale_var"
+    } else if (roll_die < (length(scale_list) + length(rnd.env$vs.com)) / total_vars) {   #"new_scale_var"
       vdlist <- get_scale_list()
       V1 <- vdlist[[length(vdlist)]]
+    } else {                                                                              #load model_var
+      return(load_saved_model_var())   #skip rest of model creation
     }
     V1$requires <- c(V1$requires,V1$var_name)
     V1$math <- paste0("from.var.env,'",V1$var_name,"'")
@@ -1349,8 +1368,8 @@ get_opt_vd <- function(vd_pair,try_num) {
   opt_vd <- set_name(opt_vd)
   if (opt_vd$use == "model") {
     if (opt_vd$ID %in% com.env$ID_tried) {
-      #print(paste("opt_vd already tried, try again",opt_vd$var_name,opt_vd$ID))
-      print(opt_vd$math)
+      print(paste("opt_vd already tried, try again",opt_vd$var_name,opt_vd$ID))
+      #print(opt_vd$math)
       return(list(mod_vd,"try again"))
     } else {
       #print(paste("try opt_vd:",opt_vd$ID))
@@ -1360,7 +1379,7 @@ get_opt_vd <- function(vd_pair,try_num) {
     if (opt_vd$use == "scale") {
       if (opt_vd$ID %in% com.env$ID_scale_opt) {
         print(paste("opt_vd already tried for scale var, quit opt",opt_vd$var_name,opt_vd$ID))
-        print(opt_vd$math)
+        #print(opt_vd$math)
         return(list(mod_vd,"opt"))
       } else {
         #print(paste("try ID_scale_opt:",opt_vd$ID))

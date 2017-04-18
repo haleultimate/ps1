@@ -10,8 +10,7 @@ run_prediction <- function() {
   if (com.env$opt_model)   sample_vars()            #source("sample_vars.R")  #set up rnd.env$vs.com and rnd_parms
   if (!com.env$load_model) define_predict_ret()     #source("define_vars.R")  #if not loading model need to define predictor variable
   if (com.env$load_model) load_model(com.env$model_filename)
-  print(paste("com.env$predict.ret",com.env$predict.ret))
-  if (com.env$opt_model) opt_model(com.env$model_loops,com.env$add_var_levels,com.env$mod_var_loops)
+  if (com.env$opt_model) opt_model(com.env$model_loops,com.env$mod_var_loops)
   if (com.env$save_model) save_model(com.env$model_filename)
   if (com.env$save_var_n > 0) {
     print(paste("Evaluating model to save top",com.env$save_var_n,"/",length(com.env$best_reg_names),"total vars",Sys.time()))
@@ -33,7 +32,7 @@ run_prediction <- function() {
 #Rerunning eval_adj_r2(oos=TRUE) with this com.env$v.com provides: 
 #  var.env$ret_data.df containing calculations from final model (in-sample and out-of-sample)
 #  com.env$stepwise.model containing coefficients for producing expected returns given out-of-sample variables
-opt_model <- function(model_loops,add_var_levels,mod_var_loops) {    
+opt_model <- function(model_loops,mod_var_loops) {    
   #source("define_vars.R")                         #define predictor var, setup initial v.com
   print(paste("In opt_model, model_loops:",model_loops,"mod_var_loops:",mod_var_loops))
   com.env$best_adj_r2 <- 0
@@ -45,9 +44,11 @@ opt_model <- function(model_loops,add_var_levels,mod_var_loops) {
   for (current_add_loop in 1:model_loops) {              #start model loop
     #add vars
     print(paste("model loop:",current_add_loop,"/",model_loops,"best_adj_r2:",com.env$best_adj_r2,Sys.time()))
-    if (!com.env$add_var_worse)                                                #if model_worse last loop don't add vars to v.com 
-      for (i in 1:get_add_vars(add_var_levels,length(com.env$best_reg_names))) #add fewer vars as model develops 
-        make_new_model_var()
+    add_vars <- get_add_vars()
+    if (add_vars>0) for (i in 1:add_vars) make_new_model_var()
+    # if (!com.env$add_var_worse)  #if model_worse last loop don't add vars to v.com 
+    #   for (i in 1:get_add_vars(add_var_levels,length(com.env$best_reg_names))) #add fewer vars as model develops 
+    #     make_new_model_var()
     #run regression, if model improved update best vars; if model got worse revert and cycle add_var loop
     if (!try_mods(eval_adj_r2(),current_add_loop,model_loops,mod_var_loops)) next    
     
@@ -70,19 +71,26 @@ opt_model <- function(model_loops,add_var_levels,mod_var_loops) {
 #determine number of new vars to add to regression
 #always provide at least the first level (in total), after the last level only add 1 at a time
 #at intermediate levels add one more than the next level
-get_add_vars <- function(add_var_levels,n.reg_vars) {
-  if (com.env$best_adj_r2 == 0) return(add_var_levels[1]) #first loop  
-  avl_idx <- 1
-  max_avl_idx <- length(add_var_levels)
-  while(avl_idx <= max_avl_idx) {
-    if (n.reg_vars < add_var_levels[avl_idx]) {
-      add_vars <- max_avl_idx - avl_idx + 2
-      if (avl_idx == 1) add_vars <- max(add_vars,(add_var_levels[1]-n.reg_vars))
-      return(add_vars)
+get_add_vars <- function() {
+  n.reg_vars <- length(com.env$best_reg_names)
+  if (com.env$best_adj_r2 == 0) { #first loop
+    add_vars <- ifelse(com.env$load_model,0,com.env$add_var_levels[1])     
+  } else if (com.env$add_var_worse) {  #if last loop was bad don't add 
+    add_vars <- 0
+  } else {                             #normal operation
+    avl_idx <- 1
+    max_avl_idx <- length(com.env$add_var_levels)
+    while(avl_idx <= max_avl_idx) {
+      if (n.reg_vars < com.env$add_var_levels[avl_idx]) {
+        add_vars <- max_avl_idx - avl_idx + 2
+        if (avl_idx == 1) add_vars <- max(add_vars,(com.env$add_var_levels[1]-n.reg_vars))
+        return(add_vars)
+      }
+      avl_idx <- avl_idx + 1
     }
-    avl_idx <- avl_idx + 1
+    add_vars <- 1  #beyond last add_var_level
   }
-  add_vars <- 1
+  #cat("add_vars:",add_vars,"\n")
   return(add_vars)
 }
 
@@ -101,8 +109,12 @@ try_mods <- function(adj_r2,current_loop,model_loops,mod_var_loops) {
   } else if (adj_r2 < com.env$best_adj_r2) {
     print(paste("Adj_r2 got worse when adding vars",adj_r2,com.env$best_adj_r2))
     if (com.env$add_var_worse) {                                          #Error trapping, clean run still got worse
-      print("Couldn't get better model from clean run of add_vars")
-      source("close_session.R")                                             #if this happens systematically we could reset the "best" vars
+      print("WARNING: *************Couldn't get better model from clean run of add_vars****************")
+      #source("close_session.R")                                             #if this happens systematically we could reset the "best" vars
+      cat("Resetting best vars, best_adj_r2",adj_r2,"best_reg_names (count):",length(com.env$reg_names),"v.com reset \n")
+      com.env$best_adj_r2 <- adj_r2
+      com.env$best_reg_names <- com.env$reg_names
+      com.env$best_vcom <- com.env$v.com
     }
     com.env$add_var_worse <- TRUE             #try clean vcom without adding vars next loop
     com.env$v.com <- com.env$best_vcom        #revert vcom
@@ -196,15 +208,19 @@ eval_adj_r2 <- function(mod_pair=NULL,oos_data=FALSE,verbose=FALSE) {
     run_mod_regression(new_reg_names)  #run single regression with forced vars (using replaced longID_names where needed)
   }
   new_adj_r2 <- 0
-  if (!exists("best_adj_r2",envir=com.env)) com.env$best_adj_r2 <- 0  #not defined if model is loaded so needs to be set here
+  # if (!exists("best_adj_r2",envir=com.env)) {
+  #   print("Warning: com.env$best_adj_r2 did not exist in eval_adj_r2")
+  #   com.env$best_adj_r2 <- 0  #not defined if model is loaded so needs to be set here
+  # }
   if (length(com.env$model.stepwise) > 3) new_adj_r2 <- summary(com.env$model.stepwise)$adj.r.squared
-  if (!is.null(mod_pair) & (new_adj_r2 <= com.env$best_adj_r2)) { #revert to original com.env$v.com [no longID_names in original]
-    com.env$v.com <- old.v.com
-    if (exists("reg_names",envir=com.env)) rm("reg_names",envir=com.env)  #try to catch improper setting of com.env$best_reg_names
-  } else if (!is.null(mod_pair)) { #mod improved model, convert longID_names back to var_names (com.env$v.com, com.env$reg_names)                            
-    clean_longID_names(mod_list)
-    check_clean_longID_names()
-  }
+  if (!is.null(mod_pair)) 
+    if (new_adj_r2 <= com.env$best_adj_r2) { #revert to original com.env$v.com [no longID_names in original]
+      com.env$v.com <- old.v.com
+      if (exists("reg_names",envir=com.env)) rm("reg_names",envir=com.env)  #try to catch improper setting of com.env$best_reg_names
+    } else { #mod improved model, convert longID_names back to var_names (com.env$v.com, com.env$reg_names)                            
+      clean_longID_names(mod_list)
+      check_clean_longID_names()
+    }
   return(new_adj_r2)
 }
 
@@ -218,21 +234,37 @@ get_mod_list_req_mod_pair <- function(mod_pair) {
   longID_name <- mod_pair[[2]]$longID_name
   #print(paste("orig_var_name",orig_var_name,"mod_var_name",mod_var_name,"longID_name",longID_name))
   scale_idx <- which(names(com.env$v.com) == mod_var_name)
-  if (length(scale_idx)>1) {
-    print("WARNING:Two names in com.env$v.com == mod_var_name in get_mod_list_req_mod_pair")
+  if (length(scale_idx)>1) {  #if duplicate names take current mod_var, place it in first scale_idx and delete other instance
+    #print("WARNING:Two names in com.env$v.com == mod_var_name in get_mod_list_req_mod_pair")
+    first_duplicate <- min(scale_idx)
+    cat("Two vars with name:",mod_var_name,"Moving mod to vcom#:",first_duplicate,"deleting others\n")
     print(scale_idx)
     for (i in scale_idx) {
-      print(com.env$v.com[[i]])
-      print(paste("names(com.env$v.com([",i,"])",names(com.env$v.com)[i]))
-    }
-    for (vd in com.env$v.com) {
-      if (mod_var_name %in% vd$requires) {
-        print(vd$var_name)
-        print(vd$requires)
-        print(vd$math)
+      if (i == first_duplicate) {
+        com.env$v.com[[i]] <- mod_pair[[2]]
+      } else {
+        com.env$v.com <- com.env$v.com[-i]
       }
     }
-    print(names(com.env$v.com))
+    scale_idx <- first_duplicate
+    check_scale_idx <- length(which(names(com.env$v.com)==mod_var_name))
+    if (check_scale_idx > 1) {
+      print(scale_idx)
+      for (i in scale_idx) {
+        print(com.env$v.com[[i]])
+        print(paste("names(com.env$v.com([",i,"])",names(com.env$v.com)[i]))
+      }
+      for (vd in com.env$v.com) {
+        if (mod_var_name %in% vd$requires) {
+          print(vd$var_name)
+          print(vd$requires)
+          print(vd$math)
+        }
+      }
+      print(names(com.env$v.com))
+    } else {
+      cat("scale_idx and vcom corrected successfully *******************************************\n")
+    }
   }
   mod_list <- list(mod_pair) 
   for (vd_idx in (scale_idx + 1):length(com.env$v.com)) {
@@ -441,7 +473,7 @@ run_regression <- function(oos_data = FALSE,verbose = FALSE) {
     remove_vars <- colnames(var.env$reg_data.df[,-1])[!(colnames(var.env$reg_data.df[,-1]) %in% keep.dat)]
     if (length(remove_vars)==0) remove_vars <- "none"
     if (any(remove_vars %in% com.env$best_reg_names)) {
-      print("ERROR in run_regression remove_vars contained in com.env$best_reg_vars")
+      print("WARNING: in run_regression remove_vars contained in com.env$best_reg_vars")
       print(remove_vars)
       print(com.env$best_reg_names)
     }
@@ -612,6 +644,7 @@ load_model <- function(filename) { #loads model and sets com.env$predict.ret
   modelfile <- paste(com.env$modeldir,"/",filename,sep="")
   load(file=modelfile,envir=com.env)
   com.env$predict.ret <- com.env$v.com[[1]]$name  #hard coded as first variable always
+  com.env$best_adj_r2 <- 0
   print(paste("Loading:",modelfile,"predict:",com.env$predict.ret))
 }
 
@@ -649,6 +682,7 @@ save_vars <- function(save_var_n) {
     model.subsets <- regsubsets(f1,data=var.env$reg_data.df,nbest=save_var_n,nvmax=1)
   }
   var_names <- NULL
+  com.env$model.subsets <- model.subsets
   for (i in 1:save_var_n) {
     var_names <- append(var_names,names(coef(model.subsets,i))[2])
   }
