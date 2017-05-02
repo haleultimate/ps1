@@ -14,7 +14,7 @@ run_prediction <- function() {
   if (com.env$save_model) save_model(com.env$model_filename)
   if (com.env$save_var_n > 0) {
     print(paste("Evaluating model to save top",com.env$save_var_n,"/",length(com.env$best_reg_names),"total vars",Sys.time()))
-    eval_adj_r2(oos_data=TRUE)
+    eval_adj_r2(sim_data=TRUE)
     save_vars(com.env$save_var_n) #get top vars
   }
 }
@@ -46,9 +46,6 @@ opt_model <- function(model_loops,mod_var_loops) {
     print(paste("model loop:",current_add_loop,"/",model_loops,"best_adj_r2:",com.env$best_adj_r2,Sys.time()))
     add_vars <- get_add_vars()
     if (add_vars>0) for (i in 1:add_vars) make_new_model_var()
-    # if (!com.env$add_var_worse)  #if model_worse last loop don't add vars to v.com 
-    #   for (i in 1:get_add_vars(add_var_levels,length(com.env$best_reg_names))) #add fewer vars as model develops 
-    #     make_new_model_var()
     #run regression, if model improved update best vars; if model got worse revert and cycle add_var loop
     if (!try_mods(eval_adj_r2(),current_add_loop,model_loops,mod_var_loops)) next    
     
@@ -59,6 +56,9 @@ opt_model <- function(model_loops,mod_var_loops) {
       if (finish_mod_loop(mod_var("model"))) break  #try a random model var mod  
     print(paste("Mod Loops attempted:",current_mod_loop,"/",mod_var_loops,",",length(com.env$best_reg_names),com.env$best_adj_r2,Sys.time()))
     
+    opt_var_selection()
+    #if (com.env$opt_type=="single_oos") opt_oos_r2(recalc_vars=TRUE,recollect_data=TRUE)
+        
     #print("Removing var environment, after mod var loop")
     rm(var.env,envir=globalenv())
     var.env <<- new.env(parent = globalenv())
@@ -165,9 +165,9 @@ finish_mod_loop <- function(mod_pair) {
 #    if adj_r2 improves keep com.env$v.com, changing all longID_name's back to var_name
 #    otherwise revert to original com.env$v.com
 #oos_data determines if OOS date range is computed, verbose controls printing (for debugging)  [both passed directly to collect_data and regression routines]
-#Other vars modified: com.env$v.com, var.env$reg_data.df, com.env$reg_names, com.env$model.stepwise
+#Other vars modified: com.env$v.com, var.env$reg_data.df, com.env$reg_names, com.env$model.current
 #Other vars accessed: colnames(var.env$BAC) [hardcoded; only for error checking]
-eval_adj_r2 <- function(mod_pair=NULL,oos_data=FALSE,verbose=FALSE) {
+eval_adj_r2 <- function(mod_pair=NULL,oos_data=FALSE,sim_data=FALSE,verbose=FALSE) {
   if (!is.null(mod_pair)) {  #only calc modified vars and vars dependent on them
     #print(paste("make_vars with modvar_list",Sys.time()))
     V1 <- mod_pair[[1]]
@@ -200,9 +200,9 @@ eval_adj_r2 <- function(mod_pair=NULL,oos_data=FALSE,verbose=FALSE) {
   } else {
     make_vars()  #eval_adj_r2 normally by calculating all vars in com.env$v.com
   }
-  collect_data(oos_data)  #populate reg_data.df with model vars
+  collect_data(oos_data=oos_data,sim_data=sim_data)  #populate reg_data.df with model vars
   if (is.null(mod_pair)) {     #eval_adj_r2 normally
-    run_regression(oos_data=oos_data,verbose=verbose)    #run full stepwise regression after first removing colinear vars
+    run_regression(oos_data=oos_data,sim_data=sim_data,verbose=verbose)    #run full stepwise regression after first removing colinear vars
   } else {                     #run_mod_regression        
     new_reg_names <- reg_names_use_longID_name(mod_list)
     run_mod_regression(new_reg_names)  #run single regression with forced vars (using replaced longID_names where needed)
@@ -212,7 +212,7 @@ eval_adj_r2 <- function(mod_pair=NULL,oos_data=FALSE,verbose=FALSE) {
   #   print("Warning: com.env$best_adj_r2 did not exist in eval_adj_r2")
   #   com.env$best_adj_r2 <- 0  #not defined if model is loaded so needs to be set here
   # }
-  if (length(com.env$model.stepwise) > 3) new_adj_r2 <- summary(com.env$model.stepwise)$adj.r.squared
+  if (length(com.env$model.current) > 3) new_adj_r2 <- summary(com.env$model.current)$adj.r.squared
   if (!is.null(mod_pair)) 
     if (new_adj_r2 <= com.env$best_adj_r2) { #revert to original com.env$v.com [no longID_names in original]
       com.env$v.com <- old.v.com
@@ -376,9 +376,9 @@ clean_vcom_longID2var_name <- function(mod_pair) {
 }
 
 #called from clean_long_ID names (see comments below)
-clean_reg_names_longID2var_name <- function() {
-  for (i in 1:length(com.env$reg_names)) { #convert binned variables and ID's to their var_name
-    reg_name <- com.env$reg_names[i]
+clean_longID2var_name <- function(name_list) {
+  for (i in 1:length(name_list)) { #convert binned variables and ID's to their var_name
+    reg_name <- name_list[i]
     length_name <- nchar(reg_name)
     if (substr(reg_name,1,1)=="v") { #find var_name of ID
       longID_name <- reg_name
@@ -404,9 +404,10 @@ clean_reg_names_longID2var_name <- function() {
       #else {
       #  print(paste("converting",longID_name,"->",var_name))
       #}
-      com.env$reg_names[i] <- gsub(longID_name,var_name,reg_name)
+      name_list[i] <- gsub(longID_name,var_name,reg_name)
     }
   }
+  return(name_list)
 }
 
 #function takes in mod_pair and cleans com.env$v.com, com.env$reg_names [not com.env$best_reg_names at this point]
@@ -418,7 +419,7 @@ clean_longID_names <- function(mod_pair) {
   clean_vcom_longID2var_name(mod_pair)
   #print("clean_reg_names_longID2var_name")
   #print(com.env$reg_names)
-  clean_reg_names_longID2var_name()
+  com.env$reg_names <- clean_longID2var_name(com.env$reg_names)
   #print(com.env$reg_names)
 }  
 
@@ -455,10 +456,10 @@ check_clean_longID_names <- function() {
 #removes all colinear reg variables [using vif_func]
 #runs stepwise regression leaving only variables with significance > 0.001 [using model_select]
 #called from get_adj_r2() [with no mod_pair]
-#set com.env$adj_r2, com.env$reg_names, com.env$model.stepwise
+#set com.env$adj_r2, com.env$reg_names, com.env$model.current
 #if oos_data == TRUE run stats on out-of-sampe data [contained in var.env$ret_data.df]
-run_regression <- function(oos_data = FALSE,verbose = FALSE) {
-  #print(paste("run full regression",ncol(var.env$reg_data.df),Sys.time()))
+run_regression <- function(oos_data = FALSE,sim_data = FALSE, verbose = FALSE) {
+  print(paste("run full regression",ncol(var.env$reg_data.df),Sys.time(),oos_data,sim_data))
   if (!is.null(com.env$best_reg_names)) {
     for (var_name in com.env$best_reg_names) if (substr(var_name,1,1)=="v") {
       print("ERROR in run_regression com.env$best_reg_names contains long ID names")
@@ -485,38 +486,40 @@ run_regression <- function(oos_data = FALSE,verbose = FALSE) {
   null <- lm(form1,data=var.env$reg_data.df)
   form2 <- as.formula(paste(colnames(var.env$reg_data.df)[1],"~ ."))
   reg.model <- lm(form2,data=var.env$reg_data.df)
-  com.env$model.stepwise <- model.select(reg.model,sig=0.001,verbose=FALSE)
-  if (length(com.env$model.stepwise) == 0) {
+  com.env$model.current <- model.select(reg.model,sig=com.env$sig,verbose=FALSE)
+  if (length(com.env$model.current) == 0) {
     print("All variables left model")
     com.env$adj_r2 <- 0
   } else {
-    com.env$adj_r2 <- summary(com.env$model.stepwise)$adj.r.squared
-    com.env$reg_names <- names(com.env$model.stepwise$coefficients)[-1]
-    if (oos_data) {
-      oos_stats <- oos.r2(com.env$model.stepwise,var.env$OOS_data.df)
-      print(paste("r2",oos_stats$rsq,"r20",oos_stats$rsq0,"cor",oos_stats$cor,"mse",oos_stats$mse,"mean",oos_stats$mean,"wpct",oos_stats$winpct))
+    com.env$adj_r2 <- summary(com.env$model.current)$adj.r.squared
+    com.env$reg_names <- names(com.env$model.current$coefficients)[-1]
+    if (sim_data) {
+      sim_stats <- calc.r2(com.env$model.current,var.env$sim_data.df)
+      cat("r2",sim_stats$rsq,"r20",sim_stats$rsq0,"cor",sim_stats$cor,"\n")
+      cat("mse",sim_stats$mse,"mean",sim_stats$mean,"wpct",sim_stats$winpct,"\n")
       print("reversing sign on regression model")
-      oos_stats <- oos.r2(com.env$model.stepwise,var.env$OOS_data.df,reverse=TRUE)
-      print(paste("r2",oos_stats$rsq,"r20",oos_stats$rsq0,"cor",oos_stats$cor,"mse",oos_stats$mse,"mean",oos_stats$mean,"wpct",oos_stats$winpct))
+      sim_stats <- calc.r2(com.env$model.current,var.env$sim_data.df,reverse=TRUE)
+      cat("r2",sim_stats$rsq,"r20",sim_stats$rsq0,"cor",sim_stats$cor,"\n")
+      cat("mse",sim_stats$mse,"mean",sim_stats$mean,"wpct",sim_stats$winpct,"\n")
     }
   }
   #print(paste("end regression",com.env$adj_r2,Sys.time()))
-  if (verbose) print(names(com.env$model.stepwise$coefficients)[-1])
+  if (verbose) print(names(com.env$model.current$coefficients)[-1])
 }
 
 #run_mod_regression takes in data frame var.env$reg_data.df, a list of reg_vars, and runs regression
 #called from get_adj_r2(mod_pair) [when mod_pair != NULL]
-#set com.env$adj_r2, com.env$reg_names, com.env$model.stepwise
+#set com.env$adj_r2, com.env$reg_names, com.env$model.current
 run_mod_regression <- function(reg_vars) {
   #print(paste("Run_mod_regression",Sys.time()))
   f <- as.formula(paste(colnames(var.env$reg_data.df)[1],paste(reg_vars,collapse=" + "),sep=" ~ "))
-  com.env$model.stepwise <- lm(formula=f,data=var.env$reg_data.df)
-  if (length(com.env$model.stepwise) == 0) {
+  com.env$model.current <- lm(formula=f,data=var.env$reg_data.df)
+  if (length(com.env$model.current) == 0) {
     print("All variables left model")
     com.env$adj_r2 <- 0
   } else {
-    com.env$adj_r2 <- summary(com.env$model.stepwise)$adj.r.squared
-    com.env$reg_names <- names(com.env$model.stepwise$coefficients)[-1]
+    com.env$adj_r2 <- summary(com.env$model.current)$adj.r.squared
+    com.env$reg_names <- names(com.env$model.current$coefficients)[-1]
   }
   return(com.env$adj_r2)
 }
@@ -524,7 +527,7 @@ run_mod_regression <- function(reg_vars) {
 #collect_data gathers data for regression
 #takes data from each stock in var.env and places into a single data frame [var.env$reg_data.df]
 #if oos_data == TRUE include out-of-sample data in var.env$reg_data.df
-collect_data <- function (oos_data = FALSE) {
+collect_data <- function (oos_data = FALSE, sim_data = FALSE) {
   vvars <- NULL
   com.env$name2vcomnum <- NULL
   allmodelvars <- NULL
@@ -550,25 +553,32 @@ collect_data <- function (oos_data = FALSE) {
   }
   #get data for all stx into single data frame
   var.env$reg_data.df <- NULL
-  var.env$OOS_data.df <- NULL
+  if (oos_data) var.env$oos_data.df <- NULL
+  if (sim_data) var.env$sim_data.df <- NULL
   for (i in 1:com.env$stx) {
     ticker <- com.env$stx.symbols[i]
-    cmn_ticker <- com.env$cmn_lookup[ticker]
-    cmd_string <- paste("cmn_start_date <- index(data.env$",cmn_ticker,"[",com.env$days2remove,",])",sep="")
-    eval(parse(text=cmd_string))
-    cmd_string <- paste("stk_start_date <- index(data.env$",ticker,"[",com.env$days2remove,",])",sep="")
-    eval(parse(text=cmd_string))
-    max_start_date <- max(c(cmn_start_date,stk_start_date,com.env$reg_start_date))
+    # cmn_ticker <- com.env$cmn_lookup[ticker]
+    # cmd_string <- paste("cmn_start_date <- index(data.env$",cmn_ticker,"[",com.env$days2remove,",])",sep="")
+    # eval(parse(text=cmd_string))
+    # cmd_string <- paste("stk_start_date <- index(data.env$",ticker,"[",com.env$days2remove,",])",sep="")
+    # eval(parse(text=cmd_string))
+    max_start_date <- max(c(com.env$start_date[ticker],com.env$reg_start_date))
     cmd_string <- paste("start_idx <- which(max_start_date == index(var.env$",ticker,"))",sep="")
     eval(parse(text=cmd_string))
+    if (max_start_date > com.env$reg_end_date) next()
     cmd_string <- paste("end_idx <- which(com.env$reg_end_date == index(var.env$",ticker,"))",sep="")
     eval(parse(text=cmd_string))
     subset_string <- paste("var.env$",ticker,"[",start_idx,":",end_idx,",allmodelvars]",sep="")
     cmd_string <- paste("var.env$reg_data.df <- bind_rows(var.env$reg_data.df,as.data.frame(",subset_string,"))",sep="")
     eval(parse(text=cmd_string))
     if (oos_data) {
-      subset_string <- paste("var.env$",ticker,"[com.env$OOS_date_range,allmodelvars]",sep="")
-      cmd_string <- paste("var.env$OOS_data.df <- bind_rows(var.env$OOS_data.df,as.data.frame(",subset_string,"))",sep="")
+      subset_string <- paste("var.env$",ticker,"[com.env$oos_date_range,allmodelvars]",sep="")
+      cmd_string <- paste("var.env$oos_data.df <- bind_rows(var.env$oos_data.df,as.data.frame(",subset_string,"))",sep="")
+      eval(parse(text=cmd_string))
+    }
+    if (sim_data) {
+      subset_string <- paste("var.env$",ticker,"[com.env$sim_date_range,allmodelvars]",sep="")
+      cmd_string <- paste("var.env$sim_data.df <- bind_rows(var.env$sim_data.df,as.data.frame(",subset_string,"))",sep="")
       eval(parse(text=cmd_string))
     }
   }
@@ -691,5 +701,7 @@ save_vars <- function(save_var_n) {
   print(save_vcoms)
   save_vcom_vars(save_vcoms)
 }
+
+
 
 

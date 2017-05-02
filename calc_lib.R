@@ -35,13 +35,11 @@ calc_col_vd <- function(ve.xts,vd,first_pass=FALSE) {
 #doesn't handle coln==0
 calc_prediction <- function(ve.xts,coln,model,first_pass=FALSE) {
   #print(paste("ve.xts",ve.xts,"coln",coln,"model",model))
-  #cmd_string <- paste("tmp.xts <- as.xts(predict.lm(",model,",newdata=data.frame(",ve.xts,")))",sep="") 
-  #print(cmd_string)
-  #eval(parse(text=cmd_string))
-  cmd_string <- paste(ve.xts," <- cbind(",ve.xts,",as.xts(predict.lm(",model,",newdata=data.frame(",ve.xts,"))))",sep="")
-  #print(cmd_string)
+  cmd_string <- paste0("tmp.df <- data.frame(",ve.xts,")")
   eval(parse(text=cmd_string))
-  #predict.lm(model,newdata=df.oos)
+  tmp.df[is.na(tmp.df)] <- 0
+  cmd_string <- paste0(ve.xts," <- cbind(",ve.xts,",as.xts(predict.lm(",model,",newdata=tmp.df)))")
+  eval(parse(text=cmd_string))
 }
 
 #doesn't handle coln==0
@@ -831,14 +829,14 @@ stk_matrix <- function(type,index=0) {
   }
 }
 
-mu_calc <- function(index=0) {
+mu_calc <- function(mu_col_name,index=0) {
   V1 <- NULL
   V1$col <- 1
-  V1$name <- "MU"
+  V1$name <- mu_col_name
   V1$calc_cmn <- FALSE
-  V1$math[1] <- "calc_prediction,'com.env$model.stepwise'"
+  V1$math[1] <- "calc_prediction,'com.env$model.current'"
   calc_vd(V1)
-  stk_matrix("MU",index)
+  stk_matrix(mu_col_name,index)
 }
 
 adjret_calc <- function() {
@@ -864,11 +862,14 @@ vlty_calc <- function() {
 make_mu <- function() {
   if (com.env$save_var_n == 0) {  #if saving vars model evaluation has already been done
     print(paste("Evaluating 1st model in make_mu",Sys.time()))
-    eval_adj_r2(oos_data=TRUE)
+    eval_adj_r2(sim_data=TRUE)
   }
-  mu_calc()
-  adjret_calc()
-  vlty_calc()
+  mu_calc("MU")
+  #if (com.env$retvlty_not_calced) {
+    adjret_calc()
+    vlty_calc()
+    com.env$retvlty_not_calced <- FALSE
+  #}
   if (com.env$load_multi_model) {
     for (i in 2:length(com.env$model_list)) {
       print("clearing var.env")

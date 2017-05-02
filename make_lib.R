@@ -1422,7 +1422,6 @@ optimize_mod_pair <- function(mod_pair) {
         com.env$best_adj_r2 <- new_adj_r2
         #cat('best_reg_names set in opt model improved\n')
         com.env$best_reg_names <- com.env$reg_names
-        #com.env$reg_names <- names(com.env$model.stepwise$coefficients)[-1]  #update reg_names with new mod var
         mod_pair <- new_vd_pair
         try_num <- 1             #for new mod pair
         loop <- 0

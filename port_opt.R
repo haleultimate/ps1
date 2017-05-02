@@ -6,38 +6,45 @@ run_sim <- function() {
   for (alpha_wt in c(16000)) {
     com.env$alpha_wt <- alpha_wt
     print(paste("alpha_wt:",com.env$alpha_wt))
-    lp_sim()      #source("blotter_sim.R") #run sim, plot daily profit
+    lp_sim("MU",com.env$stx.symbols,com.env$sim_date_index,com.env$port_size_mult*length(com.env$stx.symbols),plot_profit=TRUE)      #source("blotter_sim.R") #run sim, plot daily profit
   }
-  var.env$MU <- -var.env$MU
-  print("reversing MU")
-  lp_sim()  #source("blotter_sim.R")
+  #var.env$MU <- -var.env$MU
+  #print("reversing MU")
+  #lp_sim("MU",com.env$stx.symbols,com.env$sim_date_index,plot_profit=TRUE)  #source("blotter_sim.R")
 }
 
 #lp_sim sim calls port_opt_lp [optimizes portfolio position daily; below]
 #calculates profit by multiplying daily (cc_return)*(position in dollars [aka shares])
 #add in ordering logic
-#should we pass in sim_start_date, sim_end_date?
-lp_sim <- function() {
+#return profit
+lp_sim <- function(mu_col_name,stx,sim_date_index,equity,plot_profit=FALSE) {
   print (paste("Running Sim",Sys.time()))
-  shares <- matrix(nrow=length(com.env$sim_date_index),ncol=length(com.env$stx.symbols))
-  for (SimDate_i in 1:(length(com.env$sim_date_index))) {
-    SimDate <- com.env$sim_date_index[SimDate_i]
-    equity <- com.env$init_equity 
+  #shares <- matrix(nrow=length(sim_date_index),ncol=length(com.env$stx.symbols))
+  shares <- matrix(nrow=length(sim_date_index),ncol=length(stx))
+  
+  for (SimDate_i in 1:(length(sim_date_index))) {
+    SimDate <- sim_date_index[SimDate_i]
+    #equity <- com.env$init_equity 
     #print(paste("DATE:",SimDate,"Equity:",equity))
-    port.pos <- port_opt_lp(as.vector(var.env$MU[SimDate]),as.vector(var.env$VLTY[SimDate]),equity)
+    cmd_string <- paste0("port.pos <- port_opt_lp(as.vector(var.env$",mu_col_name,"[SimDate,stx]),as.vector(var.env$VLTY[SimDate,stx]),equity)")
+    eval(parse(text=cmd_string))
+    #port.pos <- port_opt_lp(as.vector(var.env$MU[SimDate]),as.vector(var.env$VLTY[SimDate]),equity)
     shares[SimDate_i,] <- port.pos
     #print(port.pos)
   }
   
-  ADJRET.matrix <- as.matrix(var.env$ADJRET[com.env$sim_date_index])
+  ADJRET.matrix <- as.matrix(var.env$ADJRET[sim_date_index,stx])
   ADJRET_shares <- ADJRET.matrix*shares
+  ADJRET_shares[is.na(ADJRET_shares)] <- 0     #should we repair or crash when NA's are found?
   dayprofit <- rowSums(ADJRET_shares)
   stockprofit <- colSums(ADJRET_shares)
   totalprofit <- cumsum(dayprofit)
   print(paste("total profit:",totalprofit[length(totalprofit)]))
-  
-  plot(com.env$sim_date_index,totalprofit)
-  points(com.env$sim_date_index,dayprofit,col="red")
+  if (plot_profit) {
+    plot(sim_date_index,totalprofit)
+    points(sim_date_index,dayprofit,col="red")
+  }
+  return(totalprofit[length(totalprofit)])
 }
 
 #pass in mu, vlty, port_size
@@ -48,7 +55,7 @@ port_opt_lp <- function (lp.mu, lp.vlty, lp.port_size) {
     lp.first_run <- FALSE
     lp.old_port_size <- (-1)
     lp.stx <- length(lp.mu)
-    if (lp.stx != length(lp.vlty)) print ("ERROR: MU and VLTY must have same number of stocks")
+    if (lp.stx != length(lp.vlty)) print (paste("ERROR: MU and VLTY must have same number of stocks, mu_n:",lp.stx,"vlty_n:",length(lp.vlty)))
     
     lp.vlty_bounds <- c(0,15000,30000,45000)
     vb_n <- length(lp.vlty_bounds)    #number of vlty bounds

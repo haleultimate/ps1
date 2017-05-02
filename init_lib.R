@@ -1,17 +1,18 @@
 #init_lib.R
 #parms that should be changed by user manually to control run_ps.R behavior
 set_control_parms <- function() {
-  com.env$model_loops <- 3
-  com.env$add_var_levels <- c(3,15) #,20,25,30)
+  com.env$model_loops <- 20
+  com.env$add_var_levels <- c(5,10,15,30,50)
   com.env$opt_model <- TRUE
-  com.env$load_vars <- FALSE
+  com.env$load_vars <- TRUE
   com.env$load_model <- FALSE
-  com.env$save_model <- FALSE
+  com.env$save_model <- TRUE
   com.env$save_var_n <- 0
   com.env$look_forward <- 1
-  com.env$model_filename <- "lf1_may16.vcom"
+  com.env$model_filename <- "lf1_rollsim427.vcom"
   com.env$mod_var_loops <- 20
-  com.env$run_sim <- FALSE
+  com.env$opt_type <- "rolling_oos"  #{adjr2_is,single_oos,rolling_oos,rolling_sim}
+  com.env$run_sim <- TRUE
   
   com.env$load_multi_model <- FALSE
   com.env$model_list <- c("lf1_mar3.vcom","lf2_mar3.vcom","lf3_mar3.vcom","lf5_mar3.vcom",
@@ -31,7 +32,6 @@ set_control_parms <- function() {
     com.env$run_sim <- TRUE
     com.env$save_var_n <- 0
   }
-  
   if (((com.env$save_var_n >0) & !com.env$opt_model) |     #check logical load/save/opt model options
       (com.env$save_model & !com.env$opt_model) ) {
     cat("initial load/save/opt model options don't make sense\n")  
@@ -44,22 +44,10 @@ set_control_parms <- function() {
     print(paste("Available saved_var_files:",length(com.env$saved_var_files)))
     #print(com.env$saved_var_files)
   }
-  
-  
-  com.env$days2remove <- 60
-  com.env$reg_start_date <- as.POSIXct("2004-07-01 UTC")
-  com.env$reg_end_date <- as.POSIXct("2011-12-30 UTC")
-  com.env$OOS_start_date <- "20120101"
-  com.env$OOS_end_date <- "20121231"
-  com.env$reg_date_range <- paste(com.env$reg_start_date,"/",com.env$reg_end_date,sep="")
-  com.env$OOS_date_range <- paste(com.env$OOS_start_date,"/",com.env$OOS_end_date,sep="")
-  com.env$sim_date_index <- index(data.env$XLF[com.env$OOS_date_range])
-  
   com.env$verbose <- FALSE
-  com.env$corr.threshold <- 0.6
-  com.env$var_files_tried <- NULL
 }
 
+  
 #main progarm for init_lib
 init_session <- function(stx_list.loaded) {
   load_custom_libraries()
@@ -70,6 +58,7 @@ init_session <- function(stx_list.loaded) {
   #if (com.env$log_file) set_log_file()      #not working 
   stock_list()                         #setup stock symbols and com.env$cmn_lookup
   stx_list.loaded <- load_stock_history(stx_list.loaded)     #only needed after first run if stock list changes
+  set_opt_type_settings()
   remove_problem_stocks()
   return(stx_list.loaded)
 }
@@ -107,8 +96,74 @@ set_directories <- function() {
   com.env$logfile <- paste(com.env$logdir,"/lf",gsub("[^0-9]","",Sys.time()),".txt",sep="")
 }
 
+set_opt_type_settings <- function() {  
+  com.env$reg_start_date <- as.POSIXct("2004-07-01 UTC")
+  com.env$reg_end_date <- as.POSIXct("2011-12-30 UTC")
+  com.env$reg_date_range <- paste(com.env$reg_start_date,com.env$reg_end_date,sep="/")
+  
+  switch(com.env$opt_type,
+         "adjr2_is" = {
+           com.env$sig <- 0.001
+         },
+         "single_oos" = {
+           com.env$sig <- 0.01
+           com.env$reg_end_date <- as.POSIXct("2009-12-30 UTC")
+           com.env$reg_date_range <- paste(com.env$reg_start_date,com.env$reg_end_date,sep="/")
+           com.env$oos_start_date <- as.POSIXct("2010-01-01 UTC")
+           com.env$oos_end_date <- as.POSIXct("2011-12-30 UTC")
+           com.env$oos_date_range <- paste(com.env$oos_start_date,com.env$oos_end_date,sep="/")
+           cmd_string <- paste0("com.env$oos_date_index <- index(data.env$",com.env$stx_list[1],"[com.env$oos_date_range])")   #hard coded to first stock
+           eval(parse(text=cmd_string))
+         },
+         "rolling_oos" = {
+           com.env$r2_wt <- 100
+           com.env$rolling_best_score <- -100.  #-Inf
+           com.env$sig <- 0.05
+           com.env$rolling_start_date <- as.Date("2008-01-01 UTC")
+           com.env$period <- 365
+           oos_days <- as.Date(com.env$reg_end_date) - com.env$rolling_start_date
+           com.env$rolling_periods <- as.numeric(round(oos_days/com.env$period))
+           end_date <- as.Date(com.env$rolling_start_date - 1) 
+           for (i in 1:com.env$rolling_periods) {
+             start_date <- as.Date(end_date + 1)
+             if (i < com.env$rolling_periods) {
+               end_date <- as.Date(start_date+com.env$period)
+             } else {
+               end_date <- com.env$reg_end_date
+             }
+             #end_date <- ifelse(i == com.env$rolling_periods,as.Date(com.env$reg_end_date),as.Date(start_date + com.env$period))
+             #print(paste(i,"start_date:",start_date,"end_date",end_date))
+             oos_date_range <- paste(as.POSIXct(paste(start_date,"UTC")),as.POSIXct(paste(end_date,"UTC")),sep="/")
+             #print(oos_date_range)
+             cmd_string <- paste0("date_index <- index(data.env$",com.env$stx_list[1],"[oos_date_range])")
+             #print(cmd_string)
+             eval(parse(text=cmd_string))
+             #print(date_index)
+             com.env$oos_start_date[[i]] <- paste(start_date,"UTC")
+             com.env$oos_date_index[[i]] <- date_index 
+           }
+           for(i in 1:com.env$rolling_periods) print(com.env$oos_start_date[[i]])
+         },
+         "rolling_sim" = {},
+         {cat("Error: com.env$opt_type - ",com.env$opt_type," not supported\n")
+          source("close_session.R")}
+  )
+  #if (com.env$run_sim) {
+    com.env$sim_start_date <- as.POSIXct("2012-01-01 UTC")
+    com.env$sim_end_date <- as.POSIXct("2012-12-31 UTC")
+    com.env$sim_date_range <- paste(com.env$sim_start_date,com.env$sim_end_date,sep="/")
+    #print(com.env$sim_date_range)
+    cmd_string <- paste0("com.env$sim_date_index <- index(data.env$",com.env$stx_list[1],"[com.env$sim_date_range])")   #hard coded to first stock
+    #print(cmd_string)
+    eval(parse(text=cmd_string))
+    #print(com.env$sim_date_index)
+  #}
+}
+
 remove_problem_stocks <- function() {
   static.stx.symbols <- com.env$stx.symbols
+  com.env$corr.threshold <- 0.6
+  com.env$days2remove <- 60
   for (i in 1:com.env$stx) {
     ticker <- static.stx.symbols[i]
     if (make.names(ticker) != ticker) {
@@ -120,21 +175,41 @@ remove_problem_stocks <- function() {
     cmd_string <- paste("corr.data <- cbind(data.env$",cmn,"[,'",cmn,".Adjusted'],data.env$",ticker,"[,'",ticker,".Adjusted'])",sep="")
     #if (verbose) print(cmd_string)
     eval(parse(text=cmd_string))
-    corr.val <- cor(corr.data[com.env$reg_date_range],use="complete.obs")[1,2]
-    cmd_string <- paste("not_enough_history <- nrow(data.env$",ticker,") < 320",sep="")
+    cmd_string <- paste("enough_history <- nrow(data.env$",ticker,"[com.env$reg_date_range]) > 320",sep="")
     eval(parse(text=cmd_string))
-    if ( (not_enough_history) | (corr.val < com.env$corr.threshold) ) {
+    if (enough_history) corr.val <- cor(corr.data[com.env$reg_date_range],use="complete.obs")[1,2]
+    if ( (!enough_history) | (corr.val < com.env$corr.threshold) ) {
       #print(paste("remove",ticker,"from stx list, not correlated with cmn",corr.val))
       com.env$stx.symbols <- com.env$stx.symbols[-which(com.env$stx.symbols == ticker)] #stx.symbols - only stocks
       com.env$stx_list <- com.env$stx_list[-which(com.env$stx_list == ticker)]          #stx_list - contains etfs
     } #else print(corr.val)
   }
   rm(static.stx.symbols,corr.val,corr.data)
-  
   com.env$stx <- length(com.env$stx.symbols)
-  com.env$port_size <- com.env$init_equity <- 10000*com.env$stx
   
-  print(com.env$stx_list)
+  com.env$start_date <- NULL
+  #com.env$start_date <- setNames(vector("list", length(com.env$stx.symbols)), com.env$stx.symbols)
+  for (i in 1:com.env$stx) {
+    ticker <- com.env$stx.symbols[i]
+    cmn_ticker <- com.env$cmn_lookup[ticker]
+    cmd_string <- paste("cmn_start_date <- index(data.env$",cmn_ticker,"[",com.env$days2remove,",])",sep="")
+    eval(parse(text=cmd_string))
+    cmd_string <- paste("stk_start_date <- index(data.env$",ticker,"[",com.env$days2remove,",])",sep="")
+    #print(cmd_string)
+    eval(parse(text=cmd_string))
+    if (is.null(com.env$start_date)) {
+      com.env$start_date <- max(c(cmn_start_date,stk_start_date))
+    } else {
+      com.env$start_date <- c(com.env$start_date,max(c(cmn_start_date,stk_start_date)))
+    }
+  }
+  names(com.env$start_date) <- com.env$stx.symbols
+  #print(com.env$start_date)
+  com.env$port_size_mult <- 10000
+  com.env$port_size <- com.env$init_equity <- com.env$port_size_mult*com.env$stx
+  com.env$alpha_wt <- 16000
+  com.env$retvlty_not_calced <- TRUE  
+  #print(com.env$stx_list)
 }
 
 #loads all stock in com.env$stx_list not in stx_list.old (returns loaded list)

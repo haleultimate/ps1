@@ -108,13 +108,14 @@ model.select <- function(model,keep,sig=0.05,verbose=F){
 }
 
 #out of sample r2 calculation, returns test (contains $rsq,$cor)
-oos.r2 <- function(model,df.oos,reverse=FALSE) {
+calc.r2 <- function(model,data.df,reverse=FALSE) {
+  data.df[is.na(data.df)] <- 0
   if (reverse) {
-    predicted.model <- -predict.lm(model,newdata=df.oos)
+    predicted.model <- -predict.lm(model,newdata=data.df)
   } else {
-    predicted.model <- predict.lm(model,newdata=df.oos)
+    predicted.model <- predict.lm(model,newdata=data.df)
   }
-  test.y <- df.oos[,com.env$predict.ret]
+  test.y <- data.df[,com.env$predict.ret]
   mean.test.y <- mean(test.y)
   SS.total      <- sum((test.y - mean.test.y)^2)
   SS.residual   <- sum((test.y - predicted.model)^2)
@@ -124,7 +125,7 @@ oos.r2 <- function(model,df.oos,reverse=FALSE) {
   test$rsq <- 1 - (SS.residual/SS.total)  
   SS.total0 <- sum(test.y^2)
   test$rsq0 <- 1 - (SS.residual/SS.total0)
-  results <- cbind(predicted.model,df.oos[,com.env$predict.ret])
+  results <- cbind(predicted.model,data.df[,com.env$predict.ret])
   test$cor <- cor(results,use="complete.obs")[1,2]
   test$mse <- sqrt(mean((test.y-predicted.model)^2))
   test$mean <- mean(abs(test.y))
@@ -204,7 +205,8 @@ vif_func<-function(in_frame,keep=NULL,thresh=10,trace=T){
         print(problem_vals)
         print(vif_calcs[vif_calcs %in% c("NaN","Inf")])
         print(var_names)
-        source("close_session.R")
+        return(vif_func(in_frame,keep=NULL,thresh=10,trace=T))  #allow keep vars to be removed
+        #source("close_session.R")
       }
       problem_vals_last_time <- TRUE
       removed_vals <- c(removed_vals,problem_vals[!problem_vals %in% keep])
@@ -258,4 +260,147 @@ vif_func<-function(in_frame,keep=NULL,thresh=10,trace=T){
   }
   return(var_names)
 }
+
+#function determines max(OOS r2) by setting a single reg var's coefficient to 0 (does not rerun regression)
+#returns reg_var name ("none" if no increase can be found)
+drop_var_oos <- function(model,data.df) {
+  all_var_r2 <- calc.r2(model,data.df)
+  var_r2 <- all_var_r2$rsq
+  save_coefs <- model$coefficients
+  for (i in 2:length(save_coefs)) {
+    new_coefs <- save_coefs
+    new_coefs[i] <- 0.
+    model$coefficients <- new_coefs
+    i_var_r2 <- calc.r2(model,data.df)
+    var_r2 <- c(var_r2,i_var_r2$rsq)
+  }
+  names(var_r2) <- names(save_coefs)
+  names(var_r2)[1] <- "none"
+  sort_var_r2 <- sort(var_r2,decreasing=TRUE)
+  print(sort_var_r2)
+  cat("Var to drop:",names(sort_var_r2)[1],"\n")
+  return(names(sort_var_r2[1]))
+}
+
+#returns lm model for set of reg_vars and data.df
+get_new_reg_model <- function(reg_vars,data.df) {
+  f <- as.formula(paste(colnames(data.df)[1],paste(reg_vars,collapse=" + "),sep=" ~ "))
+  new_model <- lm(formula=f,data=data.df)
+  return(new_model)
+}
+
+opt_var_selection <- function() {
+  switch(com.env$opt_type,
+         "adjr2_is" = {
+           return()
+         },
+         "single_oos" = {
+           opt_oos_r2(recalc_vars=TRUE,recollect_data=TRUE)
+         },
+         "rolling_oos" = {
+           opt_rolling_oos(recalc_vars=TRUE)
+         },
+         {cat("Error: com.env$opt_type - ",com.env$opt_type," not supported\n")
+           source("close_session.R")}
+         )
+}
+
+#manipulate com.env$reg_end_date & com.env$oos_date_range so that collect data returns the proper data in var.env$reg_data.df & var.env$oos_data.df 
+#average prediction R2 over all oos periods
+#if better than best saved model update rolling best vars, otherwise revert best vars to previous best rolling vars
+opt_rolling_oos <- function(recalc_vars=FALSE) {
+  if (recalc_vars) {  #pass in FALSE if data already calculated in var.env
+    #print("Removing var environment")
+    rm(var.env,envir=globalenv())
+    var.env <<- new.env(parent = globalenv())
+    make_vars()  #eval_adj_r2 normally by calculating all vars in com.env$v.com
+  }
+  #collect data, get regression model, evaluate r2
+  #if (com.env$retvlty_not_calced) {
+    adjret_calc()
+    vlty_calc()
+    com.env$retvlty_not_calced <- FALSE
+  #}
+  sum_r2 <- 0
+  sum_profit <- 0
+  for (i in 1:com.env$rolling_periods) {
+    #calc_regression oos r2
+    com.env$reg_end_date <- as.POSIXct(com.env$rolling_start_date + (i-1)*com.env$period - 1)
+    com.env$oos_date_range <- com.env$oos_date_index[[i]]
+    com.env$start_oos <- com.env$oos_start_date[[i]]
+    #populate com.env$oos_stx for use in sim
+    if (i < com.env$rolling_periods) {
+      collect_data(oos_data=TRUE,sim_data=FALSE)  #populate var.env(reg_data.df,oos_data.df) with model vars
+    } else {
+      collect_data(oos_data=TRUE,sim_data=TRUE)   #populate var.env(reg_data.df,oos_data.df,sim_data.df) with model vars
+    }
+    com.env$model.current <- get_new_reg_model(com.env$best_reg_names,var.env$reg_data.df)
+    print(nrow(var.env$oos_data.df))
+    oos_r2 <- calc.r2(com.env$model.current,var.env$oos_data.df)
+    cat("Period:",i," r2=",oos_r2$rsq," cor=",oos_r2$cor," winpct=",oos_r2$winpct,"\n")
+    sum_r2 <- sum_r2 + oos_r2$rsq
+    #calc_sim profit
+    mu_calc(paste0("mu",i))
+    stx_oos <- com.env$stx.symbols[com.env$start_date<com.env$start_oos]
+    print(paste("stx count for sim:",length(stx_oos)))
+    sum_profit <- sum_profit + lp_sim(paste0("mu",i),stx_oos,com.env$oos_date_range,com.env$port_size_mult*length(stx_oos),plot_profit=FALSE)
+  }
+  ave_r2 <- sum_r2/com.env$rolling_periods
+  ave_profit <- sum_profit/(com.env$rolling_periods*com.env$port_size)
+  if (com.env$r2_wt*ave_r2 + ave_profit > com.env$rolling_best_score) {
+    cat("Model improved!!!  Updating rolling best_vars, OOS_R2:",ave_r2,"profit:",ave_profit,"\n")
+    com.env$rolling_best_score <- com.env$r2_wt*ave_r2 + ave_profit
+    com.env$rolling_adj_r2 <- com.env$best_adj_r2
+    com.env$rolling_reg_names <- com.env$best_reg_names
+    com.env$rolling_vcom <- com.env$best_vcom
+    sim_r2 <- calc.r2(com.env$model.current,var.env$sim_data.df)
+    cat("r2",sim_r2$rsq,"r20",sim_r2$rsq0,"cor",sim_r2$cor,"\n")
+    cat("mse",sim_r2$mse,"mean",sim_r2$mean,"wpct",sim_r2$winpct,"\n")
+  } else {
+    cat("Model got worse... Reverting to previous best rolling model,",ave_r2,"+",ave_profit,"<",com.env$rolling_best_score,"\n")
+    com.env$best_adj_r2 <- com.env$rolling_adj_r2
+    com.env$best_reg_names <- com.env$rolling_reg_names
+    com.env$best_vcom <- com.env$rolling_vcom
+  }
+}
+
+#function optimizes oos_r2 by zeroing one coef at a time (until no further zeroing improves oos_r2)
+#(best_adj_r2, best_reg_names, best_vcom) are updated
+opt_oos_r2 <- function(recalc_vars=FALSE,recollect_data=FALSE) {
+  if (recalc_vars) {  #pass in FALSE if data already calculated in var.env
+    #print("Removing var environment")
+    rm(var.env,envir=globalenv())
+    var.env <<- new.env(parent = globalenv())
+    make_vars()  #eval_adj_r2 normally by calculating all vars in com.env$v.com
+  }
+  if (recollect_data) collect_data(oos_data=TRUE,sim_data=TRUE)  #populate var.env(reg_data.df,oos_data.df,sim_data.df) with model vars
+  reg_vars <- com.env$best_reg_names
+  drop_var <- "any"
+  loop <- 0
+  while ((drop_var != "none") | is.null(reg_vars)) {
+    loop <- loop + 1
+    if (loop > 100) break
+    best_model <- get_new_reg_model(reg_vars,var.env$reg_data.df)
+    drop_var <- drop_var_oos(best_model,var.env$oos_data.df)
+    reg_vars <- reg_vars[!reg_vars %in% drop_var]
+  }
+  #update best vars
+  if ((length(best_model) == 0) | (is.null(reg_vars))) {
+    print("All variables left model")
+    com.env$best_adj_r2 <- 0
+    com.env$best_reg_names <- NULL
+    com.env$best_vcom <- NULL
+  } else {
+    #check sim data stats
+    sim_r2 <- calc.r2(best_model,var.env$sim_data.df)
+    cat("r2",sim_r2$rsq,"r20",sim_r2$rsq0,"cor",sim_r2$cor,"\n")
+    cat("mse",sim_r2$mse,"mean",sim_r2$mean,"wpct",sim_r2$winpct,"\n")
+    #update best_vars
+    com.env$best_adj_r2 <- summary(best_model)$adj.r.squared
+    com.env$best_reg_names <- reg_vars
+    clean_vcom()
+    com.env$best_vcom <- com.env$v.com 
+  }
+}
+
 
