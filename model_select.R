@@ -295,10 +295,10 @@ opt_var_selection <- function() {
            return()
          },
          "single_oos" = {
-           opt_oos_r2(recalc_vars=TRUE,recollect_data=TRUE)
+           opt_oos_r2(recalc_vars=FALSE,recollect_data=TRUE)
          },
          "rolling_oos" = {
-           opt_rolling_oos(recalc_vars=TRUE)
+           opt_rolling_oos(recalc_vars=FALSE)
          },
          {cat("Error: com.env$opt_type - ",com.env$opt_type," not supported\n")
            source("close_session.R")}
@@ -310,16 +310,16 @@ opt_var_selection <- function() {
 #if better than best saved model update rolling best vars, otherwise revert best vars to previous best rolling vars
 opt_rolling_oos <- function(recalc_vars=FALSE) {
   if (recalc_vars) {  #pass in FALSE if data already calculated in var.env
-    #print("Removing var environment")
-    rm(var.env,envir=globalenv())
-    var.env <<- new.env(parent = globalenv())
+    clean_var_env()  #remove all vars not in current vcom
     make_vars()  #eval_adj_r2 normally by calculating all vars in com.env$v.com
   }
   #collect data, get regression model, evaluate r2
   #if (com.env$retvlty_not_calced) {
-    adjret_calc()
-    vlty_calc()
-    com.env$retvlty_not_calced <- FALSE
+    #adjret_calc()
+    #vlty_calc()
+    stk_matrix("data.env","ADJRET")
+    stk_matrix("data.env","VLTY")
+    #com.env$retvlty_not_calced <- FALSE
   #}
   sum_r2 <- 0
   sum_profit <- 0
@@ -368,9 +368,7 @@ opt_rolling_oos <- function(recalc_vars=FALSE) {
 #(best_adj_r2, best_reg_names, best_vcom) are updated
 opt_oos_r2 <- function(recalc_vars=FALSE,recollect_data=FALSE) {
   if (recalc_vars) {  #pass in FALSE if data already calculated in var.env
-    #print("Removing var environment")
-    rm(var.env,envir=globalenv())
-    var.env <<- new.env(parent = globalenv())
+    clean_var_env()  #remove all vars not in current vcom
     make_vars()  #eval_adj_r2 normally by calculating all vars in com.env$v.com
   }
   if (recollect_data) collect_data(oos_data=TRUE,sim_data=TRUE)  #populate var.env(reg_data.df,oos_data.df,sim_data.df) with model vars

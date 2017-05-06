@@ -57,11 +57,8 @@ opt_model <- function(model_loops,mod_var_loops) {
     print(paste("Mod Loops attempted:",current_mod_loop,"/",mod_var_loops,",",length(com.env$best_reg_names),com.env$best_adj_r2,Sys.time()))
     
     opt_var_selection()
-    #if (com.env$opt_type=="single_oos") opt_oos_r2(recalc_vars=TRUE,recollect_data=TRUE)
-        
-    #print("Removing var environment, after mod var loop")
-    rm(var.env,envir=globalenv())
-    var.env <<- new.env(parent = globalenv())
+
+    clean_var_env()  #remove all vars not in current vcom
   }                                               #end model loop
   print(paste("Start_time:",start_time,"End_time:",Sys.time(),"Elapsed:",round(Sys.time()-start_time),"minutes"))
   cat("Final adj R2:",com.env$best_adj_r2,'\n')
@@ -118,8 +115,7 @@ try_mods <- function(adj_r2,current_loop,model_loops,mod_var_loops) {
     }
     com.env$add_var_worse <- TRUE             #try clean vcom without adding vars next loop
     com.env$v.com <- com.env$best_vcom        #revert vcom
-    rm(var.env,envir=globalenv())             #delete var environment
-    var.env <<- new.env(parent = globalenv())
+    clean_var_env()  #remove all vars not in current vcom
     return(FALSE)
   } else if (adj_r2 == com.env$best_adj_r2) {
     if (com.env$add_var_worse) {
@@ -127,7 +123,7 @@ try_mods <- function(adj_r2,current_loop,model_loops,mod_var_loops) {
     } else if (adj_r2 == 0) {
       cat("No Model found, trying add vars again\n")
       rm(var.env,envir=globalenv())             #delete var environment
-      var.env <<- new.env(parent = globalenv())
+      var.env <<- new.env(parent = globalenv()) #no vcom to manage cleaning, simply start over
       return(FALSE)
     } else {
       cat("Model didn't improve or get worse in add_vars, cleaning vcom and continuing to mod vars\n")
@@ -330,11 +326,11 @@ reg_names_use_longID_name <- function(mod_list) {
 }
 
 #called from clean_long_ID names (see comments below)
-clean_vcom_longID2var_name <- function(mod_pair) {
-  orig_var_name <- mod_pair[[1]][[1]]$var_name
-  orig_longID_name <- mod_pair[[1]][[1]]$var_name
-  mod_var_name <- mod_pair[[1]][[2]]$var_name
-  mod_longID_name <- mod_pair[[1]][[2]]$longID_name
+clean_vcom_longID2var_name <- function(mod_list) {
+  orig_var_name <- mod_list[[1]][[1]]$var_name
+  orig_longID_name <- mod_list[[1]][[1]]$var_name
+  mod_var_name <- mod_list[[1]][[2]]$var_name
+  mod_longID_name <- mod_list[[1]][[2]]$longID_name
   #print(paste("orig_var_name",orig_var_name,"mod_var_name",mod_var_name,"longID_name",mod_longID_name))
   scale_idx <- which(names(com.env$v.com) == mod_var_name)
   #mod_list <- list(mod_pair) 
@@ -395,11 +391,13 @@ clean_longID2var_name <- function(name_list) {
         }
       }
       if (is.null(var_name)) {
-        print("ERROR find var_name in v.com corresponding to longID_name in reg_vars")
-        print(reg_vars)
-        print(longID_name)
-        print(names(com.env$v.com))
-        source("close_session.R")
+        #print(paste("longID_name not in vcom",longID_name," leaving in name_list"))
+        next
+        #print("Warning: find var_name in v.com corresponding to longID_name in reg_vars")
+        #print(name_list)
+        #print(longID_name)
+        #print(names(com.env$v.com))
+        #source("close_session.R")
       } 
       #else {
       #  print(paste("converting",longID_name,"->",var_name))
@@ -407,19 +405,31 @@ clean_longID2var_name <- function(name_list) {
       name_list[i] <- gsub(longID_name,var_name,reg_name)
     }
   }
+  if (length(name_list) != length(unique(name_list))) {
+    print("Problem in name_list, duplicate names found")
+    print(name_list)
+  }
   return(name_list)
 }
 
-#function takes in mod_pair and cleans com.env$v.com, com.env$reg_names [not com.env$best_reg_names at this point]
-#In com.env$v.com replaces longID_name -> var_name for mod_pair and every math function depending on pair
+#function takes in mod_list and cleans com.env$v.com, com.env$reg_names [not com.env$best_reg_names at this point]
+#In com.env$v.com replaces longID_name -> var_name for mod_list and every math function depending on pair
 #function looks for longID_name(s) in com.env$reg_names and replaces them [leaving any binning indicators on]
+#Looks through var.env and replaces every column in every stock df longID_name -> var_name
 #called at end of calc_adj_r2
-clean_longID_names <- function(mod_pair) {
+clean_longID_names <- function(mod_list) {
   #print("clean_vcom_longID2var_name")
-  clean_vcom_longID2var_name(mod_pair)
+  clean_vcom_longID2var_name(mod_list)
   #print("clean_reg_names_longID2var_name")
   #print(com.env$reg_names)
   com.env$reg_names <- clean_longID2var_name(com.env$reg_names)
+  first_pass <- FALSE
+  for (ticker in com.env$stx_list) {
+    cmd_string <- paste0("colnames(var.env$",ticker,") <- clean_longID2var_name(colnames(var.env$",ticker,"))")
+    if (first_pass) print(cmd_string)
+    eval(parse(text=cmd_string))
+    first_pass <- FALSE
+  }
   #print(com.env$reg_names)
 }  
 
@@ -702,6 +712,18 @@ save_vars <- function(save_var_n) {
   save_vcom_vars(save_vcoms)
 }
 
-
+#evaluate com.env$v.com, determine vars in use, keep only those in var.env ticker dfs
+clean_var_env <- function() {
+  #print("clean_var_env")
+  if (com.env$best_adj_r2 == 0) print("WARNING: no regression model found yet, trying to clean")
+  vars_used <- NULL
+  for (vd in com.env$v.com) vars_used <- c(vars_used,vd$name)
+  for (ticker in com.env$stx_list) {
+    ve.xts <- paste0("var.env$",ticker)
+    cmd_string <- paste0(ve.xts,"<- ",ve.xts,"[,colnames(",ve.xts,") %in% vars_used]")
+    #print(cmd_string)
+    eval(parse(text=cmd_string))
+  }
+}
 
 

@@ -2,14 +2,14 @@
 #parms that should be changed by user manually to control run_ps.R behavior
 set_control_parms <- function() {
   com.env$model_loops <- 20
-  com.env$add_var_levels <- c(5,10,15,30,50)
+  com.env$add_var_levels <- c(5,10,15)
   com.env$opt_model <- TRUE
   com.env$load_vars <- TRUE
   com.env$load_model <- FALSE
   com.env$save_model <- TRUE
   com.env$save_var_n <- 0
-  com.env$look_forward <- 1
-  com.env$model_filename <- "lf1_rollsim427.vcom"
+  com.env$look_forward <- 5
+  com.env$model_filename <- "lf5_rollsim54.vcom"
   com.env$mod_var_loops <- 20
   com.env$opt_type <- "rolling_oos"  #{adjr2_is,single_oos,rolling_oos,rolling_sim}
   com.env$run_sim <- TRUE
@@ -45,6 +45,7 @@ set_control_parms <- function() {
     #print(com.env$saved_var_files)
   }
   com.env$verbose <- FALSE
+  com.env$vlty_window <- 250
 }
 
   
@@ -208,7 +209,7 @@ remove_problem_stocks <- function() {
   com.env$port_size_mult <- 10000
   com.env$port_size <- com.env$init_equity <- com.env$port_size_mult*com.env$stx
   com.env$alpha_wt <- 16000
-  com.env$retvlty_not_calced <- TRUE  
+  com.env$retvlty_not_calced <- TRUE
   #print(com.env$stx_list)
 }
 

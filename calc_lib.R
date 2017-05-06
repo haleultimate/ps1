@@ -729,6 +729,21 @@ make_vars <- function(vd = NULL) {
           if (first_pass & com.env$verbose) print(paste("finding col",coln," for v",v,is.cmn))
         } 
         vd <- com.env$v.com[[v]]
+        if (coln != 1) {  #var.env exists
+          cmd_string <- paste0("col_num <- which(vd$name[1] == colnames(",ve.xts,"))")
+          if (first_pass) print(cmd_string)
+          eval(parse(text=cmd_string))
+          if (length(col_num) > 0) {  #already calculated, update col field
+            if (is.cmn) {
+              com.env$v.com[[v]]$cmn_col <- col_num 
+              col.cmn.calc[v] <- TRUE
+            } else {
+              com.env$v.com[[v]]$col <- col_num
+              col.calc[v] <- TRUE
+            }
+            next
+          }
+        }
         coln <- ifelse(is.cmn,vd$cmn_col,vd$col)
         for (m in 1:length(vd$math)) {
           math <- strsplit(vd$math[m],split=",")[[1]]
@@ -804,26 +819,26 @@ calc_vd <- function(vd) { #for use in computing MU,ADJRET,VLTY  #appended to eac
   }
 }
 
-stk_matrix <- function(type,index=0) {
-  #print(paste("stk_oos_matrix",type,index))
+stk_matrix <- function(env_name,type,index=0) {
+  print(paste("stk_oos_matrix",env_name,type,index))
   col_lu <- type
+  orig_col_lu <- col_lu
   if (index != 0) {type = paste0(type,index)}
-  type <- paste0("var.env$",type)
-  cmd_string <- paste0(type," <- NULL")
-  #print(cmd_string)
+  mtrx <- paste0("var.env$",type)
+  cmd_string <- paste0(mtrx," <- NULL")
   eval(parse(text=cmd_string))
 
   for (stk in 1:(com.env$stx+com.env$cmns)) {
     ticker <- com.env$stx_list[stk]
+    if (env_name == "data.env") col_lu <- paste0(ticker,".",orig_col_lu)
     #print(paste("Getting data for:",ticker))
     is.cmn <- (com.env$cmn_lookup[[ticker]] == 'cmn')
     if (is.cmn) next                           #nothing to compute in cmn
-    ve.xts <- paste("var.env$",ticker,sep="")
-    cmd_string <- paste0(type," <- cbind(",type,",",ve.xts,"[,'",col_lu,"'])")
+    ve.xts <- paste0(env_name,"$",ticker)
+    cmd_string <- paste0(mtrx," <- cbind(",mtrx,",",ve.xts,"[,'",col_lu,"'])")
     #print(cmd_string)
     eval(parse(text=cmd_string))
-    cmd_string <- paste0("colnames(",type,")[ncol(",type,")] <- '",ticker,"'")
-    #colnames(MU)[ncol(MU)] <- ticker
+    cmd_string <- paste0("colnames(",mtrx,")[ncol(",mtrx,")] <- '",ticker,"'")
     #print(cmd_string)
     eval(parse(text=cmd_string))
   }
@@ -836,7 +851,7 @@ mu_calc <- function(mu_col_name,index=0) {
   V1$calc_cmn <- FALSE
   V1$math[1] <- "calc_prediction,'com.env$model.current'"
   calc_vd(V1)
-  stk_matrix(mu_col_name,index)
+  stk_matrix("var.env",mu_col_name,index)
 }
 
 adjret_calc <- function() {
@@ -846,7 +861,7 @@ adjret_calc <- function() {
   V1$calc_cmn <- FALSE
   V1$math[1] <- "calc_adjret,'.Adjusted'"
   calc_vd(V1)
-  stk_matrix("ADJRET")
+  stk_matrix("var.env","ADJRET")
 }
 
 vlty_calc <- function() {
@@ -856,7 +871,7 @@ vlty_calc <- function() {
   V1$calc_cmn <- FALSE
   V1$math[1] <- "calc_vlty,'ADJRET',window=250"
   calc_vd(V1)
-  stk_matrix("VLTY")
+  stk_matrix("var.env","VLTY")
 }
 
 make_mu <- function() {
@@ -865,10 +880,13 @@ make_mu <- function() {
     eval_adj_r2(sim_data=TRUE)
   }
   mu_calc("MU")
+  stk_matrix("data.env","ADJRET")
+  stk_matrix("data.env","VLTY")
+  
   #if (com.env$retvlty_not_calced) {
-    adjret_calc()
-    vlty_calc()
-    com.env$retvlty_not_calced <- FALSE
+    #adjret_calc()
+    #vlty_calc()
+    #com.env$retvlty_not_calced <- FALSE
   #}
   if (com.env$load_multi_model) {
     for (i in 2:length(com.env$model_list)) {
@@ -948,6 +966,33 @@ calc_adjusted_HLOJRlD <- function(symbol_list) {
     cmd_string <- paste0(de.V,"[!(is.finite(",de.V,"))] <- -18.5")
     if (first_pass) print(cmd_string)
     eval(parse(text=cmd_string))
+    
+#    calc_adjret <- function(ve.xts,coln,field,first_pass=FALSE) {
+    cmd_string <- paste0("tmp.xts <- stats::lag(",de.adjc,",-1)/",de.adjc)
+    if (first_pass) print(cmd_string)
+    eval(parse(text=cmd_string))
+    tmp.xts[is.na(tmp.xts)] <- 0                  #replace NA's with 0
+    cmd_string <- paste0(df," <- cbind(",df,",tmp.xts)")
+    if (first_pass) print(cmd_string)
+    eval(parse(text=cmd_string))
+    cmd_string <- paste0("colnames(",df,")[length(colnames(",df,"))] <- '",ticker,".ADJRET'")
+    if (first_pass) print(cmd_string)
+    eval(parse(text=cmd_string))
+    
+#    V1$math[1] <- "calc_vlty,'ADJRET',window=250"
+#    calc_vlty <- function(ve.xts,coln,field=NULL,window=60,first_pass=FALSE) { #take vlty of field (in var.env) and append as last column
+    cmd_string <- paste0("tmp.xts <- xts(apply(",de.adjc,",2,runSD,n=com.env$vlty_window), index(",df,"))")
+    if (first_pass) print(cmd_string)
+    eval(parse(text=cmd_string))
+    tmp.xts <- stats::lag(tmp.xts,1)   #not needed if using valid raw/scale/model vars [field provided]
+    tmp.xts <- tmp.xts*tmp.xts
+    cmd_string <- paste0(df," <- cbind(",df,",tmp.xts)")
+    if (first_pass) print(cmd_string)
+    eval(parse(text=cmd_string))
+    cmd_string <- paste0("colnames(",df,")[length(colnames(",df,"))] <- '",ticker,".VLTY'")
+    if (first_pass) print(cmd_string)
+    eval(parse(text=cmd_string))
+    
     first_pass <- FALSE
   }
 }
