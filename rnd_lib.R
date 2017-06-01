@@ -1,14 +1,12 @@
 #returns vd$name, vd$var_name, and vd$ID given a variable's math.list
-set_name = function(V1,orig_name=NULL,vdlist=NULL) {
+set_name = function(V1,vdlist=NULL) {
   if (is.null(V1)) {
     print("Warning:V1 is null, no name/ID given")
     return(V1)
   }
   if (is.null(vdlist)) {
     vdlist <- com.env$v.com
-  } else {
-    if (!is.null(orig_name)) print ("Warning: Orig_name affects com.env$v.com not vdlist")
-  }
+  } 
   V1$var_name <- NULL
   V1$ID <- NULL
   binning <- FALSE
@@ -385,45 +383,90 @@ set_name = function(V1,orig_name=NULL,vdlist=NULL) {
   if (!binning) {
     V1$name <- V1$var_name
     V1$longID_name <- paste0("v",V1$ID)
+    V1$bins <- 1
   } else {
     V1$name[1] <- paste0(V1$var_name,"l")
     V1$name[2] <- paste0(V1$var_name,"h")
     V1$longID_name[1] <- paste0("v",V1$ID,"l")
     V1$longID_name[2] <- paste0("v",V1$ID,"h")
+    V1$bins <- 2
   }
-  if (!is.null(orig_name)) {
-    if (V1$var_name != orig_name) {
-      if (is.null(V1$vcom_num)) {
-        print(paste("WARNING:",orig_name,"changed to",V1$var_name,"with no vcom_num, replace_name not called"))
+  if (V1$use != "def") {
+    allmath <- paste(V1$math, sep = '', collapse = '')
+    if (!(allmath %in% com.env$var_list)) {
+      com.env$var_list <- c(com.env$var_list,allmath)
+      V1$clu <- paste0("C",length(com.env$var_list))
+      #print(paste("CLU:",V1$var_name,V1$clu))
+    } else if (is.null(V1$clu)) {
+      var_num <- which(names(com.env$v.com)==V1$var_name)
+      if (length(var_num)>0) {
+        if (is.null(com.env$v.com[[var_num]]$clu)) {
+          print("**************** Problem with allmath in set_name, already in var_list, but no clu *******************")
+          print(paste(V1$var_name,V1$use))
+          print(allmath)
+          tmp_clu <- which(com.env$var_list %in% allmath)
+          print(tmp_clu)
+          if (any(c(paste0("C",tmp_clu),paste0("C",tmp_clu,"_",1),paste0("C",tmp_clu,"_",2)) %in% colnames(var.env$BAC))) {
+            print("clu found in var.env")
+          } else {
+            print("clu not found in var.env")
+          }
+          source("close_session.R")
+        }
+        V1$clu <- com.env$v.com[[var_num]]$clu
       } else {
-        replace_name(V1$var_name,orig_name,V1$vcom_num)
+        print(paste("Warning:",V1$var_name,"var has been tried before"))
+        tmp_clu <- which(com.env$var_list %in% allmath)
+        print(tmp_clu)
+        if (any(c(paste0("C",tmp_clu),paste0("C",tmp_clu,"_",1),paste0("C",tmp_clu,"_",2)) %in% colnames(var.env$BAC))) {
+          print("clu found in var.env")
+        } else {
+          print("clu not found in var.env")
+        }
+        V1$clu <- paste0("C",tmp_clu)
       }
     }
   }
+  check_unique_name(V1)
   return(V1)
 }
 
-replace_name <- function(name,orig_name,vcom_num) {
-  if (is.null(vcom_num)) {
-    print(paste("Warning: Can't replace name without vcom_num",name,orig_name))
-    return()
+#reset all vars var_name's/clu's, if changed update all requires for new name (both in requires and math)
+rename_varlist <- function(varlist) {
+  for (vd in varlist) {
+    orig_name <- vd$var_name
+    set_name(vd,varlist)
+    if (orig_name != vd$var_name) {
+      for (vd2 in varlist) {
+        if (orig_name %in% vd2$requires) {
+          print(paste("name change:",orig_name," -> ",vd$var_name,"before:"))
+          print(vd2$requires)
+          print(vd2$math)
+          req_num <- which(orig_name == vd2$requires)
+          vd2$requires[req_num] <- vd$var_name  #change name in requires
+          for (i in 1:length(vd2$math)) {
+            new_math <- gsub(orig_name,vd$var_name,vd2$math[i],fixed=TRUE)
+            vd2$math[i] <- new_math
+          }
+          print("after:")
+          print(vd2$requires)
+          print(vd2$math)
+        }
+      }
+    }
   }
-  if (name == orig_name) return()
-  if (vcom_num == length(com.env$v.com)) return()
-  exact_orig_name <- paste0("^",orig_name,"$")
-  quoted_orig_name <- paste0("'",orig_name,"'")
-  quoted_name <- paste0("'",name,"'")
-  for (i in (vcom_num+1):length(com.env$v.com)) {
-    orig_requires <- com.env$v.com[[i]]$requires
-    orig_math <- com.env$v.com[[i]]$math
-    com.env$v.com[[i]]$requires <- gsub(exact_orig_name,name,com.env$v.com[[i]]$requires)
-    com.env$v.com[[i]]$math <- gsub(quoted_orig_name,quoted_name,com.env$v.com[[i]]$math)
-    if (!identical(orig_requires,com.env$v.com[[i]]$requires)) {
-      print(paste("replace_name:",name,orig_name,vcom_num))
-      print(orig_requires)
-      print(orig_math)
-      print(com.env$v.com[[i]]$requires)
-      print(com.env$v.com[[i]]$math)
+}
+check_unique_name <- function(V1) {
+  failed <- FALSE
+  for (vd in com.env$v.com) {
+    if (!is.null(V1$clu) & !is.null(vd$clu)) if (vd$clu == V1$clu) failed <- TRUE
+    if (vd$var_name == V1$var_name) failed <- TRUE
+    #if ((V1$use != "def") & (is.null(V1$clu))) failed <- TRUE
+    if (failed) {
+      #print("Either name or clu already in vcom:")
+      #print(paste("WARNING:",vd$vcom_num,vd$var_name,vd$clu,V1$var_name,V1$clu))
+      failed <- FALSE
+      #source("close_session.R")
     }
   }
 }
@@ -517,75 +560,6 @@ save_vcom_vars <- function(var_num_list) {  #take var_num and create com.env$VCO
   }
 }
 
-# load_rnd_var <- function() {
-#   #print("load_rnd_var")
-#   saved_var_files <- list.files(path=com.env$vardir)
-#   #print(saved_var_files)
-#   #print(com.env$var_files_tried)
-#   saved_var_files <- saved_var_files[!(saved_var_files %in% com.env$var_files_tried)]
-#   #print(saved_var_files)
-#   if (length(saved_var_files) > 0) {
-#     varfile_name <- sample(saved_var_files,size=1)
-#     print(paste(varfile_name,",",length(saved_var_files),"left"))
-#     com.env$var_files_tried <- c(com.env$var_files_tried,varfile_name)
-#     varfile <- paste(com.env$vardir,"/",varfile_name,sep="")
-#     load(file=varfile,envir=rnd.env)
-#     #print(names(rnd.env$VCOM))
-#     for (i in 1:length(names(rnd.env$VCOM))) {
-#       V1 <- set_name(rnd.env$VCOM[[i]])
-#       vname <- V1$var_name
-#       #print(vname)
-#       match <- FALSE
-#       if (vname %in% names(com.env$v.com)) {
-#         match <- length(com.env$v.com[[which(vname == names(com.env$v.com))]]$math) == length(rnd.env$VCOM[[vname]]$math)
-#         if (match) match <- 
-#             all(com.env$v.com[[which(vname == names(com.env$v.com))]]$math == rnd.env$VCOM[[vname]]$math)
-#         if (!match) {
-#           print("Can't load sample var, same name in requires list, but different math")
-#           return(-1)
-#         }
-#       }
-#       if (!match) {
-#         print(paste("Loading variable:",V1$var_name))
-#         #add_vd(V1)
-#             #MUST CHANGE THIS TO ADD variable and all of its dependencies
-#       } else {
-#         #print(paste(vname,"already in v.com"))
-#       }
-#     }
-#     return(0)
-#   } else {
-#     rnd.env$prob$type.wts[length(rnd.env$prob$type.wts)] <- 0. #prob of selecting var from file set to zero
-#     rnd.env$prob$type.bv.wts[length(rnd.env$prob$type.bv.wts)] <- 0. #prob of selecting var from file set to zero
-#     return(-1)                                                  #file always last entry in type.wts
-#   }
-# }
-# add_vd <- function(V1,vcom_num=NULL) {  #if var_num is null append V1 to v.com list, otherwise place it at var_num
-#   if (is.null(vcom_num)) {
-#     V1 <- set_name(V1)
-#     if (V1$var_name %in% names(com.env$v.com)) {
-#       return(com.env$v.com[[V1$var_name]])
-#       #print(paste("ERROR in add_vd,",V1$var_name," already in v.com"))
-#       #print(names(com.env$v.com))
-#       #print(V1)
-#       #source("close_session.R")
-#     }
-#     V1$vcom_num <- length(com.env$v.com) + 1
-#     #print(V1$var_name)
-#     cmd_string <- paste0("com.env$v.com$",V1$var_name," <- V1")
-#     #print(cmd_string)
-#     eval(parse(text=cmd_string))
-#   } else {
-#     V1$vcom_num <- vcom_num
-#     V1 <- set_name(V1,orig_name=V1$var_name)
-#     com.env$v.com[[vcom_num]] <- V1
-#     names(com.env$v.com)[vcom_num] <- V1$var_name
-#   }
-#   #print(paste("add_vd",V1$var_name,vcom_num))
-#   return(V1)
-# }
-
-
 check_dependencies <- function() {
   for (i in 1:length(com.env$v.com)) {
     if (length(com.env$v.com[[i]]$requires) > 0) {
@@ -615,8 +589,10 @@ define_predict_ret <- function() {
   V1$vcom_num <- 1
   cmd_string <- paste0("com.env$v.com$",V1$var_name," <- V1")
   eval(parse(text=cmd_string))
+  com.env$var_names <- V1$var_name  #first var in v.com
   #V1 <- add_vd(V1)
   com.env$predict.ret <- V1$var_name #always first variable [hard coded when loading model]
+  com.env$predict.clu <- V1$clu
   print(paste("In define_predict_return: com.env$predict.ret",com.env$predict.ret))
 }
 

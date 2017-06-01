@@ -43,6 +43,7 @@ vdlist2vcom <- function(vdlist,vcom_num=0) {  #append to end if no vcom_num give
     cmd_string <- paste0("com.env$v.com$",vd$var_name," <- vd")
     #print(cmd_string)
     eval(parse(text=cmd_string))
+    com.env$var_names <- vd$var_name
     vdlist <- vdlist[-1]
   }
   if (vcom_num == 0) vcom_num = length(com.env$v.com) + 1
@@ -52,7 +53,43 @@ vdlist2vcom <- function(vdlist,vcom_num=0) {  #append to end if no vcom_num give
     cmd_string <- paste0("com.env$v.com$",vd$var_name," <- vd")
     #print(cmd_string)
     eval(parse(text=cmd_string))
+    com.env$var_names <- c(com.env$var_names,vd$var_name)
     vcom_num <- vcom_num + 1
+    if (vd$use != "def") {
+      allmath <- paste(vd$math, sep = '', collapse = '')
+      if (!(allmath %in% com.env$var_list)) {
+        com.env$var_list <- c(com.env$var_list,allmath)
+        vd$clu <- paste0("C",length(com.env$var_list))
+        #print(paste("CLU:",vd$var_name,vd$clu))
+      } else if (is.null(vd$clu)) {
+        print("**************** Problem with allmath in vdlist2vcom, already in var_list, but no clu *******************")
+        print(paste(vd$var_name,vd$use))
+        print(allmath)
+        tmp_clu <- which(com.env$var_list %in% allmath)
+        print(tmp_clu)
+        if (any(c(paste0("C",tmp_clu),paste0("C",tmp_clu,"_",1),paste0("C",tmp_clu,"_",2)) %in% colnames(var.env$BAC))) {
+          print("clu found in var.env")
+        } else {
+          print("clu not found in var.env")
+        }
+        vd$clu <- paste0("C",tmp_clu)
+      }
+    }
+    #check_unique_name(vd)
+  }
+  #cat("var_names stored")
+  #print(com.env$var_names)
+  #cat("v.com names")
+  #print(names(com.env$v.com))
+  if (all(com.env$var_names == names(com.env$v.com))) {
+    #print("All v.com names match com.env$var_names")
+  } else {
+    print("WARNING: v.com names does not match com.env$var_names")
+  }
+  for (vd in com.env$v.com) {
+    if (vd$use != "def") {
+      if (is.null(vd$clu)) print(paste(vd$var_name," does not have a CLU defined"))
+    }
   }
 }
 
@@ -696,6 +733,8 @@ load_saved_model_var <- function() {
   load(file=varfile,envir=rnd.env)
   vdlist <- rnd.env$VCOM
   #print(names(vdlist))
+  #reset all vars name's/clu's in vdlist, check dependencies and change any names as needed (both in depenedencies and in math)
+  rename_varlist(vdlist)
   return(vdlist)
 }
 
@@ -1421,7 +1460,7 @@ optimize_mod_pair <- function(mod_pair) {
         print(paste("opt model improved from: best_adj_r2:",com.env$best_adj_r2,"to:",new_adj_r2,"try:",try_num))
         com.env$best_adj_r2 <- new_adj_r2
         #cat('best_reg_names set in opt model improved\n')
-        com.env$best_reg_names <- com.env$reg_names
+        com.env$best_clu_names <- com.env$clu_names
         mod_pair <- new_vd_pair
         try_num <- 1             #for new mod pair
         loop <- 0

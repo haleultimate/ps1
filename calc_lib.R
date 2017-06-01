@@ -1,12 +1,22 @@
 #calc_lib
 
-name.var <- function(ve.xts,col_num,new_name,first_pass=FALSE) { #always name col_num, may have two names for bin vars
-  if (first_pass & com.env$verbose) print(paste("name.var",ve.xts,col_num,new_name))
-  for (n in 1:length(new_name)) {
-    nn <- new_name[n]
-    cn <- col_num[n]
+name.var <- function(ve.xts,col_num,new_name,bins,first_pass=FALSE) { #always name col_num, may have two names for bin vars
+  if (first_pass) print(paste("name.var",ve.xts,col_num,new_name,bins))
+  if (is.null(new_name)) {
+    print(paste("2name.var",ve.xts,col_num,new_name,bins))
+    print("problem in name_var no name given")
+  }
+  for (n in 1:bins) {
+    nn <- ifelse(bins>1,paste0(new_name,"_",n),new_name)
+    cn <- col_num + n - 1
     cmd_string <- paste("colnames(",ve.xts,")[",cn,"] <- '",nn,"'",sep="")
-    if (first_pass & com.env$verbose) print(cmd_string)
+    # if (first_pass) print(cmd_string)
+    # if (ve.xts == "var.env$BAC") {
+    #   if (any(colnames(var.env$BAC) == paste0("'",nn,"'"))) {
+    #     print("problem in name.var, duplicate colnames")
+    #     source("close_session.R")
+    #   }
+    # }
     eval(parse(text=cmd_string))
   }
 } 
@@ -87,10 +97,11 @@ from.data.env <- function(ve.xts,coln=0,field,first_pass=FALSE) {
 
 #doesn't handle coln==0
 from.var.env <- function(ve.xts,coln,field,first_pass=FALSE) {
-  #print(paste("from.var.env:","ve.xts=",ve.xts,"field=",field))
-  ve.field <- paste(ve.xts,"$",field,sep="")
+  if (first_pass) print(paste("from.var.env:","ve.xts=",ve.xts,"field=",field))
+  clu <- com.env$v.com[[which(names(com.env$v.com)==field)]]$clu
+  ve.field <- paste(ve.xts,"[,'",clu,"']",sep="")
   cmd_string <- paste(ve.xts," <- cbind(",ve.xts,",",ve.field,")",sep="")
-  #if (first_pass) print(cmd_string)
+  if (first_pass) print(cmd_string)
   eval(parse(text=cmd_string))
 }
 
@@ -349,7 +360,9 @@ calc_vlty <- function(ve.xts,coln,field=NULL,window=60,first_pass=FALSE) { #take
   if (is.null(field)) { #if no field passed in calc in place
     f.xts <- paste0(ve.xts,"[,",coln,"]")
   } else {
-    f.xts <- paste0(ve.xts,"[,'",field,"']")
+    clu <- com.env$v.com[[which(names(com.env$v.com)==field)]]$clu
+    #ve.field <- paste(ve.xts,"$",clu,sep="")
+    f.xts <- paste0(ve.xts,"[,'",clu,"']")
   }
   cmd_string <- paste0("tmp.xts <- xts(apply(",f.xts,",2,runSD,n=window), index(",ve.xts,"))")
   #print(cmd_string)
@@ -416,26 +429,29 @@ calc_dol <- function(ve.xts,coln,price="R",first_pass=FALSE) {
 #looks up cmn from cmn_lookup
 #subtracts cmn from raw variable held in each stock ve.xts
 calc_stk <- function(ve.xts,coln,field,first_pass=FALSE) {
-  #if (verbose) print(paste("ve.xts=",ve.xts,"field=",field))
-  #f.xts <- paste(ve.xts,"[,'",field,"']",sep="")
+  if (first_pass) print(paste("ve.xts=",ve.xts,"field=",field))
   ticker <- sub("var.env$","",ve.xts,fixed=TRUE)
   cmn <- com.env$cmn_lookup[ticker]
-  cmd_string <- paste("cmn.xts <- merge(",ve.xts,"[,'",field,"'],var.env$",cmn,"[,'",field,"'])",sep="")
+  clu <- com.env$v.com[[which(names(com.env$v.com)==field)]]$clu
+  cmd_string <- paste("cmn.xts <- merge(",ve.xts,"[,'",clu,"'],var.env$",cmn,"[,'",clu,"'])",sep="")
+  if (first_pass) print(cmd_string)
   eval(parse(text=cmd_string))
   cmn.xts[,2][is.na(cmn.xts[,2])] <- 0
   cmn.xts <- na.omit(cmn.xts)
   cmd_string <- paste(ve.xts," <- cbind(",ve.xts,",(cmn.xts[,1]-cmn.xts[,2]))",sep="")
-  #print(cmd_string)
+  if (first_pass) print(cmd_string)
   eval(parse(text=cmd_string))
 }
 
 #doesn't handle coln==0
 #looks up cmn from cmn_lookup
 calc_etf <- function(ve.xts,coln,field,first_pass=FALSE) {
-  #if (verbose) print(paste("ve.xts=",ve.xts,"field=",field))
+  if (first_pass) print(paste("ve.xts=",ve.xts,"field=",field))
   ticker <- sub("var.env$","",ve.xts,fixed=TRUE)
   cmn <- com.env$cmn_lookup[ticker]
-  cmd_string <- paste("cmn.xts <- merge(",ve.xts,"[,'",com.env$predict.ret,"'],var.env$",cmn,"[,'",field,"'])",sep="")
+  clu <- com.env$v.com[[which(names(com.env$v.com)==field)]]$clu
+  #predict_clu <- com.env$v.com[[which(names(com.env$v.com)==com.env$predict_ret)]]$clu
+  cmd_string <- paste("cmn.xts <- merge(",ve.xts,"[,'",com.env$predict.clu,"'],var.env$",cmn,"[,'",clu,"'])",sep="")
   #print(cmd_string)
   eval(parse(text=cmd_string))
   cmn.xts[,2][is.na(cmn.xts[,2])] <- 0
@@ -453,9 +469,11 @@ calc_bin <- function(ve.xts,coln,field=NULL,bin_field,b1=-2.,b2=2.,first_pass=FA
   if (is.null(field)) {
     f.xts <- paste0(ve.xts,"[,",coln,"]")
   } else {
-    f.xts <- paste0(ve.xts,"[,'",field,"']")
+    clu <- com.env$v.com[[which(names(com.env$v.com)==field)]]$clu
+    f.xts <- paste0(ve.xts,"[,'",clu,"']")
   }
-  bf.xts <- paste0(ve.xts,"[,'",bin_field,"']")
+  clu <- com.env$v.com[[which(names(com.env$v.com)==bin_field)]]$clu
+  bf.xts <- paste0(ve.xts,"[,'",clu,"']")
   x <- c(b1,b2)
   y <- c(1,0)
   cmd_string <- paste("vl.xts <- ",f.xts,"*approx(x,y,",bf.xts,",yleft=1,yright=0)$y",sep="")
@@ -567,7 +585,8 @@ calc_ia <- function(ve.xts,coln,type,parm=NULL,sign=0,first_pass=FALSE) {
   eval(parse(text=cmd_string))
   if (!is.null(parm)) {
     if (grepl("[[:alpha:]]",parm)) {
-      cmd_string <- paste0("new_field <- ",ve.xts,"[,'",parm,"']")
+      clu <- com.env$v.com[[which(names(com.env$v.com)==parm)]]$clu
+      cmd_string <- paste0("new_field <- ",ve.xts,"[,'",clu,"']")
       #if(first_pass) print(cmd_string)
       eval(parse(text=cmd_string))
       numeric_parm <- FALSE
@@ -726,12 +745,16 @@ make_vars <- function(vd = NULL) {
             com.env$v.com[[v]]$col <- coln
             col.calc[v] <- TRUE
           }
-          if (first_pass & com.env$verbose) print(paste("finding col",coln," for v",v,is.cmn))
+          #if (first_pass) print(paste("finding col",coln," for v",v,is.cmn))
         } 
         vd <- com.env$v.com[[v]]
         if (coln != 1) {  #var.env exists
-          cmd_string <- paste0("col_num <- which(vd$name[1] == colnames(",ve.xts,"))")
-          if (first_pass) print(cmd_string)
+          if (vd$bins > 1) {
+            cmd_string <- paste0("col_num <- which(paste0(vd$clu,'_1') == colnames(",ve.xts,"))")
+          } else {
+            cmd_string <- paste0("col_num <- which(vd$clu == colnames(",ve.xts,"))")
+          }
+          #if (first_pass) print(cmd_string)
           eval(parse(text=cmd_string))
           if (length(col_num) > 0) {  #already calculated, update col field
             if (is.cmn) {
@@ -749,14 +772,37 @@ make_vars <- function(vd = NULL) {
           math <- strsplit(vd$math[m],split=",")[[1]]
           parms <- gsub("^[^,]*,","",vd$math[m])
           fun_call <- paste(math[1],"('",ve.xts,"',",coln,",",parms,",first_pass=first_pass)",sep="")
-          #if (first_pass) print(paste(fun_call,"m=",m,"v=",v,first_pass))
+          if (first_pass) print(paste(fun_call,"m=",m,"v=",v,first_pass))
           eval(parse(text=fun_call))
         }
-        if (first_pass & com.env$verbose) print(paste(coln,vd$name))
-        name.var(ve.xts,(coln:(coln-1+length(vd$name))),vd$name,first_pass)
+        #if (first_pass) print(paste(coln,vd$name))
+        name.var(ve.xts,coln,vd$clu,vd$bins,first_pass)
+        # if (ticker == "BAC") {
+        #   if (any(grepl("\\.",colnames(var.env$BAC)))) {
+        #     print(colnames(var.env$BAC))
+        #     print("in make_vars")
+        #     source("close_session.R")
+        #   }
+        # }
       } #end make var loop
     } else { #vd passed in, mod var
       if (is.cmn & !vd$calc_cmn) next          #nothing to compute in cmn
+      if (vd$bins > 1) {
+        cmd_string <- paste0("col_num <- which(paste0(vd$clu,'_1') == colnames(",ve.xts,"))")
+      } else {
+        cmd_string <- paste0("col_num <- which(vd$clu == colnames(",ve.xts,"))")
+      }
+      #if (first_pass) print(cmd_string)
+      eval(parse(text=cmd_string))
+      if (length(col_num) > 0) {
+        if (is.cmn) {
+          vd$cmn_col <- col_num 
+        } else {
+          vd$col <- col_num
+        }
+        print("mod_var already calculated, returning from make_var with no calculation")
+        return(vd)
+      }
       cmd_string <- paste("coln <- ncol(",ve.xts,") + 1",sep="")
       eval(parse(text=cmd_string))
       #if (first_pass) print(paste('mod_var',vd$vcom_num,coln))
@@ -769,10 +815,14 @@ make_vars <- function(vd = NULL) {
         math <- strsplit(vd$math[m],split=",")[[1]]
         parms <- gsub("^[^,]*,","",vd$math[m])
         fun_call <- paste(math[1],"('",ve.xts,"',",coln,",",parms,")",sep="")
-        #if (first_pass & com.env$verbose) print(paste(fun_call,"m=",m,"v=",vd$vcom_num))
+        if (first_pass) print(paste(fun_call,"m=",m,"v=",vd$vcom_num))
         eval(parse(text=fun_call))
       }
-      name.var(ve.xts,(coln:(coln-1+length(vd$name))),vd$longID_name,first_pass)
+      if (is.null(vd$clu)) {
+        print(vd)
+        print(fun_call)
+      }
+      name.var(ve.xts,coln,vd$clu,vd$bins,first_pass)
       #if (first_pass) {
       #  cmd_string <- paste("print(length(colnames(",ve.xts,")))",sep="")
         #print(cmd_string)
@@ -781,13 +831,18 @@ make_vars <- function(vd = NULL) {
     } #end mod var
     if (stk>1) first_pass <- FALSE
   } #end stock loop
+  # if (any(grepl("\\.",colnames(var.env$BAC)))) {
+  #   print(colnames(var.env$BAC))
+  #   print("in make_vars")
+  #   source("close_session.R")
+  # }
   if (!make_vcom) return(vd)
 }
 
 calc_vd <- function(vd) { #for use in computing MU,ADJRET,VLTY  #appended to each var.env$ticker xts object
-  #print("calc VD")
-  #print(paste("calc_vd",vd$name,vd$math[1]))
-  first_pass <- TRUE
+  print("calc VD")
+  print(paste("calc_vd",vd$name,vd$math[1]))
+  first_pass <- FALSE
   #print("starting stk loop")
   for (stk in 1:(com.env$stx+com.env$cmns)) {
     #print(stk)
@@ -814,7 +869,11 @@ calc_vd <- function(vd) { #for use in computing MU,ADJRET,VLTY  #appended to eac
       eval(parse(text=fun_call))
     }
     #print(coln-1+length(vd$name))
-    name.var(ve.xts,(coln:(coln-1+length(vd$name))),vd$name,first_pass)
+    if (is.null(vd$clu)) {
+      print(vd)
+      print(fun_call)
+    }
+    name.var(ve.xts,coln,vd$clu,vd$bins,first_pass)
     if (stk>1) first_pass <- FALSE
   }
 }
@@ -845,9 +904,12 @@ stk_matrix <- function(env_name,type,index=0) {
 }
 
 mu_calc <- function(mu_col_name,index=0) {
+  print("In mu_calc")
   V1 <- NULL
   V1$col <- 1
+  V1$bins <- 1
   V1$name <- mu_col_name
+  V1$clu <- mu_col_name
   V1$calc_cmn <- FALSE
   V1$math[1] <- "calc_prediction,'com.env$model.current'"
   calc_vd(V1)
@@ -855,9 +917,12 @@ mu_calc <- function(mu_col_name,index=0) {
 }
 
 adjret_calc <- function() {
+  print("In adjret_calc")
   V1 <- NULL
   V1$col <- 1
+  V1$bins <- 1
   V1$name <- "ADJRET"
+  V1$clu <- "ADJRET"
   V1$calc_cmn <- FALSE
   V1$math[1] <- "calc_adjret,'.Adjusted'"
   calc_vd(V1)
@@ -865,9 +930,12 @@ adjret_calc <- function() {
 }
 
 vlty_calc <- function() {
+  print("In vlty_calc")
   V1 <- NULL
   V1$col <- 1
+  V1$bins <- 1
   V1$name <- "VLTY"
+  V1$clu <- "VLTY"
   V1$calc_cmn <- FALSE
   V1$math[1] <- "calc_vlty,'ADJRET',window=250"
   calc_vd(V1)
@@ -875,6 +943,8 @@ vlty_calc <- function() {
 }
 
 make_mu <- function() {
+  print("In make_mu")
+  check_vcom(com.env$v.com,"In make_mu")
   if (com.env$save_var_n == 0) {  #if saving vars model evaluation has already been done
     print(paste("Evaluating 1st model in make_mu",Sys.time()))
     eval_adj_r2(sim_data=TRUE)

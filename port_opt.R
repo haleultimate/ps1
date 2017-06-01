@@ -1,6 +1,7 @@
 #run portfolio optimizatoin [lp_sim; below] with expectations as is
 #then reverses expectations and reruns portfolio optimization
 run_sim <- function() {
+  print("run_sim")
   make_mu()       #calc MU,VLTY,ADJRET for each var.env xts object
   print(paste("Total equity:",com.env$init_equity))
   for (alpha_wt in c(16000)) {

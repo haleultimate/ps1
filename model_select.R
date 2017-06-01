@@ -115,7 +115,7 @@ calc.r2 <- function(model,data.df,reverse=FALSE) {
   } else {
     predicted.model <- predict.lm(model,newdata=data.df)
   }
-  test.y <- data.df[,com.env$predict.ret]
+  test.y <- data.df[,com.env$predict.clu]
   mean.test.y <- mean(test.y)
   SS.total      <- sum((test.y - mean.test.y)^2)
   SS.residual   <- sum((test.y - predicted.model)^2)
@@ -125,7 +125,7 @@ calc.r2 <- function(model,data.df,reverse=FALSE) {
   test$rsq <- 1 - (SS.residual/SS.total)  
   SS.total0 <- sum(test.y^2)
   test$rsq0 <- 1 - (SS.residual/SS.total0)
-  results <- cbind(predicted.model,data.df[,com.env$predict.ret])
+  results <- cbind(predicted.model,data.df[,com.env$predict.clu])
   test$cor <- cor(results,use="complete.obs")[1,2]
   test$mse <- sqrt(mean((test.y-predicted.model)^2))
   test$mean <- mean(abs(test.y))
@@ -236,9 +236,9 @@ vif_func<-function(in_frame,keep=NULL,thresh=10,trace=T){
       print(keep)
       cat('thresh:',thresh,'max_vif:',sort_vif_calcs[1],'\n')
       print(sort_vif_calcs)
-      cat('Calling vif_func without trying to keep com.env$best_reg_names, resetting best_vars\n')
+      cat('Calling vif_func without trying to keep com.env$best_clu_names, resetting best_vars\n')
       com.env$best_adj_r2 <- 0
-      com.env$best_reg_names <- 0
+      com.env$best_clu_names <- NULL
       com.env$best_vcom <- NULL
       return(vif_func(in_frame,keep=NULL,thresh=5,trace=T))  #reduce threshold to make model less colinear
     }
@@ -309,6 +309,8 @@ opt_var_selection <- function() {
 #average prediction R2 over all oos periods
 #if better than best saved model update rolling best vars, otherwise revert best vars to previous best rolling vars
 opt_rolling_oos <- function(recalc_vars=FALSE) {
+  print("In opt_rolling_oos")
+  check_vcom(com.env$v.com,"In opt_rolling_oos")
   if (recalc_vars) {  #pass in FALSE if data already calculated in var.env
     clean_var_env()  #remove all vars not in current vcom
     make_vars()  #eval_adj_r2 normally by calculating all vars in com.env$v.com
@@ -328,13 +330,14 @@ opt_rolling_oos <- function(recalc_vars=FALSE) {
     com.env$reg_end_date <- as.POSIXct(com.env$rolling_start_date + (i-1)*com.env$period - 1)
     com.env$oos_date_range <- com.env$oos_date_index[[i]]
     com.env$start_oos <- com.env$oos_start_date[[i]]
+    reg_names <- c(com.env$predict.clu,com.env$best_clu_names)
     #populate com.env$oos_stx for use in sim
     if (i < com.env$rolling_periods) {
-      collect_data(oos_data=TRUE,sim_data=FALSE)  #populate var.env(reg_data.df,oos_data.df) with model vars
+      collect_data(oos_data=TRUE,sim_data=FALSE,reg_names = reg_names)  #populate var.env(reg_data.df,oos_data.df) with model vars
     } else {
-      collect_data(oos_data=TRUE,sim_data=TRUE)   #populate var.env(reg_data.df,oos_data.df,sim_data.df) with model vars
+      collect_data(oos_data=TRUE,sim_data=TRUE,reg_names = reg_names)   #populate var.env(reg_data.df,oos_data.df,sim_data.df) with model vars
     }
-    com.env$model.current <- get_new_reg_model(com.env$best_reg_names,var.env$reg_data.df)
+    com.env$model.current <- get_new_reg_model(com.env$best_clu_names,var.env$reg_data.df)
     print(nrow(var.env$oos_data.df))
     oos_r2 <- calc.r2(com.env$model.current,var.env$oos_data.df)
     cat("Period:",i," r2=",oos_r2$rsq," cor=",oos_r2$cor," winpct=",oos_r2$winpct,"\n")
@@ -351,7 +354,7 @@ opt_rolling_oos <- function(recalc_vars=FALSE) {
     cat("Model improved!!!  Updating rolling best_vars, OOS_R2:",ave_r2,"profit:",ave_profit,"\n")
     com.env$rolling_best_score <- com.env$r2_wt*ave_r2 + ave_profit
     com.env$rolling_adj_r2 <- com.env$best_adj_r2
-    com.env$rolling_reg_names <- com.env$best_reg_names
+    com.env$rolling_clu_names <- com.env$best_clu_names
     com.env$rolling_vcom <- com.env$best_vcom
     sim_r2 <- calc.r2(com.env$model.current,var.env$sim_data.df)
     cat("r2",sim_r2$rsq,"r20",sim_r2$rsq0,"cor",sim_r2$cor,"\n")
@@ -359,7 +362,7 @@ opt_rolling_oos <- function(recalc_vars=FALSE) {
   } else {
     cat("Model got worse... Reverting to previous best rolling model,",ave_r2,"+",ave_profit,"<",com.env$rolling_best_score,"\n")
     com.env$best_adj_r2 <- com.env$rolling_adj_r2
-    com.env$best_reg_names <- com.env$rolling_reg_names
+    com.env$best_clu_names <- com.env$rolling_clu_names
     com.env$best_vcom <- com.env$rolling_vcom
   }
 }
@@ -372,7 +375,7 @@ opt_oos_r2 <- function(recalc_vars=FALSE,recollect_data=FALSE) {
     make_vars()  #eval_adj_r2 normally by calculating all vars in com.env$v.com
   }
   if (recollect_data) collect_data(oos_data=TRUE,sim_data=TRUE)  #populate var.env(reg_data.df,oos_data.df,sim_data.df) with model vars
-  reg_vars <- com.env$best_reg_names
+  reg_vars <- com.env$best_clu_names
   drop_var <- "any"
   loop <- 0
   while ((drop_var != "none") | is.null(reg_vars)) {
@@ -386,7 +389,7 @@ opt_oos_r2 <- function(recalc_vars=FALSE,recollect_data=FALSE) {
   if ((length(best_model) == 0) | (is.null(reg_vars))) {
     print("All variables left model")
     com.env$best_adj_r2 <- 0
-    com.env$best_reg_names <- NULL
+    com.env$best_clu_names <- NULL
     com.env$best_vcom <- NULL
   } else {
     #check sim data stats
@@ -395,7 +398,7 @@ opt_oos_r2 <- function(recalc_vars=FALSE,recollect_data=FALSE) {
     cat("mse",sim_r2$mse,"mean",sim_r2$mean,"wpct",sim_r2$winpct,"\n")
     #update best_vars
     com.env$best_adj_r2 <- summary(best_model)$adj.r.squared
-    com.env$best_reg_names <- reg_vars
+    com.env$best_clu_names <- reg_vars
     clean_vcom()
     com.env$best_vcom <- com.env$v.com 
   }

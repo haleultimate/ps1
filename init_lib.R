@@ -1,17 +1,17 @@
 #init_lib.R
 #parms that should be changed by user manually to control run_ps.R behavior
 set_control_parms <- function() {
-  com.env$model_loops <- 20
-  com.env$add_var_levels <- c(5,10,15)
+  com.env$model_loops <- 5
+  com.env$add_var_levels <- c(3,10,15)
   com.env$opt_model <- TRUE
-  com.env$load_vars <- TRUE
-  com.env$load_model <- FALSE
+  com.env$load_vars <- FALSE
+  com.env$load_model <- TRUE
   com.env$save_model <- TRUE
   com.env$save_var_n <- 0
   com.env$look_forward <- 5
-  com.env$model_filename <- "lf5_rollsim54.vcom"
+  com.env$model_filename <- "lf5_rolloos530.vcom"
   com.env$mod_var_loops <- 20
-  com.env$opt_type <- "rolling_oos"  #{adjr2_is,single_oos,rolling_oos,rolling_sim}
+  com.env$opt_type <- "adjr2_is"  #{adjr2_is,single_oos,rolling_oos}
   com.env$run_sim <- TRUE
   
   com.env$load_multi_model <- FALSE
@@ -46,6 +46,7 @@ set_control_parms <- function() {
   }
   com.env$verbose <- FALSE
   com.env$vlty_window <- 250
+  #com.env$var_names <- NULL
 }
 
   
@@ -117,7 +118,7 @@ set_opt_type_settings <- function() {
            eval(parse(text=cmd_string))
          },
          "rolling_oos" = {
-           com.env$r2_wt <- 100
+           com.env$r2_wt <- 200
            com.env$rolling_best_score <- -100.  #-Inf
            com.env$sig <- 0.05
            com.env$rolling_start_date <- as.Date("2008-01-01 UTC")
