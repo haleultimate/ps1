@@ -23,9 +23,9 @@ name.var <- function(ve.xts,col_num,new_name,bins,first_pass=FALSE) { #always na
 
 #takes in ticker and vd and returns column containing vd values (stored temporarily in var.env$col.xts)
 calc_col_vd <- function(ve.xts,vd,first_pass=FALSE) {
-  #if (first_pass) print(paste(ve.xts,vd$var_name))
+  if (first_pass) print(paste(ve.xts,vd$var_name))
   ticker <- sub("var.env$","",ve.xts,fixed=TRUE)
-  #if (first_pass) print(paste("In calc_col_vd",ticker))
+  if (first_pass) print(paste("In calc_col_vd",ticker))
   is.cmn <- (com.env$cmn_lookup[[ticker]] == 'cmn')
   if (is.cmn & !vd$calc_cmn) {
     print(paste("ERROR in calc_col_vd, cmn ticker,",ticker,", called with vd.calc_cmn =",vd$calc_cmn))

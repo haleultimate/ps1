@@ -8,7 +8,7 @@
 #make_lib.R, rnd_lib.R controls variable creation process
 run_prediction <- function() {
   if (!com.env$load_model) define_predict_ret()     #source("define_vars.R")  #if not loading model need to define predictor variable
-  if (com.env$opt_model)   sample_vars()            #source("sample_vars.R")  #set up rnd.env$vs.com and rnd_parms
+  sample_vars()                                     #set up rnd.env$vs.com and rnd_parms
   if (com.env$load_model) load_model(com.env$model_filename)
   if (com.env$opt_model) opt_model(com.env$model_loops,com.env$mod_var_loops)
   if (com.env$save_model) save_model(com.env$model_filename)
@@ -253,10 +253,7 @@ eval_adj_r2 <- function(mod_pair=NULL,oos_data=FALSE,sim_data=FALSE,verbose=FALS
       com.env$v.com <- old.v.com
       clean_var_env()
       if (exists("clu_names",envir=com.env)) rm("clu_names",envir=com.env)  #try to catch improper setting of com.env$best_reg_names
-    } #else { #mod improved model, convert longID_names back to var_names (com.env$v.com, com.env$clu_names)                            
-      #clean_longID_names(mod_list)
-      #check_clean_longID_names()
-    #}
+    } 
   return(new_adj_r2)
 }
 
@@ -265,10 +262,7 @@ eval_adj_r2 <- function(mod_pair=NULL,oos_data=FALSE,sim_data=FALSE,verbose=FALS
 #   need to make it recursive to work on raws (or if model vars can ever be used by other model vars)
 get_mod_list_req_mod_pair <- function(mod_pair) {
   orig_var_name <- mod_pair[[1]]$var_name
-  #orig_longID_name <- mod_pair[[1]]$longID_name
   mod_var_name <- mod_pair[[2]]$var_name
-  #longID_name <- mod_pair[[2]]$longID_name
-  #print(paste("orig_var_name",orig_var_name,"mod_var_name",mod_var_name,"longID_name",longID_name))
   scale_idx <- which(names(com.env$v.com) == mod_var_name)
   if (length(scale_idx)>1) {  #if duplicate names take current mod_var, place it in first scale_idx and delete other instance
     #print("WARNING:Two names in com.env$v.com == mod_var_name in get_mod_list_req_mod_pair")
@@ -309,18 +303,7 @@ get_mod_list_req_mod_pair <- function(mod_pair) {
       V2 <- V1
       for (i in 1:length(V2$requires)) if (V2$requires[i] == orig_var_name) V2$requires[i] <- mod_var_name
       for (i in 1:length(V2$math)) V2$math[i] <- gsub(orig_var_name,mod_var_name,V2$math[i])
-#      for (i in 1:length(V2$math)) {   #should be fixed at end of calc_adj_r2
-#        if (grepl(orig_longID_name,V2$math[i])) {
-#          print("WARNING: longID_name sitting in original com.env$v.com in calc_adj_r2")
-#          print(paste("orig_var_name",orig_var_name,"mod_var_name",mod_var_name,"longID_name",longID_name))
-#          print(V2$math[i])
-#        }
-#        V2$math[i] <- gsub(orig_longID_name,mod_var_name,V2$math[i])
-#      }
-      V2 <- set_name(V2)                        #no longID_name when calling set_name
-      #set name with normal var_name fields
-      #ISSUE:name issues with subsets            #adjust mod vd to use longID_name in math calcs #reverted in clean_vcom
-#      for (i in 1:length(V2$math)) V2$math[i] <- gsub(mod_var_name,longID_name,V2$math[i])
+      V2 <- set_name(V2)                        
       V2 <- make_vars(V2)
       com.env$v.com[[V2$vcom_num]] <- V2
       names(com.env$v.com)[V2$vcom_num] <- V2$var_name
@@ -379,143 +362,6 @@ get_mod_reg_names <- function(mod_list) {
   # print(new_reg_names)
   return(new_reg_names)
 }
-
-# #called from clean_long_ID names (see comments below)
-# clean_vcom_longID2var_name <- function(mod_list) {
-#   orig_var_name <- mod_list[[1]][[1]]$var_name
-#   orig_longID_name <- mod_list[[1]][[1]]$var_name
-#   mod_var_name <- mod_list[[1]][[2]]$var_name
-#   mod_longID_name <- mod_list[[1]][[2]]$longID_name
-#   #print(paste("orig_var_name",orig_var_name,"mod_var_name",mod_var_name,"longID_name",mod_longID_name))
-#   scale_idx <- which(names(com.env$v.com) == mod_var_name)
-#   #mod_list <- list(mod_pair) 
-#   if (length(scale_idx)>1) {
-#     print("WARNING:Two names in com.env$v.com == mod_var_name in clean_vcom_longID2var_name")
-#     print(scale_idx)
-#     for (i in scale_idx) {
-#       print(com.env$v.com[[i]])
-#       print(paste("names(com.env$v.com([",i,"])",names(com.env$v.com)[i]))
-#     }
-#     for (vd in com.env$v.com) {
-#       if (mod_var_name %in% vd$requires) {
-#         print(vd$var_name)
-#         print(vd$requires)
-#         print(vd$math)
-#       }
-#     }
-#     print(names(com.env$v.com))
-#   }
-#   if (scale_idx < length(com.env$v.com)) {
-#     for (vd_idx in (scale_idx + 1):length(com.env$v.com)) {
-#       if (any(com.env$v.com[[vd_idx]]$requires %in% mod_var_name)) {
-#         V2 <- com.env$v.com[[vd_idx]]
-#         #print(V2$requires)
-#         #print(V2$math)
-#         for (i in 1:length(V2$requires)) if (V2$requires[i] == orig_var_name) V2$requires[i] <- mod_var_name
-#         for (i in 1:length(V2$math)) V2$math[i] <- gsub(mod_longID_name,mod_var_name,V2$math[i])
-#         #print(V2$requires)
-#         #print(V2$math)
-#         V2 <- set_name(V2)                        #no longID_name when calling set_name
-#         #print(paste(V2$var_name,V2$ID))
-#         #set name with normal var_name fields
-#         #print(paste("In get_mod_list_req_mod_pair var_name and ID after set name",V2$var_name,V2$ID))
-#         com.env$v.com[[V2$vcom_num]] <- V2
-#         names(com.env$v.com)[V2$vcom_num] <- V2$var_name
-#       }
-#     }
-#   }
-# }
-# 
-# #called from clean_long_ID names (see comments below)
-# clean_longID2var_name <- function(name_list) {
-#   for (i in 1:length(name_list)) { #convert binned variables and ID's to their var_name
-#     reg_name <- name_list[i]
-#     length_name <- nchar(reg_name)
-#     if (substr(reg_name,1,1)=="v") { #find var_name of ID
-#       longID_name <- reg_name
-#       if ((substr(reg_name,length_name,length_name) == 'h') | (substr(reg_name,length_name,length_name) == 'l')) {
-#         longID_name <- substr(reg_name,1,(length_name-1))
-#       }
-#       var_name <- NULL
-#       for (vd in com.env$v.com) {
-#         if (length(vd$longID_name)==1) if (longID_name == vd$longID_name[1]) var_name <- vd$var_name
-#         if (length(vd$longID_name)==2) if (paste0(longID_name,'l') == vd$longID_name[1]) var_name <- vd$var_name
-#         if (!is.null(var_name)) {
-#           #print(paste("in clean_reg_names_longID2var_name",longID_name,"->",var_name))
-#           break
-#         }
-#       }
-#       if (is.null(var_name)) {
-#         #print(paste("longID_name not in vcom",longID_name," leaving in name_list"))
-#         next
-#         #print("Warning: find var_name in v.com corresponding to longID_name in reg_vars")
-#         #print(name_list)
-#         #print(longID_name)
-#         #print(names(com.env$v.com))
-#         #source("close_session.R")
-#       } 
-#       #else {
-#       #  print(paste("converting",longID_name,"->",var_name))
-#       #}
-#       name_list[i] <- gsub(longID_name,var_name,reg_name)
-#     }
-#   }
-#   if (length(name_list) != length(unique(name_list))) {
-#     print("Problem in name_list, duplicate names found")
-#     print(name_list)
-#   }
-#   return(name_list)
-# }
-# 
-# #function takes in mod_list and cleans com.env$v.com, com.env$clu_names [not com.env$best_clu_names at this point]
-# #In com.env$v.com replaces longID_name -> var_name for mod_list and every math function depending on pair
-# #function looks for longID_name(s) in com.env$clu_names and replaces them [leaving any binning indicators on]
-# #Looks through var.env and replaces every column in every stock df longID_name -> var_name
-# #called at end of calc_adj_r2
-# clean_longID_names <- function(mod_list) {
-#   #print("clean_vcom_longID2var_name")
-#   clean_vcom_longID2var_name(mod_list)
-#   #print("clean_reg_names_longID2var_name")
-#   #print(com.env$clu_names)
-#   com.env$clu_names <- clean_longID2var_name(com.env$reg_names)
-#   first_pass <- FALSE
-#   for (ticker in com.env$stx_list) {
-#     cmd_string <- paste0("colnames(var.env$",ticker,") <- clean_longID2var_name(colnames(var.env$",ticker,"))")
-#     if (first_pass) print(cmd_string)
-#     eval(parse(text=cmd_string))
-#     first_pass <- FALSE
-#   }
-#   #print(com.env$clu_names)
-# }  
-# 
-# check_clean_longID_names <- function() {
-#   #Error checking that longID names have been removed
-#   for (var_name in com.env$clu_names) {
-#     if (substr(var_name,1,1)=="v") {
-#       print("ERROR in clean_longID_names, let longID_name through in com.env$clu_names")
-#       print(var_name)
-#       print(com.env$clu_names)
-#       source("close_session.R")
-#     }
-#   }
-#   error_str <- NULL
-#   for (var_name in names(com.env$v.com)) if (substr(var_name,1,1)=="v") error_str <- paste(var_name,"not valid in names(com.env$v.com)")
-#   for (vd in com.env$v.com) {
-#     for (var_name in vd$requires) if (substr(var_name,1,1)=="v") error_str <- paste(var_name,"found in requires of vd",vd$vcom_num,vd$var_name)
-#     #from.var.env,calc_ia,calc_bin
-#     for (math in vd$math) {
-#       if (grepl('from.var.env',math) | grepl('calc_ia',math) | grepl('calc_bin',math)) {
-#         var_name <- get_scale_var_from_math(math)
-#         if (substr(var_name,1,1)=="v") error_str <- paste(var_name,"found in math of vd",vd$vcom_num,vd$var_name)
-#       }
-#     }
-#     if (substr(vd$var_name,1,1)=="v") error_str <- paste("var_name wrong in vd",vd$vcom_num,vd$var_name)
-#   }
-#   if (!is.null(error_str)) {
-#     print(error_str)
-#     source("close_session.R")
-#   }
-# }
 
 #run_regression takes in var.env$reg_data.df [created in collect_data]
 #removes all colinear reg variables [using vif_func]
@@ -770,12 +616,12 @@ load_model <- function(filename) { #loads model and sets com.env$predict.ret
   print(paste("function load_model",filename))
   modelfile <- paste(com.env$modeldir,"/",filename,sep="")
   load(file=modelfile,envir=com.env)
-  rename_varlist(com.env$v.com)
+  #loop through v.com resetting names and clu; check for any dependencies and change names there as well
+  com.env$v.com <- rename_varlist(com.env$v.com)
   com.env$predict.ret <- com.env$v.com[[1]]$name  #hard coded as first variable always
   com.env$predict.clu <- com.env$v.com[[1]]$clu
   com.env$best_adj_r2 <- 0
   print(paste("Loading:",modelfile,"predict:",com.env$predict.ret))
-  #loop through v.com resetting names and clu; check for any dependencies and change names there as well
 }
 
 save_model <- function(filename) {
@@ -795,6 +641,22 @@ save_model <- function(filename) {
   modelfile <- paste(com.env$modeldir,"/",com.env$model_filename,sep="")
   print(paste("Saving:",modelfile))
   save(list=c("v.com"),file=modelfile,envir=com.env)
+}
+
+#return a vdlist with last vd="model" var
+#file loaded into rnd.env$VCOM (temporary holding space for loading/saving model vars)
+load_saved_model_var <- function() {
+  #print(paste("saved_var_files count",length(com.env$saved_var_files)))
+  varfile_name <- sample(com.env$saved_var_files,size=1)
+  com.env$saved_var_files <- com.env$saved_var_files[!com.env$saved_var_files %in% varfile_name]
+  print(paste("load from file:",varfile_name,",",length(com.env$saved_var_files),"left"))
+  varfile <- paste(com.env$vardir,"/",varfile_name,sep="")
+  load(file=varfile,envir=rnd.env)
+  vdlist <- rnd.env$VCOM
+  #print(names(vdlist))
+  #reset all vars name's/clu's in vdlist, check dependencies and change any names as needed (both in depenedencies and in math)
+  vdlist <- rename_varlist(vdlist)
+  return(vdlist)
 }
 
 save_vars <- function(save_var_n) {

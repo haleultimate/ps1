@@ -49,12 +49,8 @@ vdlist2vcom <- function(vdlist,vcom_num=0) {  #append to end if no vcom_num give
   if (vcom_num == 0) vcom_num = length(com.env$v.com) + 1
   for (vd in vdlist) {
     if (vd$var_name %in% names(com.env$v.com)) next()
+    #print(paste(vd$var_name,"clu:",vd$clu,"bins:",vd$bins))
     vd$vcom_num <- vcom_num
-    cmd_string <- paste0("com.env$v.com$",vd$var_name," <- vd")
-    #print(cmd_string)
-    eval(parse(text=cmd_string))
-    com.env$var_names <- c(com.env$var_names,vd$var_name)
-    vcom_num <- vcom_num + 1
     if (vd$use != "def") {
       allmath <- paste(vd$math, sep = '', collapse = '')
       if (!(allmath %in% com.env$var_list)) {
@@ -75,6 +71,11 @@ vdlist2vcom <- function(vdlist,vcom_num=0) {  #append to end if no vcom_num give
         vd$clu <- paste0("C",tmp_clu)
       }
     }
+    cmd_string <- paste0("com.env$v.com$",vd$var_name," <- vd")
+    #print(cmd_string)
+    eval(parse(text=cmd_string))
+    com.env$var_names <- c(com.env$var_names,vd$var_name)
+    vcom_num <- vcom_num + 1
     #check_unique_name(vd)
   }
   #cat("var_names stored")
@@ -723,22 +724,6 @@ mod_model_ia <- function(V1) {
 }
 
 #return a vdlist with last vd="model" var
-#file loaded into rnd.env$VCOM (temporary holding space for loading/saving model vars)
-load_saved_model_var <- function() {
-  #print(paste("saved_var_files count",length(com.env$saved_var_files)))
-  varfile_name <- sample(com.env$saved_var_files,size=1)
-  com.env$saved_var_files <- com.env$saved_var_files[!com.env$saved_var_files %in% varfile_name]
-  print(paste("load from file:",varfile_name,",",length(com.env$saved_var_files),"left"))
-  varfile <- paste(com.env$vardir,"/",varfile_name,sep="")
-  load(file=varfile,envir=rnd.env)
-  vdlist <- rnd.env$VCOM
-  #print(names(vdlist))
-  #reset all vars name's/clu's in vdlist, check dependencies and change any names as needed (both in depenedencies and in math)
-  rename_varlist(vdlist)
-  return(vdlist)
-}
-
-#return a vdlist with last vd="model" var
 #math in the form of "get_scale_var,ia,bin,bin_decay"
 #ia in c("mul","div","add","sub","rsh","fth") with a chosen scale_var
 #bin points chosen based on scaling of bin var (zscore or rank) [bin var = scale_var]
@@ -829,6 +814,16 @@ make_new_model_var <- function() {
     print(paste("Can't add",model_vd$var_name,", already tried",model_vd$ID))
   } else {
     com.env$ID_tried <- c(com.env$ID_tried,model_vd$ID)
+    # for (vd in vdlist) {
+    #   if (vd$use != "def") {
+    #     if (is.null(vd$clu) | is.null(vd$bins)) {
+    #       print("problem in vdlist, contains null clu/bins")
+    #       print(vd$var_name)
+    #       print(names(vdlist))
+    #       source("close_session.R")
+    #     }
+    #   }
+    # }
     vdlist2vcom(vdlist)
     print(paste("make_new_model_var:",vdlist[[length(vdlist)]]$var_name))
   }

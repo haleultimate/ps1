@@ -189,8 +189,12 @@ set_name = function(V1,vdlist=NULL) {
                     "cap_pct" = { IDPart <- paste0("1",which(as.numeric(rnd.env$cap_pct_list)==as.numeric(parm_split[2]))) },
                     "zcap" = { IDPart <- paste0("2",which(as.numeric(rnd.env$zcap_list)==as.numeric(parm_split[2]))) },
                     "abscap" = { IDPart <- "308"})
-             if (nchar(IDPart)<2) print(paste(parm_split,IDPart))
+             if (nchar(IDPart)<2) print(paste(rnd.env$zcap_list,parm_split,IDPart))
              IDPart <- paste0("29",IDPart)
+             #print(rnd.env$zcap_list)
+             #print(parm_split[2])
+             #print(which(as.numeric(rnd.env$zcap_list)==as.numeric(parm_split[2])))
+             #print(paste(V1$vcom_num,"calc_cap ID:",IDPart))
            },
            "calc_stk" = {
              namePart <- gsub("'","",parms)
@@ -273,7 +277,7 @@ set_name = function(V1,vdlist=NULL) {
                IDPart <- paste0("38",numPart)
                namePart <- paste0("l",numPart)
              }
-             if (nchar(IDPart) < 3) print(paste("calc_decay [more than 2 digits]:",IDPart))
+             #if (nchar(IDPart) < 3) print(paste("calc_decay [more than 2 digits]:",IDPart))
            },
            "calc_bin" = {
              binning <- TRUE
@@ -382,13 +386,13 @@ set_name = function(V1,vdlist=NULL) {
   }
   if (!binning) {
     V1$name <- V1$var_name
-    V1$longID_name <- paste0("v",V1$ID)
+    #V1$longID_name <- paste0("v",V1$ID)
     V1$bins <- 1
   } else {
     V1$name[1] <- paste0(V1$var_name,"l")
     V1$name[2] <- paste0(V1$var_name,"h")
-    V1$longID_name[1] <- paste0("v",V1$ID,"l")
-    V1$longID_name[2] <- paste0("v",V1$ID,"h")
+    #V1$longID_name[1] <- paste0("v",V1$ID,"l")
+    #V1$longID_name[2] <- paste0("v",V1$ID,"h")
     V1$bins <- 2
   }
   if (V1$use != "def") {
@@ -401,7 +405,7 @@ set_name = function(V1,vdlist=NULL) {
       var_num <- which(names(com.env$v.com)==V1$var_name)
       if (length(var_num)>0) {
         if (is.null(com.env$v.com[[var_num]]$clu)) {
-          print("**************** Problem with allmath in set_name, already in var_list, but no clu *******************")
+          print("**************** Problem with allmath in set_name, already in v.com, but no clu *******************")
           print(paste(V1$var_name,V1$use))
           print(allmath)
           tmp_clu <- which(com.env$var_list %in% allmath)
@@ -427,35 +431,57 @@ set_name = function(V1,vdlist=NULL) {
       }
     }
   }
-  check_unique_name(V1)
+  #check_unique_name(V1)
+  #print(paste(V1$use,V1$var_name,V1$clu,V1$bins))
   return(V1)
 }
 
 #reset all vars var_name's/clu's, if changed update all requires for new name (both in requires and math)
 rename_varlist <- function(varlist) {
-  for (vd in varlist) {
+  #print("In rename_varlist")
+  #print(names(varlist))
+  for (i in 1:length(varlist)) {
+    vd <- varlist[[i]]
     orig_name <- vd$var_name
-    set_name(vd,varlist)
-    if (orig_name != vd$var_name) {
-      for (vd2 in varlist) {
+    #print(paste("set_name vd$var_name:",vd$var_name))
+    vd <- set_name(vd,varlist)
+    #print(paste("vd$clu:",vd$clu))
+    vlength <- length(varlist)
+    if ((orig_name != vd$var_name) & (i<vlength)) {
+      for (j in (i+1):vlength) {
+        #print(paste(i,j,vlength))
+        vd2 <- varlist[[j]]
         if (orig_name %in% vd2$requires) {
-          print(paste("name change:",orig_name," -> ",vd$var_name,"before:"))
-          print(vd2$requires)
-          print(vd2$math)
+          #print(paste("name change:",orig_name," -> ",vd$var_name,"before:"))
+          #print(vd2$requires)
+          #print(vd2$math)
           req_num <- which(orig_name == vd2$requires)
           vd2$requires[req_num] <- vd$var_name  #change name in requires
-          for (i in 1:length(vd2$math)) {
-            new_math <- gsub(orig_name,vd$var_name,vd2$math[i],fixed=TRUE)
-            vd2$math[i] <- new_math
+          for (k in 1:length(vd2$math)) {
+            new_math <- gsub(orig_name,vd$var_name,vd2$math[k],fixed=TRUE)
+            vd2$math[k] <- new_math
           }
-          print("after:")
-          print(vd2$requires)
-          print(vd2$math)
+          #print("after:")
+          #print(vd2$requires)
+          #print(vd2$math)
+          varlist[[j]] <- vd2
+          print(paste("updating vd:",j,vd2$var_name))
         }
       }
     }
+    varlist[[i]] <- vd
+    names(varlist)[i] <- vd$var_name
+    #print(paste("updating vd:",i,vd$var_name))
+    #print(paste(i,varlist[[i]]$var_name,varlist[[i]]$vcom_num,names(varlist)[i]))
   }
+  #for (vd in varlist) print(paste(vd$var_name,vd$clu,names(varlist)[vd$vcom_num]))
+  if (length(names(varlist)) != length(unique(names(varlist)))) {
+    print("ERROR: Duplicate name in rename_varlist")
+    source("close_session.R")
+  }
+  return(varlist)
 }
+
 check_unique_name <- function(V1) {
   failed <- FALSE
   for (vd in com.env$v.com) {
