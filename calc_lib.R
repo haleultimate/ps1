@@ -189,6 +189,11 @@ calc_decay <- function(ve.xts,coln,decay,var_cnt=1,first_pass=FALSE) { #compute 
     cmd_string <- paste(data_string,"<- tmp.decay")
     #if (verbose) print(cmd_string)
     eval(parse(text=cmd_string))
+    if (is.null(var_cnt)) {  #shouldn't be needed, debugging purposes only
+      print("WARNING************* var_cnt is null in calc_decay")
+      print(paste(ve.xts,coln,decay))
+      var_cnt <- 1
+    }
     if (var_cnt > 1) {
       for (i in 2:var_cnt) {
         data_string <- paste(ve.xts,"[,",coln+i-1,"]",sep="")

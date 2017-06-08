@@ -1454,7 +1454,7 @@ optimize_mod_pair <- function(mod_pair) {
         #print(paste(try_num,"opt_math:",new_vd_pair[[2]]$math))
         print(paste("opt model improved from: best_adj_r2:",com.env$best_adj_r2,"to:",new_adj_r2,"try:",try_num))
         com.env$best_adj_r2 <- new_adj_r2
-        #cat('best_reg_names set in opt model improved\n')
+        #cat('best_clu_names set in opt model improved\n')
         com.env$best_clu_names <- com.env$clu_names
         mod_pair <- new_vd_pair
         try_num <- 1             #for new mod pair

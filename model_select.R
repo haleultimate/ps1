@@ -312,7 +312,7 @@ opt_rolling_oos <- function(recalc_vars=FALSE) {
   print("In opt_rolling_oos")
   check_vcom(com.env$v.com,"In opt_rolling_oos")
   if (recalc_vars) {  #pass in FALSE if data already calculated in var.env
-    clean_var_env()  #remove all vars not in current vcom
+    #clean_var_env()  #remove all vars not in current vcom
     make_vars()  #eval_adj_r2 normally by calculating all vars in com.env$v.com
   }
   #collect data, get regression model, evaluate r2
@@ -368,10 +368,10 @@ opt_rolling_oos <- function(recalc_vars=FALSE) {
 }
 
 #function optimizes oos_r2 by zeroing one coef at a time (until no further zeroing improves oos_r2)
-#(best_adj_r2, best_reg_names, best_vcom) are updated
+#(best_adj_r2, best_clu_names, best_vcom) are updated
 opt_oos_r2 <- function(recalc_vars=FALSE,recollect_data=FALSE) {
   if (recalc_vars) {  #pass in FALSE if data already calculated in var.env
-    clean_var_env()  #remove all vars not in current vcom
+    #clean_var_env()  #remove all vars not in current vcom
     make_vars()  #eval_adj_r2 normally by calculating all vars in com.env$v.com
   }
   if (recollect_data) collect_data(oos_data=TRUE,sim_data=TRUE)  #populate var.env(reg_data.df,oos_data.df,sim_data.df) with model vars

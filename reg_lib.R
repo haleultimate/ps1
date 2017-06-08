@@ -51,11 +51,6 @@ opt_model <- function(model_loops,mod_var_loops) {
     #run regression, if model improved update best vars; if model got worse revert and cycle add_var loop
     if (!try_mods(eval_adj_r2(),current_add_loop,mod_var_loops)) next    
 
-    if (any(grepl("\\.",colnames(var.env$BAC)))) {
-      print(colnames(var.env$BAC))
-      print("after add_loop")
-      source("close_session.R")
-    }
     #mod vars
     #cat("Entering mod_vars with",length(com.env$best_clu_names),"vars, best_adj_r2=",com.env$best_adj_r2,'\n')
     for (current_mod_loop in 1:mod_var_loops) {       #end of loop controlled by finish_mod_loop below
@@ -105,7 +100,7 @@ check_vcom <- function(vcom,print_str) {
 #always provide at least the first level (in total), after the last level only add 1 at a time
 #at intermediate levels add one more than the next level
 get_add_vars <- function() {
-  n.reg_vars <- length(com.env$best_reg_names)
+  n.reg_vars <- length(com.env$best_clu_names)
   if (com.env$best_adj_r2 == 0) { #first loop
     add_vars <- ifelse(com.env$load_model,0,com.env$add_var_levels[1])     
   } else if (com.env$add_var_worse) {  #if last loop was bad don't add 
@@ -151,7 +146,7 @@ try_mods <- function(adj_r2,current_loop,mod_var_loops) {
     }
     com.env$add_var_worse <- TRUE             #try clean vcom without adding vars next loop
     com.env$v.com <- com.env$best_vcom        #revert vcom
-    clean_var_env()  #remove all vars not in current vcom
+    #clean_var_env()  #remove all vars not in current vcom
     return(FALSE)
   } else if (adj_r2 == com.env$best_adj_r2) {
     if (com.env$add_var_worse) {
@@ -251,8 +246,8 @@ eval_adj_r2 <- function(mod_pair=NULL,oos_data=FALSE,sim_data=FALSE,verbose=FALS
   if (!is.null(mod_pair)) 
     if (new_adj_r2 <= com.env$best_adj_r2) { #revert to original com.env$v.com [no longID_names in original]
       com.env$v.com <- old.v.com
-      clean_var_env()
-      if (exists("clu_names",envir=com.env)) rm("clu_names",envir=com.env)  #try to catch improper setting of com.env$best_reg_names
+      #clean_var_env()
+      if (exists("clu_names",envir=com.env)) rm("clu_names",envir=com.env)  #try to catch improper setting of com.env$best_clu_names
     } 
   return(new_adj_r2)
 }
@@ -684,10 +679,72 @@ save_vars <- function(save_var_n) {
   save_vcom_vars(save_vcoms)
 }
 
+save_vcom_vars <- function(var_num_list) {  #take var_num and create com.env$VCOM which defines it (including its dependencies)
+  #print(paste("function vcom_var, var_num=",var_num))
+  saved_var_files <- list.files(path=com.env$vardir)
+  for (var_num in var_num_list) {
+    vd <- com.env$v.com[[var_num]]
+    if (is.null(vd$vcom_name)) {
+      if (length(vd$name) == 1) {
+        vd$vcom_name <- vd$name
+      } else {
+        vd$vcom_name <- substr(vd$name[1],1,(nchar(vd$name[1])-1))
+      }
+    }
+    com.env$VCOM <- NULL
+    for (v in vd$requires) {
+      vcom_not_found <- TRUE
+      i <- 0
+      while ((vcom_not_found) & (i+1 < var_num)) {
+        i <- i + 1
+        if (length(com.env$v.com[[i]]$name) == 1) {
+          if (v == com.env$v.com[[i]]$name) {
+            vcom_not_found <- FALSE
+          }
+        } else if (!is.null(com.env$v.com$vcom_name)) {
+          if (v == com.env$v.com[[i]]$name) {
+            vcom_not_found <- FALSE
+          }
+        }
+      }
+      if (i == var_num) {
+        print(paste("Error:All required vars for",vcom_name,"not defined in v.com, i=",i))
+      }
+      V1 <- com.env$v.com[[i]]
+      cmd_string <- paste("com.env$VCOM$",V1$name," <- V1",sep="")
+      #print(cmd_string)
+      eval(parse(text=cmd_string))
+    }
+    cmd_string <- paste("com.env$VCOM$",vd$vcom_name," <- vd",sep="")
+    print(cmd_string)
+    eval(parse(text=cmd_string))
+    varfile_name <- paste(vd$vcom_name,".vcom",sep="")
+    varfile <- paste(com.env$vardir,"/",varfile_name,sep="")
+    j <- 1
+    save_file <- TRUE
+    while (varfile_name %in% saved_var_files & save_file) {
+      print(paste("Duplicate name",varfile_name))
+      load(file=varfile,envir=rnd.env)
+      saved_vd <- rnd.env$VCOM[[length(rnd.env$VCOM)]]
+      if (vd$ID == saved_vd$ID) {
+        print("Same ID, no need to save")
+        save_file <- FALSE
+      } else {
+        j <- j + 1
+        varfile_name <- paste(vd$vcom_name,"_",j,".vcom",sep="")
+        varfile <- paste(com.env$vardir,"/",varfile_name,sep="")
+      }
+    }
+    print(varfile)
+    if (save_file) save(list=c("VCOM"),file=varfile,envir=com.env)
+  }
+}
+
 #evaluate com.env$v.com, determine vars in use, keep only those in var.env ticker dfs
 clean_var_env <- function() {
   #print("clean_var_env")
-  if (com.env$best_adj_r2 == 0) print("WARNING: no regression model found yet, trying to clean")
+  if (is.null(com.env$best_adj_r2)) print("WARNING: no regression model found yet, trying to clean")
+  else if (com.env$best_adj_r2 == 0) print("WARNING: no regression model found yet, cleaning")
   vars_used <- NULL
   for (vd in com.env$v.com) {
     if (vd$bins == 1) {
