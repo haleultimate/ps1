@@ -995,6 +995,8 @@ calc_adjusted_HLOJRlD <- function(symbol_list) {
   for (ticker in symbol_list) {
     if (ticker == "FNV") first_pass <- TRUE
     df <- paste0("data.env$",ticker)
+    cmd_string <- paste0("if('",ticker,".H' %in% colnames(",df,"))  next")
+    eval(parse(text=cmd_string))
     de.adjc <- paste0(df,"[,'",ticker,".Adjusted']")
     de.c <- paste0(df,"[,'",ticker,".Close']")
     de.L <- paste0(df,"[,'",ticker,".L']")
@@ -1005,6 +1007,7 @@ calc_adjusted_HLOJRlD <- function(symbol_list) {
     de.D <- paste0(df,"[,'",ticker,".D']")
     de.V <- paste0(df,"$",ticker,".","V")
     
+    #adjusting HLO with adjusted Close
     for (field in c("High","Low","Open")) {
       de.xts <- paste(df,"[,'",ticker,".",field,"']",sep="")
       cmd_string <- paste0(df," <- cbind(",df,",",de.xts,"*",de.adjc,"/",de.c,")")

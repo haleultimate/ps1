@@ -33,7 +33,7 @@ set_name = function(V1,vdlist=NULL) {
              #namePart <- paste0(namePart,parms)  #if we ever start using constants other than 1
            },
            "calc_look_forward" = {
-             if(parms < 0){
+             if(as.numeric(parms) < 0){
                V1$var_name <- paste0("CClf", -as.numeric(parms), "p")
                V1$ID <- "9999"
                break
