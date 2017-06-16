@@ -1,7 +1,7 @@
 #init_lib.R
 #parms that should be changed by user manually to control run_ps.R behavior
 set_control_parms <- function() {
-  com.env$model_loops <- 5
+  com.env$model_loops <- 30
   com.env$add_var_levels <- c(10,15,20,30)
   com.env$opt_model <- TRUE
   com.env$load_vars <- FALSE
@@ -212,6 +212,7 @@ remove_problem_stocks <- function() {
   com.env$alpha_wt <- 16000
   com.env$retvlty_not_calced <- TRUE
   #print(com.env$stx_list)
+  calc_adjusted_HLOJRlD(com.env$stx_list)
 }
 
 #loads all stock in com.env$stx_list not in stx_list.old (returns loaded list)
@@ -228,7 +229,7 @@ load_stock_history <- function(stx_list.old) {
                from = start_date, 
                to = end_date, 
                adjust = adjustment)
-    calc_adjusted_HLOJRlD(com.env$stx_list)
+    #calc_adjusted_HLOJRlD(com.env$stx_list)
   } else if (!identical(com.env$stx_list,stx_list.old)) {
     isNameinStxold <- com.env$stx_list %in% stx_list.old
     stx_list.new <- com.env$stx_list[!isNameinStxold]
@@ -239,7 +240,7 @@ load_stock_history <- function(stx_list.old) {
                from = start_date, 
                to = end_date, 
                adjust = adjustment)
-    calc_adjusted_HLOJRlD(stx_list.new)
+    #calc_adjusted_HLOJRlD(stx_list.new)
   }
   return(com.env$stx_list)
 }
@@ -337,12 +338,47 @@ stock_list <- function() {
     "MUX",
     "KLDX",
     "AKG",
-    "SAND"
+    "SAND",
+    "XLE", #Energy ETF
+    'CVX',
+    'SLB',
+    'COP',
+    'EOG',
+    'OXY',
+    'HAL',
+    'KMI',
+    'PSX',
+    'VLO',
+    'MPC',
+    'PXD',
+    'APC',
+    'WMB',
+    'BHI',
+    'CXO',
+    'APA',
+    'DVN',
+    'TSO',
+    'FTI',
+    'NBL',
+    'NOV',
+    'HES',
+    'COG',
+    'MRO',
+    'OKE',
+    'EQT',
+    'XEC',
+    'NFX',
+    'HP',
+    'RRC',
+    'MUR',
+    'CHK',
+    'RIG'
   )
   
   #create cmn lookup (stock contains etf used as cmn, cmn contains the word 'cmn')
   com.env$cmn.symbols <- c('XLF',
-                           'GDX'
+                           'GDX',
+                           'XLE'
   )
   num_symbols <- length(symbols)
   com.env$cmns <- length(com.env$cmn.symbols)
