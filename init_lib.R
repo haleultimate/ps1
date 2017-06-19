@@ -1,7 +1,8 @@
 #init_lib.R
 #parms that should be changed by user manually to control run_ps.R behavior
 set_control_parms <- function() {
-  com.env$model_loops <- 30
+  com.env$model_loops <- 5
+  
   com.env$add_var_levels <- c(10,15,20,30)
   com.env$opt_model <- TRUE
   com.env$load_vars <- FALSE
@@ -9,7 +10,7 @@ set_control_parms <- function() {
   com.env$save_model <- FALSE
   com.env$save_var_n <- 0
   com.env$look_forward <- 5
-  com.env$model_filename <- "lf5_soos68.vcom"
+  com.env$model_filename <- "lf5_soos616.vcom"
   com.env$mod_var_loops <- 20
   com.env$opt_type <- "single_oos"  #{adjr2_is,single_oos,rolling_oos}
   com.env$run_sim <- TRUE
@@ -217,6 +218,9 @@ remove_problem_stocks <- function() {
 
 #loads all stock in com.env$stx_list not in stx_list.old (returns loaded list)
 load_stock_history <- function(stx_list.old) {
+  print("load_stock_history")
+  print(stx_list.old)
+  print(com.env$stx_list)
   Sys.setenv(TZ = "UTC")
   adjustment <- TRUE
   start_date <- "2004-01-01" 
@@ -233,6 +237,7 @@ load_stock_history <- function(stx_list.old) {
   } else if (!identical(com.env$stx_list,stx_list.old)) {
     isNameinStxold <- com.env$stx_list %in% stx_list.old
     stx_list.new <- com.env$stx_list[!isNameinStxold]
+    print(stx_list.new)
     getSymbols(Symbols = stx_list.new, 
                env=data.env,
                src = "yahoo", 
@@ -242,6 +247,7 @@ load_stock_history <- function(stx_list.old) {
                adjust = adjustment)
     #calc_adjusted_HLOJRlD(stx_list.new)
   }
+  print("successfully loaded stx")
   return(com.env$stx_list)
 }
 

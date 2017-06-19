@@ -1,4 +1,4 @@
-#returns vd$name, vd$var_name, and vd$ID given a variable's math.list
+#sets V1$name, V1$var_name, and V1$ID, V1$clu, V1$bins given a variable's math.list and a vdlist (optional)
 set_name = function(V1,vdlist=NULL) {
   if (is.null(V1)) {
     print("Warning:V1 is null, no name/ID given")
@@ -759,7 +759,7 @@ sample_vars <- function() {
   V1$type <- "ret"
   V1$use <- "def"
   V1$calc_cmn <- TRUE
-  V1$math[1] <- "calc_look_forward,3"
+  V1$math[1] <- "calc_look_forward,3"  #3 used as place holder, when choosing 3 is randomly chosen
   V1 <- set_name(V1)
   cmd_string <- paste0("rnd.env$vs.com$",V1$var_name," <- V1")   
   eval(parse(text=cmd_string))
@@ -805,7 +805,8 @@ sample_vars <- function() {
   V1$use <- "raw"
   V1$calc_cmn <- TRUE
   V1$math[1] <- "calc_math,c('QR','D'),math_str='XX0N <- ifelse(XX1>0,XX2,0)'"
-  V1 <- set_name(V1)
+  #V1 <- set_name(V1)
+  V1$var_name <- "mf"
   cmd_string <- paste0("rnd.env$vs.com$",V1$var_name," <- V1")   
   eval(parse(text=cmd_string))
 
@@ -826,7 +827,8 @@ sample_vars <- function() {
   V1$use <- "scale"
   V1$calc_cmn <- TRUE
   V1$math[1] <- "calc_math,c('BC','D'),math_str='XX0N <- XX1*XX2'"
-  V1 <- set_name(V1)
+  #V1 <- set_name(V1)
+  V1$var_name <- "fi"
   cmd_string <- paste0("rnd.env$vs.com$",V1$var_name," <- V1")   
   eval(parse(text=cmd_string))
 }

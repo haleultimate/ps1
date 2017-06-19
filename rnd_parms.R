@@ -18,6 +18,8 @@ rnd.env$mod.model <- c("fve","ia","bin","decay","constant")
 rnd.env$raws <- c("ret","BC","V","C2C","TI")
 rnd.env$C2Clag_list <- c(3,5,8,13,21,34,55,89,144)
 
+rnd.env$ti_type_list <- c("fi","mf","tr","dm","di")
+
 rnd.env$resid_list <- c("W","S","E")  #[raw, stock, ETF]
 
 rnd.env$ia_list <- c("mul","div","add","sub","rsh","fth","none")
@@ -44,8 +46,11 @@ rnd.env$scale_list <- c('Z','z','r','none') # [Zscore,zscale,rank]
 #set up var creation probabilities
 
 #raws
-rnd.env$p$raw <- c(0.3,0.3,0.2,0.1,0.)
+rnd.env$p$raw <- c(0.3,0.3,0.2,0.1,0.3)
 names(rnd.env$p$raw) <- rnd.env$raws    #("ret","BC","V","C2C","TI")
+
+rnd.env$p$ti_type <- c(0.1,0,0,0,0)
+names(rnd.env$p$ti_type) <- rnd.env$ti_type_list    #("fi","mf","tr","dm","di")
 
 rnd.env$p$C2Clag <- rep(0.1,times=length(rnd.env$C2Clag_list))
 names(rnd.env$p$C2Clag) <- rnd.env$C2Clag_list

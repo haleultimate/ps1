@@ -36,7 +36,7 @@ calc_col_vd <- function(ve.xts,vd,first_pass=FALSE) {
     math <- strsplit(math_calc,split=",")[[1]]
     parms <- gsub("^[^,]*,","",math_calc)
     fun_call <- paste0(math[1],"('",ve.xts,"',",coln,",",parms,",first_pass=first_pass)")
-    #if (first_pass) print(paste(fun_call,vd$var_name,first_pass))
+    if (first_pass) print(paste(fun_call,vd$var_name,first_pass))
     eval(parse(text=fun_call))
   }
   return(var.env$col.xts)
@@ -171,6 +171,7 @@ calc_lag <- function(ve.xts,coln,lag=1,first_pass=FALSE) {  #always lag coln
 calc_decay <- function(ve.xts,coln,decay,var_cnt=1,first_pass=FALSE) { #compute decay on coln
   #print(paste("ve.xts=",ve.xts,"decay=",decay))
   if (decay >= 3) {
+    print("ERROR calc_ma does not work")
     calc_ma(ve.xts,coln,n=decay,first_pass)
   } else if (decay >= 1) {
     calc_lag(ve.xts,coln,lag=decay,first_pass)
@@ -228,12 +229,17 @@ calc_ret <- function(ve.xts,coln,start_price,end_price,first_pass=FALSE) {
   }
 }
 
-#doesn't handle coln==0
+#handles coln==0 [function applied to var.env$col.xts]
 calc_cap <- function(ve.xts,coln,abscap=NULL,lcap=NULL,hcap=NULL,
                      cap_pct=NULL,lcp=NULL,hcp=NULL,zcap=NULL,lz=NULL,hz=NULL,first_pass=FALSE) {  #always cap coln
-  if (com.env$verbose) print(paste("calc_cap:","ve.xts=",ve.xts,"coln=",coln,"abscap=",abscap,"cap_pct=",cap_pct,"zcap=",zcap))
-  data_string <- paste(ve.xts,"[com.env$reg_date_range,",coln,"]",sep="")
-  out_string <- paste(ve.xts,"[,",coln,"]",sep="")
+  if (first_pass) print(paste("calc_cap:","ve.xts=",ve.xts,"coln=",coln,"abscap=",abscap,"cap_pct=",cap_pct,"zcap=",zcap))
+  if (coln == 0) {
+    data_string <- "var.env$col.xts[com.env$reg_date_range]"
+    out_string <- "var.env$col.xts"
+  } else {
+    data_string <- paste(ve.xts,"[com.env$reg_date_range,",coln,"]",sep="")
+    out_string <- paste(ve.xts,"[,",coln,"]",sep="")
+  }
   if (!is.null(abscap)) {
     lcap <- -abscap
     hcap <- abscap
@@ -266,7 +272,8 @@ calc_cap <- function(ve.xts,coln,abscap=NULL,lcap=NULL,hcap=NULL,
   eval(parse(text=cmd_string))
 }
 
-#doesn't handle coln==0
+#doesn't handle coln==0  
+#handles def vars
 #replace place holders XX0,XX1,..XXn with vars 
 # XX0 represents last column, XX0N represents new column (can only be on right side)
 # XX1..XXn existing vars
@@ -287,22 +294,34 @@ calc_math <- function(ve.xts,coln,XX_list=NULL,math_str,first_pass=FALSE) { #app
   }
   math_str <- gsub(place_holder_str,data_string,math_str)
   if (!is.null(XX_list)) {
+    #print(XX_list)
+    def_list.xts <- NULL
     for (n in 1:length(XX_list)) {
-      replacement_string <- paste(ve.xts,"[,'",XX_list[n],"']",sep="")
-      place_holder_str <- paste("XX",n,sep="")
+      vd <- com.env$v.com[[which(names(com.env$v.com) == XX_list[n])]]
+      #print(vd$math)
+      if (vd$use == "def") { #need to precalculate def var into var.env$col.xts
+        def_list.xts <- cbind(def_list.xts,calc_col_vd(ve.xts,vd,first_pass))
+        #print(names(var.env$col.xts))
+        #print(colnames(def_list.xts))
+        #print(length(var.env$col.xts))
+        replacement_string <- paste0("def_list.xts[,",ncol(def_list.xts),"]")
+      } else { #var calculated with column name clu
+        replacement_string <- paste0(ve.xts,"[,'",vd$clu,"']")
+      }
+      place_holder_str <- paste0("XX",n)
       math_str <- gsub(place_holder_str,replacement_string,math_str)
     }
   }
-  #if (first_pass) print(math_str)
+  if (first_pass) print(math_str)
   eval(parse(text=math_str))
   #check data string and replace NA,INF,NaN with 0
   cmd_str <- paste0(data_string,"[!is.finite(",data_string,")] <- 0")
-  #if (first_pass) print(cmd_str)
+  if (first_pass) print(cmd_str)
   eval(parse(text=cmd_str))
   if (new_var) {
     tmp.xts[!is.finite(tmp.xts)] <- 0
     cmd_str <- paste(ve.xts," <- cbind(",ve.xts,",tmp.xts)",sep="")
-    if (first_pass & com.env$verbose) print(cmd_str)
+    if (first_pass) print(cmd_str)
     eval(parse(text=cmd_str))
   } 
 }
@@ -1029,7 +1048,7 @@ calc_adjusted_HLOJRlD <- function(symbol_list) {
     cmd_string <- paste0("colnames(",df,")[length(colnames(",df,"))] <- '",ticker,".R'")
     if (first_pass) print(cmd_string)
     eval(parse(text=cmd_string))
-    cmd_string <- paste0(df," <- cbind(",df,",(",de.Volume,"*",de.R,"))")
+    cmd_string <- paste0(df," <- cbind(",df,",(",de.Volume,"*",de.c,"))") #unadjusted close price (assuming volume is unadjusted)
     if (first_pass) print(cmd_string)
     eval(parse(text=cmd_string))
     cmd_string <- paste0("colnames(",df,")[length(colnames(",df,"))] <- '",ticker,".D'")

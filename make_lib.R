@@ -256,7 +256,20 @@ get_raw_list <- function(raw_type = NULL) {
            lag <- rnd_choice("C2Clag")
            V1$math <- sub("3",lag,V1$math)
          },
-         "TI" =, #not supported yet
+         "TI" = {
+           ti_type <- rnd_choice("ti_type")
+           switch(ti_type,
+                  "fi" = {
+                    V1 <- rnd.env$vs.com[[which("fi" == names(rnd.env$vs.com))]]
+                  },
+                  "tr" = {
+                    V1 <- rnd.env$vs.com[[which("mf" == names(rnd.env$vs.com))]]
+                  },
+                  {
+                    print(paste("TI type not supported",ti_type))
+                    source("close_session.R")
+                  })
+         }, #not supported yet: money_flow, true_range, directional_indicator
          "existing" =, #not supported yet
          {
            print(paste("Raw type not supported",raw_type))
@@ -273,6 +286,10 @@ get_raw_list <- function(raw_type = NULL) {
   #print(paste("call raw set_name",V1$math))
   V1 <- set_name(V1)
   #print(V1$math)
+  if (raw_type == "TI") {
+    #print(V1$var_name)
+    #print(V1$math)
+  }
   return(vcom2vdlist_req(V1,env_lookup="rnd.env"))
 }
 
