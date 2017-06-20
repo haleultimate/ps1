@@ -46,10 +46,10 @@ rnd.env$scale_list <- c('Z','z','r','none') # [Zscore,zscale,rank]
 #set up var creation probabilities
 
 #raws
-rnd.env$p$raw <- c(0.3,0.3,0.2,0.1,0.3)
+rnd.env$p$raw <- c(0.3,0.3,0.2,0.1,0.1)
 names(rnd.env$p$raw) <- rnd.env$raws    #("ret","BC","V","C2C","TI")
 
-rnd.env$p$ti_type <- c(0.1,0,0,0,0)
+rnd.env$p$ti_type <- c(0.1,0.1,0.02,0,0)
 names(rnd.env$p$ti_type) <- rnd.env$ti_type_list    #("fi","mf","tr","dm","di")
 
 rnd.env$p$C2Clag <- rep(0.1,times=length(rnd.env$C2Clag_list))

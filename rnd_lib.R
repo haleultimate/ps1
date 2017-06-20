@@ -771,7 +771,8 @@ sample_vars <- function() {
   V1$use <- "raw"
   V1$calc_cmn <- TRUE
   V1$math[1] <- "calc_math,c('H','L','B'),'XX0N <- pmax(log(XX1/XX2),abs(log(XX1/XX3)),abs(log(XX2/XX3)))'"
-  V1 <- set_name(V1)
+  #V1 <- set_name(V1)
+  V1$var_name <- "tr"
   cmd_string <- paste0("rnd.env$vs.com$",V1$var_name," <- V1")   
   eval(parse(text=cmd_string))
   rnd.env$raw_list <- c(rnd.env$raw_list,length(rnd.env$vs.com))

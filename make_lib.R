@@ -262,8 +262,11 @@ get_raw_list <- function(raw_type = NULL) {
                   "fi" = {
                     V1 <- rnd.env$vs.com[[which("fi" == names(rnd.env$vs.com))]]
                   },
-                  "tr" = {
+                  "mf" = {
                     V1 <- rnd.env$vs.com[[which("mf" == names(rnd.env$vs.com))]]
+                  },
+                  "tr" = {
+                    V1 <- rnd.env$vs.com[[which("tr" == names(rnd.env$vs.com))]]
                   },
                   {
                     print(paste("TI type not supported",ti_type))
