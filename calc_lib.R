@@ -376,7 +376,7 @@ calc_adj <- function(ve.xts,coln,field,first_pass=FALSE) { #take from data.env a
 #if field provided, vlty is not lagged by a day and appended to var.env df or (for coln==0) put into var.env$col.tmp
 #default window of 60 days
 #future enhancements: price vlty (divide by close price), stdev (don't square)
-calc_vlty <- function(ve.xts,coln,field=NULL,window=60,first_pass=FALSE) { #take vlty of field (in var.env) and append as last column
+calc_vlty <- function(ve.xts,coln,field=NULL,window=60,first_pass=TRUE) { #take vlty of field (in var.env) and append as last column
   if (is.null(field) & (coln==0)) {
     print("ERROR in calc_vlty, coln==0 only valid if field is provided")
     source("close_session.R")
@@ -394,12 +394,14 @@ calc_vlty <- function(ve.xts,coln,field=NULL,window=60,first_pass=FALSE) { #take
   if (is.null(field)) tmp.xts <- stats::lag(tmp.xts,1)   #not needed if using valid raw/scale/model vars [field provided]
   tmp.xts <- tmp.xts*tmp.xts
   if (is.null(field)) { #if no field passed in calc in place
-    f.xts <- tmp.xts
+    cmd_string <- paste0(f.xts," <- tmp.xts")
+    if (first_pass) print(cmd_string)
+    eval(parse(text=cmd_string))
   } else if (coln == 0) {
     var.env$col.xts <- tmp.xts
   } else {
     cmd_string <- paste0(ve.xts," <- cbind(",ve.xts,",tmp.xts)")
-    #print(cmd_string)
+    if (first_pass) print(cmd_string)
     eval(parse(text=cmd_string))
   }
 }
