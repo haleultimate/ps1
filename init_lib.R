@@ -93,10 +93,11 @@ set_up_environments <- function() {
 
 set_directories <- function() {
   com.env$original_wd <- getwd()
-  com.env$logdir <- paste(com.env$original_wd,"/logs",sep="")
-  com.env$vardir <- paste(com.env$original_wd,"/vars",sep="")
-  com.env$modeldir <- paste(com.env$original_wd,"/models",sep="")
-  com.env$logfile <- paste(com.env$logdir,"/lf",gsub("[^0-9]","",Sys.time()),".txt",sep="")
+  com.env$logdir <- paste0(com.env$original_wd,"/logs")
+  com.env$vardir <- paste0(com.env$original_wd,"/vars")
+  com.env$modeldir <- paste0(com.env$original_wd,"/models")
+  com.env$logfile <- paste0(com.env$logdir,"/lf",gsub("[^0-9]","",Sys.time()),".txt")
+  com.env$datadir <- paste0(com.env$datadir,"/data")
 }
 
 set_opt_type_settings <- function() {  
