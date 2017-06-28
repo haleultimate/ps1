@@ -22,12 +22,18 @@ lp_sim <- function(mu_col_name,stx,sim_date_index,equity,plot_profit=FALSE) {
   print (paste("Running Sim",Sys.time()))
   #shares <- matrix(nrow=length(sim_date_index),ncol=length(com.env$stx.symbols))
   shares <- matrix(nrow=length(sim_date_index),ncol=length(stx))
+  first_pass <- FALSE
   
   for (SimDate_i in 1:(length(sim_date_index))) {
     SimDate <- sim_date_index[SimDate_i]
     #equity <- com.env$init_equity 
     #print(paste("DATE:",SimDate,"Equity:",equity))
-    cmd_string <- paste0("port.pos <- port_opt_lp(as.vector(var.env$",mu_col_name,"[SimDate,stx]),as.vector(var.env$VLTY[SimDate,stx]),equity)")
+    if (first_pass) {
+      cmd_string <- paste0("port.pos <- port_opt_lp(as.vector(var.env$",mu_col_name,"[SimDate,stx]),as.vector(var.env$VLTY[SimDate,stx]),equity,first_pass)")
+      first_pass <- FALSE
+    } else {
+      cmd_string <- paste0("port.pos <- port_opt_lp(as.vector(var.env$",mu_col_name,"[SimDate,stx]),as.vector(var.env$VLTY[SimDate,stx]),equity)")
+    }
     eval(parse(text=cmd_string))
     #port.pos <- port_opt_lp(as.vector(var.env$MU[SimDate]),as.vector(var.env$VLTY[SimDate]),equity)
     shares[SimDate_i,] <- port.pos
@@ -50,7 +56,7 @@ lp_sim <- function(mu_col_name,stx,sim_date_index,equity,plot_profit=FALSE) {
 
 #pass in mu, vlty, port_size
 #future: add in order vars (take into account order costs)
-port_opt_lp <- function (lp.mu, lp.vlty, lp.port_size) {
+port_opt_lp <- function (lp.mu, lp.vlty, lp.port_size, first_pass = FALSE) {
   
   if (!exists("lp.first_run")) {
     lp.first_run <- FALSE
@@ -160,12 +166,12 @@ port_opt_lp <- function (lp.mu, lp.vlty, lp.port_size) {
     set.rhs(lp.port.model,b=lp.port_size,constraints=1) #can I use the constraint name = "port_size" here?
   }
   
-  if (com.env$verbose) write.lp(lp.port.model,filename="test_lp",type="lp")
+  if (first_pass) write.lp(lp.port.model,filename="test_lp",type="lp")
   
   solve(lp.port.model)
   lp.positions <- get.variables(lp.port.model)[1:lp.stx]
 
-  if(com.env$verbose) {
+  if(first_pass) {
     pos_sqr <- lp.positions*lp.positions
   
     calc_mu <- lp.positions*lp.mu*lp.alpha_wt
