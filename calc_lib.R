@@ -27,6 +27,7 @@ calc_col_vd <- function(ve.xts,vd,first_pass=FALSE) {
   ticker <- sub("var.env$","",ve.xts,fixed=TRUE)
   if (first_pass) print(paste("In calc_col_vd",ticker))
   is.cmn <- (com.env$cmn_lookup[[ticker]] == 'cmn')
+  #print(vd)
   if (is.cmn & !vd$calc_cmn) {
     print(paste("ERROR in calc_col_vd, cmn ticker,",ticker,", called with vd.calc_cmn =",vd$calc_cmn))
     source("close_session.R")
@@ -74,7 +75,7 @@ from.data.env <- function(ve.xts,coln=0,field,first_pass=FALSE) {
   de.xts <- paste0("data.env$",ticker,"$",de.field)
   if (first_pass) print(paste(ve.xts,coln,field,ticker))
   cmd_string <- paste0("in.data.env <- ('",de.field,"' %in% colnames(",de.xts,"))")
-  #if (first_pass) print(cmd_string)
+  if (first_pass) print(cmd_string)
   eval(parse(text=cmd_string))
   if (in.data.env) {
     if (coln == 0) {
@@ -91,7 +92,7 @@ from.data.env <- function(ve.xts,coln=0,field,first_pass=FALSE) {
       cmd_string <- paste0(ve.xts," <- cbind(",ve.xts,",calc_col_vd(ve.xts,vd))")
     } 
   }
-  #if (first_pass) print(cmd_string)
+  if (first_pass) print(cmd_string)
   eval(parse(text=cmd_string))
 }
 
@@ -275,7 +276,7 @@ calc_cap <- function(ve.xts,coln,abscap=NULL,lcap=NULL,hcap=NULL,
 #doesn't handle coln==0  
 #handles def vars
 #replace place holders XX0,XX1,..XXn with vars 
-# XX0 represents last column, XX0N represents new column (can only be on right side)
+# XX0 represents last column, XX0N represents new column (can only be on left side)
 # XX1..XXn existing vars
 # math_str in the form 'XX0 <- f(XX0,XX1..XXn)' 
 calc_math <- function(ve.xts,coln,XX_list=NULL,math_str,first_pass=FALSE) { #apply math to last column for XX0, create new last column XX0N
@@ -1027,6 +1028,7 @@ calc_adjusted_HLOJRlD <- function(symbol_list) {
     de.Volume <- paste0(df,"[,'",ticker,".Volume']")
     de.D <- paste0(df,"[,'",ticker,".D']")
     de.V <- paste0(df,"$",ticker,".","V")
+    shout <- paste0("shout_table[,",ticker,"]")
     
     #adjusting HLO with adjusted Close
     for (field in c("High","Low","Open")) {
@@ -1091,6 +1093,20 @@ calc_adjusted_HLOJRlD <- function(symbol_list) {
     cmd_string <- paste0("colnames(",df,")[length(colnames(",df,"))] <- '",ticker,".VLTY'")
     if (first_pass) print(cmd_string)
     eval(parse(text=cmd_string))
+    
+    if (!ticker %in% colnames(data.env$shout_table)) {
+      print(paste("WARNING: No shout for ticker:",ticker))
+      cmd_string <- paste0(df,"$",ticker,".shout <- NA")
+      if (first_pass) print(cmd_string)
+      eval(parse(text=cmd_string))
+    } else {
+      cmd_string <- paste0(df," <- cbind(",df,",data.env$shout_table[",com.env$data_date_range,",'",ticker,"'])")
+      if (first_pass) print(cmd_string)
+      eval(parse(text=cmd_string))
+      cmd_string <- paste0("colnames(",df,")[length(colnames(",df,"))] <- '",ticker,".shout'")
+      if (first_pass) print(cmd_string)
+      eval(parse(text=cmd_string))
+    }
     
     first_pass <- FALSE
   }

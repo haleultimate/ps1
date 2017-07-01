@@ -18,13 +18,25 @@ set_name = function(V1,vdlist=NULL) {
     parms <- gsub("^[^,]*,","",math_str) #get everything after first comma (parameters) 
     switch(math, 
            "from.data.env" = {
-             if (parms=="'Adjusted'") {
-               V1$var_name <- "C"
+             if (parms=="'shout'") {
+               V1$var_name <- "o"
+               IDPart <- which(namePart == letters)+26
+               IDPart <- formatC(IDPart, width = 2, format = "d", flag = "0")
+             } else if (parms == "'div'") {
+               V1$var_name <- "dv"
+               IDPart <- "62"
+             } else if (parms == "'Close'") { #unadjusted Close
+               V1$var_name <- "uC"
+               IDPart <- "4703"
              } else {
-               V1$var_name <- gsub("'","",parms)
+               if (parms=="'Adjusted'") {
+                 V1$var_name <- "C"
+               } else {
+                 V1$var_name <- gsub("'","",parms)
+               }
+               V1$ID <- which(V1$var_name == LETTERS)
+               V1$ID <- formatC(V1$ID, width = 2, format = "d", flag = "0")
              }
-             V1$ID <- which(V1$var_name == LETTERS)
-             V1$ID <- formatC(V1$ID, width = 2, format = "d", flag = "0")
             },
            "calc_constant" = {
              #parms <- gsub(parms,".","")  #remove decimal if necessary
@@ -148,6 +160,20 @@ set_name = function(V1,vdlist=NULL) {
                       #IDPart <- rnd.env$nameId[[which(namePart == names(rnd.env$nameID))]]
                       IDPart <- "53"
                     },
+                    "c('ol1','uB'),math_str='XX0 <- XX1*XX2'" = {
+                      namePart <- "M"
+                      IDPart <- which(namePart == LETTERS)
+                      IDPart <- formatC(IDPart, width = 2, format = "d", flag = "0")
+                    },
+                    "c('M'),'XX0 <- XX1/XX0'" = {
+                      namePart <- "t"
+                      IDPart <- which(namePart == letters)+26
+                      IDPart <- formatC(IDPart, width = 2, format = "d", flag = "0")
+                    },
+                    "c('B'),math_str='XX0 <- log(XX1)'" = {
+                      namePart <- "lp"
+                      IDPart <- "63"
+                    },
                     "c('H','L','B'),'XX0N <- pmax(log(XX1/XX2),abs(log(XX1/XX3)),abs(log(XX2/XX3)))'" = {
                       namePart <- "tr"
                       #IDPart <- rnd.env$nameId[[which(namePart == names(rnd.env$nameID))]]
@@ -244,6 +270,10 @@ set_name = function(V1,vdlist=NULL) {
                V1$var_name <- LETTERS[index-as.numeric(parms)]
                V1$ID <- which(V1$var_name == LETTERS)
                V1$ID <- formatC(V1$ID, width = 2, format = "d", flag = "0")
+               break
+             } else if (V1$var_name == "uC") {
+               V1$var_name <- "uB"
+               V1$ID <- "4702"
                break
              } else {
                namePart <- "l"
@@ -727,7 +757,20 @@ sample_vars <- function() {
   }
   rm(vd_end_price,vd_start_price)
   rnd.env$ret_list <- (max_j+1):length(rnd.env$vs.com)
-  
+
+  #yesterday unadjusted close
+  V1 <- NULL
+  V1$type <- "prc"
+  V1$requires <- NULL
+  V1$use <- "def"
+  V1$calc_cmn <- TRUE
+  V1$math[1] <- "from.data.env,'Close'"
+  V1$math[2] <- "calc_lag,1"
+  #V1$var_name <- "uB"
+  V1 <- set_name(V1)
+  cmd_string <- paste0("rnd.env$vs.com$",V1$var_name," <- V1")   
+  eval(parse(text=cmd_string))
+    
   #set up Dollar (D) and log Dollar (V) volume
   V1 <- NULL
   V1$requires <- NULL
@@ -752,6 +795,56 @@ sample_vars <- function() {
   cmd_string <- paste0("rnd.env$vs.com$",V1$var_name," <- V1")   
   eval(parse(text=cmd_string))
 
+  #yesterday's shout
+  V1 <- NULL
+  V1$type <- "sdata"
+  V1$requires <- NULL
+  V1$use <- "def"
+  V1$calc_cmn <- TRUE
+  V1$math[1] <- "from.data.env,'shout'"
+  V1$math[2] <- "calc_lag,1"
+  #V1$var_name <- "o"
+  V1 <- set_name(V1)
+  cmd_string <- paste0("rnd.env$vs.com$",V1$var_name," <- V1")   
+  eval(parse(text=cmd_string))
+
+  #yesterday's mcap in $
+  V1 <- NULL
+  V1$type <- "sdata"
+  V1$requires <- c("ol1","uB")
+  V1$use <- "def"
+  V1$calc_cmn <- TRUE
+  V1$math[1] <- "calc_math,c('ol1','uB'),math_str='XX0 <- XX1*XX2'"
+  #V1$var_name <- "M"
+  V1 <- set_name(V1)
+  cmd_string <- paste0("rnd.env$vs.com$",V1$var_name," <- V1")   
+  eval(parse(text=cmd_string))
+
+  #yesterday's shout
+  V1 <- NULL
+  V1$type <- "sdata"
+  V1$requires <- NULL
+  V1$use <- "def"
+  V1$calc_cmn <- TRUE
+  V1$math[1] <- "from.data.env,'div'"
+  V1$math[2] <- "calc_lag,1"
+  #V1$var_name <- "dv"
+  V1 <- set_name(V1)
+  cmd_string <- paste0("rnd.env$vs.com$",V1$var_name," <- V1")   
+  eval(parse(text=cmd_string))
+
+  #yesterday's shout
+  V1 <- NULL
+  V1$type <- "sdata"
+  V1$requires <- c("B")
+  V1$use <- "def"
+  V1$calc_cmn <- TRUE
+  V1$math[1] <- "calc_math,c('B'),math_str='XX0 <- log(XX1)'"
+  #V1$var_name <- "lp"
+  V1 <- set_name(V1)
+  cmd_string <- paste0("rnd.env$vs.com$",V1$var_name," <- V1")   
+  eval(parse(text=cmd_string))
+  
   #set up CC3 for use as template for CC# raws
   V1 <- NULL
   V1$col <- 1
@@ -825,12 +918,13 @@ sample_vars <- function() {
   #Force Index = return * Dollars
   V1$type <- "ti"
   V1$requires <- c('C','B','BC','D')
-  V1$use <- "scale"
+  V1$use <- "raw"
   V1$calc_cmn <- TRUE
   V1$math[1] <- "calc_math,c('BC','D'),math_str='XX0N <- XX1*XX2'"
   #V1 <- set_name(V1)
   V1$var_name <- "fi"
   cmd_string <- paste0("rnd.env$vs.com$",V1$var_name," <- V1")   
   eval(parse(text=cmd_string))
+  
 }
 

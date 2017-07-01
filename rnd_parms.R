@@ -4,8 +4,8 @@ rnd.env <- new.env(parent=globalenv())
 rnd.env$vs.com <- NULL
 
 #set up lists for naming
-rnd.env$nameID <- c(53,54,55,56,57,58,59,60,61)
-names(rnd.env$nameID) <- c('ld','tr','di','pmf','nmf','fi','ti','pdm','ndm')
+rnd.env$nameID <- c(53,54,55,56,57,58,59,60,61,62,63)
+names(rnd.env$nameID) <- c('ld','tr','di','pmf','nmf','fi','ti','pdm','ndm','dv','lp')
 
 rnd.env$fun_id <- c(1:6)  #any undefined function will be mapped to zero
 names(rnd.env$fun_id) <- c('calc_cap','calc_z','calc_res','calc_decay','calc_vlty','calc_bin')
@@ -15,7 +15,7 @@ names(rnd.env$known_mod_fun) <- c('calc_cap','calc_z','calc_decay','calc_lag','c
 #set up constants  #no leading zeros on numeric parameters (lengthens IDs)
 rnd.env$mod.model <- c("fve","ia","bin","decay","constant")
 
-rnd.env$raws <- c("ret","BC","V","C2C","TI")
+rnd.env$raws <- c("sdata","ret","BC","V","C2C","TI")
 rnd.env$C2Clag_list <- c(3,5,8,13,21,34,55,89,144)
 
 rnd.env$ti_type_list <- c("fi","mf","tr","dm","di")
@@ -42,12 +42,16 @@ rnd.env$calc_list <- c('log','exp','pow','none')
 rnd.env$pow_list <- c(.25,.33,.5,.75,1.25,1.5,2,2.5,3)
 
 rnd.env$scale_list <- c('Z','z','r','none') # [Zscore,zscale,rank]
+rnd.env$sdata_list <- c('shout','mcap','div','log_price')
 
 #set up var creation probabilities
 
 #raws
-rnd.env$p$raw <- c(0.3,0.3,0.2,0.1,0.1)
-names(rnd.env$p$raw) <- rnd.env$raws    #("ret","BC","V","C2C","TI")
+rnd.env$p$raw <- c(0,0.3,0.2,0.3,0.2,0.1)
+names(rnd.env$p$raw) <- rnd.env$raws    #("sdata","ret","BC","V","C2C","TI")
+
+rnd.env$p$sdata_type <- c(0.1,0.1,0,0.05)
+names(rnd.env$p$sdata_type) <- rnd.env$sdata_list #('shout','mcap','div','log_price')
 
 rnd.env$p$ti_type <- c(0.1,0.1,0.02,0,0)
 names(rnd.env$p$ti_type) <- rnd.env$ti_type_list    #("fi","mf","tr","dm","di")
@@ -89,8 +93,15 @@ names(rnd.env$p$C2C.d) <- c(2,1)
 rnd.env$p$TI.d <- c(0.1,5,rep(0.1,times=length(rnd.env$decay_list)))
 names(rnd.env$p$TI.d) <- c(2,1,rnd.env$decay_list)
 
+rnd.env$p$sdata.d <- c(1)
+names(rnd.env$p$sdata.d) <- c(0)  #stock data should already be lagged by a day
+
 rnd.env$p$model.d <- c(0.5,rep(0.1,times=length(rnd.env$decay_list)))
 names(rnd.env$p$model.d) <- c('none',rnd.env$decay_list)
+
+#dollar volume -> turn_over switch
+rnd.env$p$to <- c(0.5,0.5)
+names(rnd.env$p$to) <- c(TRUE,FALSE)
 
 #caps ('cap_pct','zcap','abscap','none')
 rnd.env$p$cap_type <- c(0.4,0.2,0.,0.3)

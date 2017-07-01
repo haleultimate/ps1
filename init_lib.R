@@ -61,8 +61,10 @@ init_session <- function(stx_list.loaded) {
   #if (com.env$log_file) set_log_file()      #not working 
   stock_list()                         #setup stock symbols and com.env$cmn_lookup
   stx_list.loaded <- load_stock_history(stx_list.loaded)     #only needed after first run if stock list changes
+  load_data_files()
   set_opt_type_settings()
   remove_problem_stocks()
+  calc_adjusted_HLOJRlD(com.env$stx_list)
   return(stx_list.loaded)
 }
 
@@ -97,7 +99,13 @@ set_directories <- function() {
   com.env$vardir <- paste0(com.env$original_wd,"/vars")
   com.env$modeldir <- paste0(com.env$original_wd,"/models")
   com.env$logfile <- paste0(com.env$logdir,"/lf",gsub("[^0-9]","",Sys.time()),".txt")
-  com.env$datadir <- paste0(com.env$datadir,"/data")
+  com.env$datadir <- paste0(com.env$original_wd,"/data")
+}
+
+load_data_files <- function() {
+  print("This is where we load shout, div, pca vectors, mkt_forecast info")
+  shout_file <- paste0(com.env$datadir,"/shout.data")
+  if (!exists("data.env$shout_table")) load(file=shout_file,envir = data.env)
 }
 
 set_opt_type_settings <- function() {  
@@ -214,7 +222,6 @@ remove_problem_stocks <- function() {
   com.env$alpha_wt <- 16000
   com.env$retvlty_not_calced <- TRUE
   #print(com.env$stx_list)
-  calc_adjusted_HLOJRlD(com.env$stx_list)
 }
 
 #loads all stock in com.env$stx_list not in stx_list.old (returns loaded list)
@@ -222,15 +229,16 @@ load_stock_history <- function(stx_list.old) {
   print("load_stock_history")
   Sys.setenv(TZ = "UTC")
   adjustment <- TRUE
-  start_date <- "2004-01-01" 
-  end_date <- "2013-03-31"
+  com.env$start_date <- "2004-01-01" 
+  com.env$end_date <- "2013-03-31"
+  com.env$data_date_range <- paste(com.env$start_date, com.env$end_date,sep="/")
   if (is.null(stx_list.old)) {         #only load if stx_list has changed
     getSymbols(Symbols = com.env$stx_list,
                env=data.env,
                src = "yahoo", 
                index.class = "POSIXct",
-               from = start_date, 
-               to = end_date, 
+               from = com.env$start_date, 
+               to = com.env$end_date, 
                adjust = adjustment)
   } else if (!identical(com.env$stx_list,stx_list.old)) {
     isNameinStxold <- com.env$stx_list %in% stx_list.old
@@ -240,8 +248,8 @@ load_stock_history <- function(stx_list.old) {
                env=data.env,
                src = "yahoo", 
                index.class = "POSIXct",
-               from = start_date, 
-               to = end_date, 
+               from = com.env$start_date, 
+               to = com.env$end_date, 
                adjust = adjustment)
   }
   print("successfully loaded stx")

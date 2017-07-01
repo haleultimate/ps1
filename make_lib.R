@@ -2,6 +2,8 @@
 vcom2vdlist_req <- function(V1,env_lookup="com.env") {  #look in com.env$v.com, otherwise rnd.env$vs.com (for raws)
   #print(paste("vcom2vdlist_req",V1$var_name))
   vdlist <- NULL
+  #print(env_lookup)
+  #print(V1$requires)
   for (v in V1$requires) {
     if (env_lookup == "com.env") {
       cmd_string <- paste0("vdlist$",com.env$v.com[[v]]$var_name," <- com.env$v.com[['",v,"']]")
@@ -241,9 +243,27 @@ rnd_choice <- function(choice) {
 get_raw_list <- function(raw_type = NULL) {
   if (is.null(raw_type)) raw_type <- rnd_choice("raw")
   #print(paste("Create new raw var, raw_type",raw_type)) #FUTURE: allow existing raw to be chosen
+  to_var <- FALSE #debug purposes
   switch(raw_type,
          "ret" = {
            V1 <- rnd.env$vs.com[[sample(rnd.env$ret_list,1)]]
+         },
+         "sdata" = { #raw stock data
+           sdata_type <- rnd_choice("sdata_type")
+           switch(sdata_type,
+                  "shout" = {
+                    V1 <- rnd.env$vs.com[[which("o" == names(rnd.env$vs.com))]]
+                  },
+                  "mcap" = {
+                    V1 <- rnd.env$vs.com[[which("M" == names(rnd.env$vs.com))]]
+                  },
+                  "div" = {
+                    V1 <- rnd.env$vs.com[[which("dv" == names(rnd.env$vs.com))]]
+                  },
+                  "log_price" = {
+                    V1 <- rnd.env$vs.com[[which("lp" == names(rnd.env$vs.com))]]
+                  }
+           )
          },
          "BC" = {
            V1 <- rnd.env$vs.com[[which("BC" == names(rnd.env$vs.com))]]
@@ -283,11 +303,23 @@ get_raw_list <- function(raw_type = NULL) {
   if (substr(decay,1,1) == "v") {
     V1$math[length(V1$math)+1] <- paste0("calc_vlty,window=",substr(decay,2,nchar(decay)))
   } else {    
-    V1$math[length(V1$math)+1] <- get_math_from_decay(decay)  #paste0("calc_decay,",decay)
+    if (decay != 0) V1$math[length(V1$math)+1] <- get_math_from_decay(decay)  #paste0("calc_decay,",decay)
   }
   V1$use <- "raw"
   #print(paste("call raw set_name",V1$math))
+  if (raw_type == "V") { #check to convert dollars to turn-over
+    if (rnd_choice("to")) {
+      print("converting volume raw to turn-over raw")
+      to_var <- FALSE  #for debug purposes
+      V1$requires <- c(V1$requires,"ol1","uB","M")
+      V1$math[length(V1$math)+1] <- paste0("calc_math,c('M'),'XX0 <- XX1/XX0'")
+    }
+  }
   V1 <- set_name(V1)
+  if (to_var) { #for debug purposes
+    print(V1)
+    to_var <- FALSE
+  }
   #print(V1$math)
   if (raw_type == "TI") {
     #print(V1$var_name)
