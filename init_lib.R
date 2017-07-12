@@ -3,7 +3,7 @@
 set_control_parms <- function() {
   com.env$model_loops <- 5
   
-  com.env$add_var_levels <- c(10,15,20,30)
+  com.env$add_var_levels <- c(3,5)
   com.env$opt_model <- TRUE
   com.env$load_vars <- TRUE
   com.env$load_model <- FALSE
@@ -104,8 +104,9 @@ set_directories <- function() {
 
 load_data_files <- function() {
   print("This is where we load shout, div, pca vectors, mkt_forecast info")
-  shout_file <- paste0(com.env$datadir,"/shout.data")
-  if (!exists("data.env$shout_table")) load(file=shout_file,envir = data.env)
+  shout_file <- paste0(com.env$datadir,"/shout.dat")
+  #if (!exists("data.env$shout_table")) 
+    load(file=shout_file,envir = data.env)
 }
 
 set_opt_type_settings <- function() {  

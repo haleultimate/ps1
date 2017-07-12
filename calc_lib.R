@@ -86,6 +86,11 @@ from.data.env <- function(ve.xts,coln=0,field,first_pass=FALSE) {
   } else { #vd lookup required
     vd <- com.env$v.com[[field]]
     print(paste("vd lu in from.data.env:",vd$var_name))
+    if (is.null(vd)) {
+      print(paste("Error in from.data.env, missing field:",field))
+      print(paste(ve.xts,coln,field,ticker))
+      source("close_session.R")
+    }
     if (coln == 0) {
       cmd_string <- "calc_col_vd(ve.xts,vd)"
     } else {
@@ -740,7 +745,7 @@ calc_rank <- function(ve.xts,coln,qcount,first_pass=FALSE) {
 make_vars <- function(vd = NULL) {
   if (!is.null(vd)) if (vd$ID <= 0) vd <- NULL 
   make_vcom <- is.null(vd)
-  first_pass <- FALSE
+  first_pass <- TRUE
   #if (com.env$verbose) 
   #print(paste("make_vars",make_vcom))
   if (make_vcom) {
