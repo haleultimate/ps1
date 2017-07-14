@@ -3,14 +3,14 @@
 set_control_parms <- function() {
   com.env$model_loops <- 5
   
-  com.env$add_var_levels <- c(3,5)
+  com.env$add_var_levels <- c(10,15,20,30)
   com.env$opt_model <- TRUE
   com.env$load_vars <- TRUE
   com.env$load_model <- FALSE
-  com.env$save_model <- FALSE
+  com.env$save_model <- TRUE
   com.env$save_var_n <- 0
   com.env$look_forward <- 5
-  com.env$model_filename <- "lf5_soos616.vcom"
+  com.env$model_filename <- "lf5_soos714.vcom"
   com.env$mod_var_loops <- 20
   com.env$opt_type <- "single_oos"  #{adjr2_is,single_oos,rolling_oos}
   com.env$run_sim <- TRUE
@@ -91,6 +91,7 @@ set_up_environments <- function() {
   var.env <<- new.env(parent=globalenv())
   rnd.env <<- new.env(parent=globalenv())
   com.env <<- new.env(parent=globalenv())
+  sim.env <<- new.env(parent=globalenv())
 }
 
 set_directories <- function() {
@@ -126,6 +127,7 @@ set_opt_type_settings <- function() {
            com.env$oos_end_date <- as.POSIXct("2011-12-30 UTC")
            com.env$oos_date_range <- paste(com.env$oos_start_date,com.env$oos_end_date,sep="/")
            cmd_string <- paste0("com.env$oos_date_index <- index(data.env$",com.env$stx_list[1],"[com.env$oos_date_range])")   #hard coded to first stock
+           print(cmd_string)
            eval(parse(text=cmd_string))
          },
          "rolling_oos" = {

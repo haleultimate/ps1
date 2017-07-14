@@ -745,7 +745,7 @@ calc_rank <- function(ve.xts,coln,qcount,first_pass=FALSE) {
 make_vars <- function(vd = NULL) {
   if (!is.null(vd)) if (vd$ID <= 0) vd <- NULL 
   make_vcom <- is.null(vd)
-  first_pass <- TRUE
+  first_pass <- FALSE
   #if (com.env$verbose) 
   #print(paste("make_vars",make_vcom))
   if (make_vcom) {

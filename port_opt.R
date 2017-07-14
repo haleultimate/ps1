@@ -21,7 +21,7 @@ run_sim <- function() {
 lp_sim <- function(mu_col_name,stx,sim_date_index,equity,plot_profit=FALSE) {
   print (paste("Running Sim",Sys.time()))
   #shares <- matrix(nrow=length(sim_date_index),ncol=length(com.env$stx.symbols))
-  shares <- matrix(nrow=length(sim_date_index),ncol=length(stx))
+  sim.env$shares <- matrix(nrow=length(sim_date_index),ncol=length(stx))
   first_pass <- FALSE
   
   for (SimDate_i in 1:(length(sim_date_index))) {
@@ -36,22 +36,22 @@ lp_sim <- function(mu_col_name,stx,sim_date_index,equity,plot_profit=FALSE) {
     }
     eval(parse(text=cmd_string))
     #port.pos <- port_opt_lp(as.vector(var.env$MU[SimDate]),as.vector(var.env$VLTY[SimDate]),equity)
-    shares[SimDate_i,] <- port.pos
+    sim.env$shares[SimDate_i,] <- port.pos
     #print(port.pos)
   }
   
   ADJRET.matrix <- as.matrix(var.env$ADJRET[sim_date_index,stx])
-  ADJRET_shares <- ADJRET.matrix*shares
-  ADJRET_shares[is.na(ADJRET_shares)] <- 0     #should we repair or crash when NA's are found?
-  dayprofit <- rowSums(ADJRET_shares)
-  stockprofit <- colSums(ADJRET_shares)
-  totalprofit <- cumsum(dayprofit)
-  print(paste("total profit:",totalprofit[length(totalprofit)]))
+  sim.env$ADJRET_shares <- ADJRET.matrix*sim.env$shares
+  sim.env$ADJRET_shares[is.na(sim.env$ADJRET_shares)] <- 0     #should we repair or crash when NA's are found?
+  sim.env$dayprofit <- rowSums(sim.env$ADJRET_shares)
+  sim.env$stockprofit <- colSums(sim.env$ADJRET_shares)
+  sim.env$totalprofit <- cumsum(sim.env$dayprofit)
+  print(paste("total profit:",sim.env$totalprofit[length(sim.env$totalprofit)]))
   if (plot_profit) {
-    plot(sim_date_index,totalprofit)
-    points(sim_date_index,dayprofit,col="red")
+    plot(sim_date_index,sim.env$totalprofit)
+    points(sim_date_index,sim.env$dayprofit,col="red")
   }
-  return(totalprofit[length(totalprofit)])
+  return(sim.env$totalprofit[length(sim.env$totalprofit)])
 }
 
 #pass in mu, vlty, port_size
