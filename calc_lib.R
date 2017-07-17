@@ -383,6 +383,8 @@ calc_adj <- function(ve.xts,coln,field,first_pass=FALSE) { #take from data.env a
 #default window of 60 days
 #future enhancements: price vlty (divide by close price), stdev (don't square)
 calc_vlty <- function(ve.xts,coln,field=NULL,window=60,first_pass=TRUE) { #take vlty of field (in var.env) and append as last column
+  #first_pass <- TRUE
+  if (first_pass) print(paste(ve.xts,coln,field,window))
   if (is.null(field) & (coln==0)) {
     print("ERROR in calc_vlty, coln==0 only valid if field is provided")
     source("close_session.R")
@@ -395,7 +397,7 @@ calc_vlty <- function(ve.xts,coln,field=NULL,window=60,first_pass=TRUE) { #take 
     f.xts <- paste0(ve.xts,"[,'",clu,"']")
   }
   cmd_string <- paste0("tmp.xts <- xts(apply(",f.xts,",2,runSD,n=window), index(",ve.xts,"))")
-  #print(cmd_string)
+  if (first_pass) print(cmd_string)
   eval(parse(text=cmd_string))
   if (is.null(field)) tmp.xts <- stats::lag(tmp.xts,1)   #not needed if using valid raw/scale/model vars [field provided]
   tmp.xts <- tmp.xts*tmp.xts
@@ -405,6 +407,7 @@ calc_vlty <- function(ve.xts,coln,field=NULL,window=60,first_pass=TRUE) { #take 
     eval(parse(text=cmd_string))
   } else if (coln == 0) {
     var.env$col.xts <- tmp.xts
+    if (first_pass) print("var.env$col.xts <- tmp.xts")
   } else {
     cmd_string <- paste0(ve.xts," <- cbind(",ve.xts,",tmp.xts)")
     if (first_pass) print(cmd_string)
@@ -874,8 +877,8 @@ make_vars <- function(vd = NULL) {
 calc_vd <- function(vd) { #for use in computing MU,ADJRET,VLTY  #appended to each var.env$ticker xts object
   print("calc VD")
   print(paste("calc_vd",vd$name,vd$math[1]))
-  first_pass <- FALSE
-  #print("starting stk loop")
+  first_pass <- TRUE
+  print("starting stk loop")
   for (stk in 1:(com.env$stx+com.env$cmns)) {
     #print(stk)
     ticker <- com.env$stx_list[stk]
@@ -1033,6 +1036,7 @@ calc_adjusted_HLOJRlD <- function(symbol_list) {
     de.Volume <- paste0(df,"[,'",ticker,".Volume']")
     de.D <- paste0(df,"[,'",ticker,".D']")
     de.V <- paste0(df,"$",ticker,".","V")
+    de.ADJRET <- paste0(df,"[,'",ticker,".ADJRET']")
     shout <- paste0("shout_table[,",ticker,"]")
     
     #adjusting HLO with adjusted Close
@@ -1087,7 +1091,7 @@ calc_adjusted_HLOJRlD <- function(symbol_list) {
     
 #    V1$math[1] <- "calc_vlty,'ADJRET',window=250"
 #    calc_vlty <- function(ve.xts,coln,field=NULL,window=60,first_pass=FALSE) { #take vlty of field (in var.env) and append as last column
-    cmd_string <- paste0("tmp.xts <- xts(apply(",de.adjc,",2,runSD,n=com.env$vlty_window), index(",df,"))")
+    cmd_string <- paste0("tmp.xts <- xts(apply(",de.ADJRET,",2,runSD,n=com.env$vlty_window), index(",df,"))")
     if (first_pass) print(cmd_string)
     eval(parse(text=cmd_string))
     tmp.xts <- stats::lag(tmp.xts,1)   #not needed if using valid raw/scale/model vars [field provided]
