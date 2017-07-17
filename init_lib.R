@@ -4,13 +4,13 @@ set_control_parms <- function() {
   com.env$model_loops <- 5
   
   com.env$add_var_levels <- c(10,15,20,30)
-  com.env$opt_model <- TRUE
-  com.env$load_vars <- TRUE
-  com.env$load_model <- FALSE
+  com.env$opt_model <- FALSE
+  com.env$load_vars <- FALSE
+  com.env$load_model <- TRUE
   com.env$save_model <- FALSE
   com.env$save_var_n <- 0
   com.env$look_forward <- 5
-  com.env$model_filename <- "lf5_soos717.vcom"
+  com.env$model_filename <- "lf5_soos715.vcom"
   com.env$mod_var_loops <- 20
   com.env$opt_type <- "single_oos"  #{adjr2_is,single_oos,rolling_oos}
   com.env$run_sim <- TRUE

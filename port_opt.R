@@ -20,6 +20,7 @@ run_sim <- function() {
 #return profit
 lp_sim <- function(mu_col_name,stx,sim_date_index,equity,plot_profit=FALSE) {
   print (paste("Running Sim",Sys.time()))
+  share_min <- 100
   #shares <- matrix(nrow=length(sim_date_index),ncol=length(com.env$stx.symbols))
   sim.env$shares <- matrix(nrow=length(sim_date_index),ncol=length(stx))
   first_pass <- FALSE
@@ -40,7 +41,16 @@ lp_sim <- function(mu_col_name,stx,sim_date_index,equity,plot_profit=FALSE) {
     #print(port.pos)
   }
   
+  sim.env$shares[abs(sim.env$shares)<share_min] <- 0
   ADJRET.matrix <- as.matrix(var.env$ADJRET[sim_date_index,stx])
+  MU.matrix <- as.matrix(var.env$MU[sim_date_index,stx])
+  VLTY.matrix <- as.matrix(var.env$VLTY[sim_date_index,stx])
+
+  sim.env$MU_shares <- MU.matrix*sim.env$shares
+  sim.env$day_MU <- rowSums(sim.env$MU_shares)
+  sim.env$VLTY_shares <- VLTY.matrix*sim.env$shares*sim.env$shares
+  sim.env$day_VLTY <- rowSums(sim.env$VLTY_shares)
+
   sim.env$ADJRET_shares <- ADJRET.matrix*sim.env$shares
   sim.env$ADJRET_shares[is.na(sim.env$ADJRET_shares)] <- 0     #should we repair or crash when NA's are found?
   sim.env$dayprofit <- rowSums(sim.env$ADJRET_shares)
