@@ -45,6 +45,9 @@ set_control_parms <- function() {
     print(paste("Available saved_var_files:",length(com.env$saved_var_files)))
     #print(com.env$saved_var_files)
   }
+  com.env$ll_bin <- -2.
+  com.env$hl_bin <- 2.
+  com.env$liqx <- FALSE
   com.env$verbose <- FALSE
   com.env$vlty_window <- 250
   #com.env$var_names <- NULL
@@ -997,7 +1000,7 @@ stock_list <- function() {
     "GG",
     "FNV",
     "AEM",
-    "SLW",
+    #"SLW",  #problem loading data from YHOO
     "GOLD",
     "AU",
     "RGLD",

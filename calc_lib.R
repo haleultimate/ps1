@@ -951,31 +951,31 @@ mu_calc <- function(mu_col_name,index=0) {
   stk_matrix("var.env",mu_col_name,index)
 }
 
-adjret_calc <- function() {
-  print("In adjret_calc")
-  V1 <- NULL
-  V1$col <- 1
-  V1$bins <- 1
-  V1$name <- "ADJRET"
-  V1$clu <- "ADJRET"
-  V1$calc_cmn <- FALSE
-  V1$math[1] <- "calc_adjret,'.Adjusted'"
-  calc_vd(V1)
-  stk_matrix("var.env","ADJRET")
-}
-
-vlty_calc <- function() {
-  print("In vlty_calc")
-  V1 <- NULL
-  V1$col <- 1
-  V1$bins <- 1
-  V1$name <- "VLTY"
-  V1$clu <- "VLTY"
-  V1$calc_cmn <- FALSE
-  V1$math[1] <- "calc_vlty,'ADJRET',window=250"
-  calc_vd(V1)
-  stk_matrix("var.env","VLTY")
-}
+# adjret_calc <- function() {
+#   print("In adjret_calc")
+#   V1 <- NULL
+#   V1$col <- 1
+#   V1$bins <- 1
+#   V1$name <- "ADJRET"
+#   V1$clu <- "ADJRET"
+#   V1$calc_cmn <- FALSE
+#   V1$math[1] <- "calc_adjret,'.Adjusted'"
+#   calc_vd(V1)
+#   stk_matrix("var.env","ADJRET")
+# }
+# 
+# vlty_calc <- function() {
+#   print("In vlty_calc")
+#   V1 <- NULL
+#   V1$col <- 1
+#   V1$bins <- 1
+#   V1$name <- "VLTY"
+#   V1$clu <- "VLTY"
+#   V1$calc_cmn <- FALSE
+#   V1$math[1] <- "calc_vlty,'ADJRET',window=250"
+#   calc_vd(V1)
+#   stk_matrix("var.env","VLTY")
+# }
 
 make_mu <- function() {
   print("In make_mu")
@@ -1117,6 +1117,26 @@ calc_adjusted_HLOJRlD <- function(symbol_list) {
       eval(parse(text=cmd_string))
     }
     
+    #Low Liquidity / High Liquidity Binning
+    x <- c(com.env$ll_bin,com.env$hl_bin)
+    y <- c(1,0)
+    cmd_string <- paste0("ll.xts <- approx(x,y,",de.V,",yleft=1,yright=0)$y")
+    if (first_pass) print(cmd_string)
+    eval(parse(text=cmd_string))
+    y <- c(0,1)
+    cmd_string <- paste0("hl.xts <- approx(x,y,",de.V,",yleft=0,yright=1)$y")
+    if (first_pass) print(cmd_string)
+    eval(parse(text=cmd_string))
+    cmd_string <- paste0(df," <- cbind(",df,",ll.xts,hl.xts)")
+    eval(parse(text=cmd_string))
+    cmd_string <- paste0("colnames(",df,")[length(colnames(",df,"))-1] <- '",ticker,".ll_wts'")
+    if (first_pass) print(cmd_string)
+    eval(parse(text=cmd_string))
+    cmd_string <- paste0("colnames(",df,")[length(colnames(",df,"))] <- '",ticker,".hl_wts'")
+    if (first_pass) print(cmd_string)
+    eval(parse(text=cmd_string))
+    
+
     first_pass <- FALSE
   }
 }
