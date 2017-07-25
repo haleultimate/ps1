@@ -84,6 +84,8 @@ load_packages <- function() {
   library(forecast)
   library(leaps)
   library(fmsb)
+  library(Quandl)
+  Quandl.api_key('uTjzMRaw3tYDH6Dsbh2A')
 }
 
 set_up_environments <- function() {
@@ -233,26 +235,38 @@ load_stock_history <- function(stx_list.old) {
   com.env$start_date <- "2004-01-01" 
   com.env$end_date <- "2013-03-31"
   com.env$data_date_range <- paste(com.env$start_date, com.env$end_date,sep="/")
-  if (is.null(stx_list.old)) {         #only load if stx_list has changed
-    getSymbols(Symbols = com.env$stx_list,
-               env=data.env,
-               src = "yahoo", 
-               index.class = "POSIXct",
-               from = com.env$start_date, 
-               to = com.env$end_date, 
-               adjust = adjustment)
-  } else if (!identical(com.env$stx_list,stx_list.old)) {
-    isNameinStxold <- com.env$stx_list %in% stx_list.old
-    stx_list.new <- com.env$stx_list[!isNameinStxold]
-    #print(stx_list.new)
-    getSymbols(Symbols = stx_list.new, 
-               env=data.env,
-               src = "yahoo", 
-               index.class = "POSIXct",
-               from = com.env$start_date, 
-               to = com.env$end_date, 
-               adjust = adjustment)
+  if(is.null(stx_list.old)){
+    for(ticker in com.env$stx_list){
+      cmd_line <- paste0("data.env$",ticker," <- Quandl('EOD/",ticker,"', type = 'xts',start_date = '",com.env$start_date,"',end_date = '",com.env$end_date,"')")
+      print(cmd_line)
+      eval(parse(text = cmd_line))
+      names <- c(paste0(ticker,".Open"),paste0(ticker,".High"),paste0(ticker,".Low"),paste0(ticker,".Close"),paste0(ticker,".Volume"),"Dividend","Split",paste0(ticker,".Adjusted"),"Adj_High","Adj_Low","Adj_Close","Adj_Volume")
+      cmd_line <- paste0("names(data.env$",ticker,") <- names")
+      eval(parse(text = cmd_line))
+      
+    }
   }
+  # if (is.null(stx_list.old)) {         #only load if stx_list has changed
+  #   getSymbols(Symbols = com.env$stx_list,
+  #              env=data.env,
+  #              src = "yahoo", 
+  #              index.class = "POSIXct",
+  #              from = com.env$start_date, 
+  #              to = com.env$end_date, 
+  #              adjust = adjustment)
+  #   
+  # } else if (!identical(com.env$stx_list,stx_list.old)) {
+  #   isNameinStxold <- com.env$stx_list %in% stx_list.old
+  #   stx_list.new <- com.env$stx_list[!isNameinStxold]
+  #   #print(stx_list.new)
+  #   getSymbols(Symbols = stx_list.new, 
+  #              env=data.env,
+  #              src = "yahoo", 
+  #              index.class = "POSIXct",
+  #              from = com.env$start_date, 
+  #              to = com.env$end_date, 
+  #              adjust = adjustment)
+  # }
   print("successfully loaded stx")
   print(com.env$stx_list)
   return(com.env$stx_list)
@@ -952,7 +966,7 @@ stock_list <- function() {
     "MMC",
     "PRU",
     "TRV",
-    "SPGI",
+    #"SPGI",
     "ICE",
     "BBT",
     "AON",
@@ -1018,7 +1032,7 @@ stock_list <- function() {
     #"OR",    #problem loading data from YHOO
     "HMY",
     "MUX",
-    "KLDX",
+    #"KLDX",
     "AKG",
     "SAND",
     "XLE", #Energy ETF

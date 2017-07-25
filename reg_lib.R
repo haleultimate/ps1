@@ -474,6 +474,7 @@ collect_data <- function (oos_data = FALSE, sim_data = FALSE, reg_names = NULL) 
   var.env$reg_data.df <- NULL
   if (oos_data) var.env$oos_data.df <- NULL
   if (sim_data) var.env$sim_data.df <- NULL
+  #print(allmodelvars)
   for (i in 1:com.env$stx) {
     ticker <- com.env$stx.symbols[i]
     # cmn_ticker <- com.env$cmn_lookup[ticker]
@@ -481,14 +482,16 @@ collect_data <- function (oos_data = FALSE, sim_data = FALSE, reg_names = NULL) 
     # eval(parse(text=cmd_string))
     # cmd_string <- paste("stk_start_date <- index(data.env$",ticker,"[",com.env$days2remove,",])",sep="")
     # eval(parse(text=cmd_string))
-    max_start_date <- max(c(com.env$start_date[ticker],com.env$reg_start_date))
+    max_start_date <- max(c(as.Date(com.env$start_date[ticker]),as.Date(com.env$reg_start_date)))
+    #print(paste(max_start_date,com.env$start_date[ticker],com.env$reg_start_date))
     cmd_string <- paste("start_idx <- which(max_start_date == index(var.env$",ticker,"))",sep="")
     eval(parse(text=cmd_string))
     if (max_start_date > com.env$reg_end_date) next()
-    cmd_string <- paste("end_idx <- which(com.env$reg_end_date == index(var.env$",ticker,"))",sep="")
+    cmd_string <- paste("end_idx <- which(as.Date(com.env$reg_end_date) == index(var.env$",ticker,"))",sep="")
     eval(parse(text=cmd_string))
     subset_string <- paste("var.env$",ticker,"[",start_idx,":",end_idx,",allmodelvars]",sep="")
     cmd_string <- paste("var.env$reg_data.df <- bind_rows(var.env$reg_data.df,as.data.frame(",subset_string,"))",sep="")
+    #print(cmd_string)
     eval(parse(text=cmd_string))
     if (oos_data) {
       subset_string <- paste("var.env$",ticker,"[com.env$oos_date_range,allmodelvars]",sep="")
