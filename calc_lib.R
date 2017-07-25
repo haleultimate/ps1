@@ -383,6 +383,8 @@ calc_adj <- function(ve.xts,coln,field,first_pass=FALSE) { #take from data.env a
 #default window of 60 days
 #future enhancements: price vlty (divide by close price), stdev (don't square)
 calc_vlty <- function(ve.xts,coln,field=NULL,window=60,first_pass=TRUE) { #take vlty of field (in var.env) and append as last column
+  #first_pass <- TRUE
+  if (first_pass) print(paste(ve.xts,coln,field,window))
   if (is.null(field) & (coln==0)) {
     print("ERROR in calc_vlty, coln==0 only valid if field is provided")
     source("close_session.R")
@@ -395,7 +397,7 @@ calc_vlty <- function(ve.xts,coln,field=NULL,window=60,first_pass=TRUE) { #take 
     f.xts <- paste0(ve.xts,"[,'",clu,"']")
   }
   cmd_string <- paste0("tmp.xts <- xts(apply(",f.xts,",2,runSD,n=window), index(",ve.xts,"))")
-  #print(cmd_string)
+  if (first_pass) print(cmd_string)
   eval(parse(text=cmd_string))
   if (is.null(field)) tmp.xts <- stats::lag(tmp.xts,1)   #not needed if using valid raw/scale/model vars [field provided]
   tmp.xts <- tmp.xts*tmp.xts
@@ -405,6 +407,7 @@ calc_vlty <- function(ve.xts,coln,field=NULL,window=60,first_pass=TRUE) { #take 
     eval(parse(text=cmd_string))
   } else if (coln == 0) {
     var.env$col.xts <- tmp.xts
+    if (first_pass) print("var.env$col.xts <- tmp.xts")
   } else {
     cmd_string <- paste0(ve.xts," <- cbind(",ve.xts,",tmp.xts)")
     if (first_pass) print(cmd_string)
@@ -745,7 +748,7 @@ calc_rank <- function(ve.xts,coln,qcount,first_pass=FALSE) {
 make_vars <- function(vd = NULL) {
   if (!is.null(vd)) if (vd$ID <= 0) vd <- NULL 
   make_vcom <- is.null(vd)
-  first_pass <- TRUE
+  first_pass <- FALSE
   #if (com.env$verbose) 
   #print(paste("make_vars",make_vcom))
   if (make_vcom) {
@@ -874,8 +877,8 @@ make_vars <- function(vd = NULL) {
 calc_vd <- function(vd) { #for use in computing MU,ADJRET,VLTY  #appended to each var.env$ticker xts object
   print("calc VD")
   print(paste("calc_vd",vd$name,vd$math[1]))
-  first_pass <- FALSE
-  #print("starting stk loop")
+  first_pass <- TRUE
+  print("starting stk loop")
   for (stk in 1:(com.env$stx+com.env$cmns)) {
     #print(stk)
     ticker <- com.env$stx_list[stk]
@@ -948,31 +951,31 @@ mu_calc <- function(mu_col_name,index=0) {
   stk_matrix("var.env",mu_col_name,index)
 }
 
-adjret_calc <- function() {
-  print("In adjret_calc")
-  V1 <- NULL
-  V1$col <- 1
-  V1$bins <- 1
-  V1$name <- "ADJRET"
-  V1$clu <- "ADJRET"
-  V1$calc_cmn <- FALSE
-  V1$math[1] <- "calc_adjret,'.Adjusted'"
-  calc_vd(V1)
-  stk_matrix("var.env","ADJRET")
-}
-
-vlty_calc <- function() {
-  print("In vlty_calc")
-  V1 <- NULL
-  V1$col <- 1
-  V1$bins <- 1
-  V1$name <- "VLTY"
-  V1$clu <- "VLTY"
-  V1$calc_cmn <- FALSE
-  V1$math[1] <- "calc_vlty,'ADJRET',window=250"
-  calc_vd(V1)
-  stk_matrix("var.env","VLTY")
-}
+# adjret_calc <- function() {
+#   print("In adjret_calc")
+#   V1 <- NULL
+#   V1$col <- 1
+#   V1$bins <- 1
+#   V1$name <- "ADJRET"
+#   V1$clu <- "ADJRET"
+#   V1$calc_cmn <- FALSE
+#   V1$math[1] <- "calc_adjret,'.Adjusted'"
+#   calc_vd(V1)
+#   stk_matrix("var.env","ADJRET")
+# }
+# 
+# vlty_calc <- function() {
+#   print("In vlty_calc")
+#   V1 <- NULL
+#   V1$col <- 1
+#   V1$bins <- 1
+#   V1$name <- "VLTY"
+#   V1$clu <- "VLTY"
+#   V1$calc_cmn <- FALSE
+#   V1$math[1] <- "calc_vlty,'ADJRET',window=250"
+#   calc_vd(V1)
+#   stk_matrix("var.env","VLTY")
+# }
 
 make_mu <- function() {
   print("In make_mu")
@@ -1033,6 +1036,7 @@ calc_adjusted_HLOJRlD <- function(symbol_list) {
     de.Volume <- paste0(df,"[,'",ticker,".Volume']")
     de.D <- paste0(df,"[,'",ticker,".D']")
     de.V <- paste0(df,"$",ticker,".","V")
+    de.ADJRET <- paste0(df,"[,'",ticker,".ADJRET']")
     shout <- paste0("shout_table[,",ticker,"]")
     
     #adjusting HLO with adjusted Close
@@ -1087,7 +1091,7 @@ calc_adjusted_HLOJRlD <- function(symbol_list) {
     
 #    V1$math[1] <- "calc_vlty,'ADJRET',window=250"
 #    calc_vlty <- function(ve.xts,coln,field=NULL,window=60,first_pass=FALSE) { #take vlty of field (in var.env) and append as last column
-    cmd_string <- paste0("tmp.xts <- xts(apply(",de.adjc,",2,runSD,n=com.env$vlty_window), index(",df,"))")
+    cmd_string <- paste0("tmp.xts <- xts(apply(",de.ADJRET,",2,runSD,n=com.env$vlty_window), index(",df,"))")
     if (first_pass) print(cmd_string)
     eval(parse(text=cmd_string))
     tmp.xts <- stats::lag(tmp.xts,1)   #not needed if using valid raw/scale/model vars [field provided]
@@ -1113,6 +1117,26 @@ calc_adjusted_HLOJRlD <- function(symbol_list) {
       eval(parse(text=cmd_string))
     }
     
+    #Low Liquidity / High Liquidity Binning
+    x <- c(com.env$ll_bin,com.env$hl_bin)
+    y <- c(1,0)
+    cmd_string <- paste0("ll.xts <- approx(x,y,",de.V,",yleft=1,yright=0)$y")
+    if (first_pass) print(cmd_string)
+    eval(parse(text=cmd_string))
+    y <- c(0,1)
+    cmd_string <- paste0("hl.xts <- approx(x,y,",de.V,",yleft=0,yright=1)$y")
+    if (first_pass) print(cmd_string)
+    eval(parse(text=cmd_string))
+    cmd_string <- paste0(df," <- cbind(",df,",ll.xts,hl.xts)")
+    eval(parse(text=cmd_string))
+    cmd_string <- paste0("colnames(",df,")[length(colnames(",df,"))-1] <- '",ticker,".ll_wts'")
+    if (first_pass) print(cmd_string)
+    eval(parse(text=cmd_string))
+    cmd_string <- paste0("colnames(",df,")[length(colnames(",df,"))] <- '",ticker,".hl_wts'")
+    if (first_pass) print(cmd_string)
+    eval(parse(text=cmd_string))
+    
+
     first_pass <- FALSE
   }
 }
