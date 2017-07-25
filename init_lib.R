@@ -243,7 +243,6 @@ load_stock_history <- function(stx_list.old) {
   if(is.null(stx_list.old)){
     for(ticker in com.env$stx_list){
       cmd_line <- paste0("data.env$",ticker," <- Quandl('EOD/",ticker,"', type = 'xts',start_date = '",com.env$start_date,"',end_date = '",com.env$end_date,"')")
-      print(cmd_line)
       eval(parse(text = cmd_line))
       names <- c(paste0(ticker,".Open"),paste0(ticker,".High"),paste0(ticker,".Low"),paste0(ticker,".Close"),paste0(ticker,".Volume"),"Dividend","Split",paste0(ticker,".Adjusted"),"Adj_High","Adj_Low","Adj_Close","Adj_Volume")
       cmd_line <- paste0("names(data.env$",ticker,") <- names")
