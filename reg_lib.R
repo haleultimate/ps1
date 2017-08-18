@@ -58,11 +58,11 @@ opt_model <- function(model_loops,mod_var_loops) {
       if (finish_mod_loop(mod_var("model"))) break  #try a random model var mod
     }
     print(paste("Mod Loops attempted:",current_mod_loop,"/",mod_var_loops,",",length(com.env$best_clu_names),com.env$best_adj_r2,Sys.time()))
-    if (any(grepl("\\.",colnames(var.env$BAC)))) {
-      print(colnames(var.env$BAC))
-      print("after mod_loop")
-      source("close_session.R")
-    }
+    # if (any(grepl("\\.",colnames(var.env$BAC)))) {
+    #   print(colnames(var.env$BAC))
+    #   print("after mod_loop")
+    #   source("close_session.R")
+    # }
     
     opt_var_selection()
 
@@ -235,6 +235,10 @@ eval_adj_r2 <- function(mod_pair=NULL,oos_data=FALSE,sim_data=FALSE,verbose=FALS
   } else {                     #run_mod_regression        
     new_reg_names <- get_mod_reg_names(mod_list)
     collect_data(oos_data=oos_data,sim_data=sim_data,reg_names=new_reg_names)
+    if ("ll_wts" %in% new_reg_names) {
+      print("Warning: ll_wts in new_reg_names*******************************")
+      print(com.env$clu_names)
+    }
     run_mod_regression(new_reg_names)  #run single regression with forced vars (using replaced longID_names where needed)
   }
   new_adj_r2 <- 0
@@ -366,16 +370,26 @@ get_mod_reg_names <- function(mod_list) {
 #if oos_data == TRUE run stats on out-of-sampe data [contained in var.env$ret_data.df]
 run_regression <- function(oos_data = FALSE,sim_data = FALSE, verbose = FALSE) {
   print(paste("run full regression",ncol(var.env$reg_data.df),Sys.time(),oos_data,sim_data))
-  if (!is.null(com.env$best_clu_names)) {
-    for (var_name in com.env$best_clu_names) if (substr(var_name,1,1)=="v") {
-      print("ERROR in run_regression com.env$best_clu_names contains long ID names")
-    }
-  } 
+  # if (!is.null(com.env$best_clu_names)) {
+  #   for (var_name in com.env$best_clu_names) if (substr(var_name,1,1)=="v") {
+  #     print("ERROR in run_regression com.env$best_clu_names contains long ID names")
+  #   }
+  # } 
   if (ncol(var.env$reg_data.df) > 2) {
+    rm_list <- -1
+    if (com.env$liqx) {
+      #print(colnames(var.env$sim_data.df))
+      rm_list <- c(rm_list,-which(colnames(var.env$reg_data.df)=="ll_wts"))
+      rm_list <- c(rm_list,-which(colnames(var.env$reg_data.df)=="hl_wts"))
+      #print(which(colnames(var.env$reg_data.df)=="ll_wts"))
+      #print(which(colnames(var.env$reg_data.df)=="hl_wts"))
+      #print(paste("rm_list=",rm_list)) 
+      #print(colnames(var.env$reg_data.df[,rm_list]))
+    } 
     if (is.null(com.env$best_clu_names)) {
-      keep.dat <- vif_func(var.env$reg_data.df[,-1],thresh=10,trace=FALSE)
+      keep.dat <- vif_func(var.env$reg_data.df[,rm_list],thresh=10,trace=FALSE)
     } else {
-      keep.dat <- vif_func(var.env$reg_data.df[,-1],keep=com.env$best_clu_names,thresh=10,trace=FALSE) #don't include predict.ret
+      keep.dat <- vif_func(var.env$reg_data.df[,rm_list],keep=com.env$best_clu_names,thresh=10,trace=FALSE) #don't include predict.ret
     }
     remove_vars <- colnames(var.env$reg_data.df[,-1])[!(colnames(var.env$reg_data.df[,-1]) %in% keep.dat)]
     if (length(remove_vars)==0) remove_vars <- "none"
@@ -385,12 +399,36 @@ run_regression <- function(oos_data = FALSE,sim_data = FALSE, verbose = FALSE) {
       print(com.env$best_clu_names)
     }
     keep.dat <- append(colnames(var.env$reg_data.df)[1],keep.dat)
+    if (com.env$liqx & ("ll_wts" %in% colnames(var.env$reg_data.df))) {
+      keep.dat <- c(keep.dat,"ll_wts","hl_wts")
+      #print(keep.dat)
+    }
     var.env$reg_data.df <- var.env$reg_data.df[,keep.dat]
+    rm_list <- -1
+    if (com.env$liqx) {
+      #print(colnames(var.env$sim_data.df))
+      rm_list <- c(rm_list,-which(colnames(var.env$reg_data.df)=="ll_wts"))
+      rm_list <- c(rm_list,-which(colnames(var.env$reg_data.df)=="hl_wts"))
+      #print(which(colnames(var.env$reg_data.df)=="ll_wts"))
+      #print(which(colnames(var.env$reg_data.df)=="hl_wts"))
+      #print(paste("rm_list=",rm_list)) 
+      #print(colnames(var.env$reg_data.df[,rm_list]))
+    } 
   }
   #run_regression
   form1 <- as.formula(paste(colnames(var.env$reg_data.df)[1],"~ 1"))
   null <- lm(form1,data=var.env$reg_data.df)
-  form2 <- as.formula(paste(colnames(var.env$reg_data.df)[1],"~ ."))
+  if (com.env$liqx) {
+    dep_str <- colnames(var.env$reg_data.df)[1]
+    ind_str <- paste(colnames(var.env$reg_data.df[,rm_list]),collapse = " + ")
+    #print(paste(dep_str,"~",ind_str))
+    #print(colnames(var.env$reg_data.df[,rm_list]))
+    #print(rm_list)
+    form2 <- as.formula(paste(dep_str,"~",ind_str))
+  } else {
+    form2 <- as.formula(paste(colnames(var.env$reg_data.df)[1],"~ ."))
+  }
+  #print(form2)
   reg.model <- lm(form2,data=var.env$reg_data.df)
   com.env$model.current <- model.select(reg.model,sig=com.env$sig,verbose=FALSE)
   if (length(com.env$model.current) == 0) {
@@ -399,14 +437,18 @@ run_regression <- function(oos_data = FALSE,sim_data = FALSE, verbose = FALSE) {
   } else {
     com.env$adj_r2 <- summary(com.env$model.current)$adj.r.squared
     com.env$clu_names <- names(com.env$model.current$coefficients)[-1]
+    if ("ll_wts" %in% com.env$clu_names) {
+      print("Warning: ll_wts in run_regression model coefficients*******************************")
+      print(com.env$clu_names)
+    }
     if (sim_data) {
       sim_stats <- calc.r2(com.env$model.current,var.env$sim_data.df)
       cat("r2",sim_stats$rsq,"r20",sim_stats$rsq0,"cor",sim_stats$cor,"\n")
       cat("mse",sim_stats$mse,"mean",sim_stats$mean,"wpct",sim_stats$winpct,"\n")
-      print("reversing sign on regression model")
-      sim_stats <- calc.r2(com.env$model.current,var.env$sim_data.df,reverse=TRUE)
-      cat("r2",sim_stats$rsq,"r20",sim_stats$rsq0,"cor",sim_stats$cor,"\n")
-      cat("mse",sim_stats$mse,"mean",sim_stats$mean,"wpct",sim_stats$winpct,"\n")
+      #print("reversing sign on regression model")
+      #sim_stats <- calc.r2(com.env$model.current,var.env$sim_data.df,reverse=TRUE)
+      #cat("r2",sim_stats$rsq,"r20",sim_stats$rsq0,"cor",sim_stats$cor,"\n")
+      #cat("mse",sim_stats$mse,"mean",sim_stats$mean,"wpct",sim_stats$winpct,"\n")
     }
   }
   #print(paste("end regression",com.env$adj_r2,Sys.time()))
@@ -426,14 +468,39 @@ run_mod_regression <- function(reg_vars) {
   } else {
     com.env$adj_r2 <- summary(com.env$model.current)$adj.r.squared
     com.env$clu_names <- names(com.env$model.current$coefficients)[-1]
+    if ("ll_wts" %in% com.env$clu_names) {
+      print("Warning: ll_wts in run_mod_regression model coefficients*******************************")
+      print(com.env$clu_names)
+    }
   }
   return(com.env$adj_r2)
 }
+
+#run_wt_regression takes in data frame var.env$reg_data.df (with ll_wts,hl_wts), a list of reg_vars, and runs weighted regression
+#called from run_sim [in port_opt.R
+#set com.env$adj_r2, com.env$clu_names, com.env$model.current
+run_wt_regression <- function(reg_vars) {
+  #print(paste("Run_mod_regression",Sys.time()))
+  f <- as.formula(paste(colnames(var.env$reg_data.df)[1],paste(reg_vars,collapse=" + "),sep=" ~ "))
+  com.env$model.ll <- lm(formula=f,data=var.env$reg_data.df,weights=ll_wts)
+  com.env$model.hl <- lm(formula=f,data=var.env$reg_data.df,weights=hl_wts)
+  # if (length(com.env$model.current) == 0) {
+  #   print("All variables left model")
+  #   com.env$adj_r2 <- 0
+  # } else {
+  #   com.env$adj_r2 <- summary(com.env$model.current)$adj.r.squared
+  #   com.env$clu_names <- names(com.env$model.current$coefficients)[-1]
+  # }
+  # return(com.env$adj_r2)
+}
+
 
 #collect_data gathers data for regression
 #takes data from each stock in var.env and places into a single data frame [var.env$reg_data.df]
 #if oos_data == TRUE include out-of-sample data in var.env$reg_data.df
 collect_data <- function (oos_data = FALSE, sim_data = FALSE, reg_names = NULL) {
+  #print(paste("in_collect data",oos_data,sim_data))
+  #print(reg_names)
   if (is.null(reg_names)) {
     vvars <- NULL
     #com.env$name2vcomnum <- NULL
@@ -474,9 +541,33 @@ collect_data <- function (oos_data = FALSE, sim_data = FALSE, reg_names = NULL) 
   var.env$reg_data.df <- NULL
   if (oos_data) var.env$oos_data.df <- NULL
   if (sim_data) var.env$sim_data.df <- NULL
+  if (com.env$liqx & sim_data) {
+    df_list <- "c(allmodelvars,'ll_wts','hl_wts')"
+  } else {
+    df_list <- "allmodelvars"
+  }
   #print(allmodelvars)
+  first_pass <- FALSE
   for (i in 1:com.env$stx) {
     ticker <- com.env$stx.symbols[i]
+    #print(paste("Ticker:",ticker))
+    if (com.env$liqx & sim_data) {
+      cmd_string <- paste0("ll.xts <- data.env$",ticker,"[,'",ticker,".ll_wts'] * com.env$date_wts")
+      if (first_pass) print(cmd_string)
+      eval(parse(text=cmd_string))
+      cmd_string <- paste0("hl.xts <- data.env$",ticker,"[,'",ticker,".hl_wts'] * com.env$date_wts")
+      if (first_pass) print(cmd_string)
+      eval(parse(text=cmd_string))
+      cmd_string <- paste0("var.env$",ticker," <- cbind(var.env$",ticker,",ll.xts,hl.xts)")
+      if (first_pass) print(cmd_string)
+      eval(parse(text=cmd_string))
+      cmd_string <- paste0("colnames(var.env$",ticker,")[length(colnames(var.env$",ticker,"))] <- 'hl_wts'")
+      if (first_pass) print(cmd_string)
+      eval(parse(text=cmd_string))
+      cmd_string <- paste0("colnames(var.env$",ticker,")[length(colnames(var.env$",ticker,"))-1] <- 'll_wts'")
+      if (first_pass) print(cmd_string)
+      eval(parse(text=cmd_string))
+    }
     # cmn_ticker <- com.env$cmn_lookup[ticker]
     # cmd_string <- paste("cmn_start_date <- index(data.env$",cmn_ticker,"[",com.env$days2remove,",])",sep="")
     # eval(parse(text=cmd_string))
@@ -489,20 +580,24 @@ collect_data <- function (oos_data = FALSE, sim_data = FALSE, reg_names = NULL) 
     if (max_start_date > as.Date(com.env$reg_end_date)) next()
     cmd_string <- paste("end_idx <- which(as.Date(com.env$reg_end_date) == index(var.env$",ticker,"))",sep="")
     eval(parse(text=cmd_string))
-    subset_string <- paste("var.env$",ticker,"[",start_idx,":",end_idx,",allmodelvars]",sep="")
-    cmd_string <- paste("var.env$reg_data.df <- bind_rows(var.env$reg_data.df,as.data.frame(",subset_string,"))",sep="")
-    #print(cmd_string)
+    subset_string <- paste0("var.env$",ticker,"[",start_idx,":",end_idx,",",df_list,"]")
+    cmd_string <- paste0("var.env$reg_data.df <- bind_rows(var.env$reg_data.df,as.data.frame(",subset_string,"))")
+    if (sim_data & first_pass) print(cmd_string)
     eval(parse(text=cmd_string))
+    if (sim_data & first_pass) print(colnames(var.env$reg_data.df))
     if (oos_data) {
-      subset_string <- paste("var.env$",ticker,"[com.env$oos_date_range,allmodelvars]",sep="")
+      subset_string <- paste0("var.env$",ticker,"[com.env$oos_date_range,",df_list,"]")
       cmd_string <- paste("var.env$oos_data.df <- bind_rows(var.env$oos_data.df,as.data.frame(",subset_string,"))",sep="")
       eval(parse(text=cmd_string))
     }
     if (sim_data) {
-      subset_string <- paste("var.env$",ticker,"[com.env$sim_date_range,allmodelvars]",sep="")
-      cmd_string <- paste("var.env$sim_data.df <- bind_rows(var.env$sim_data.df,as.data.frame(",subset_string,"))",sep="")
+      subset_string <- paste0("var.env$",ticker,"[com.env$sim_date_range,",df_list,"]")
+      #print(paste("Ticker:",ticker))
+      cmd_string <- paste0("var.env$sim_data.df <- bind_rows(var.env$sim_data.df,as.data.frame(",subset_string,"))")
+      if (first_pass) print(cmd_string)
       eval(parse(text=cmd_string))
     }
+    first_pass <- FALSE
   }
 }
 

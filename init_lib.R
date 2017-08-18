@@ -1,12 +1,12 @@
 #init_lib.R
 #parms that should be changed by user manually to control run_ps.R behavior
 set_control_parms <- function() {
-  com.env$model_loops <- 5
+  com.env$model_loops <- 3
   
-  com.env$add_var_levels <- c(10,15,20,30)
-  com.env$opt_model <- FALSE
-  com.env$load_vars <- FALSE
-  com.env$load_model <- TRUE
+  com.env$add_var_levels <- c(5,10)#,15,20,30)
+  com.env$opt_model <- TRUE
+  com.env$load_vars <- TRUE
+  com.env$load_model <- FALSE
   com.env$save_model <- FALSE
   com.env$save_var_n <- 0
   com.env$look_forward <- 5
@@ -47,7 +47,7 @@ set_control_parms <- function() {
   }
   com.env$ll_bin <- -2.
   com.env$hl_bin <- 2.
-  com.env$liqx <- FALSE
+  com.env$liqx <- TRUE
   com.env$verbose <- FALSE
   com.env$vlty_window <- 250
   #com.env$var_names <- NULL
@@ -119,7 +119,22 @@ set_opt_type_settings <- function() {
   com.env$reg_start_date <- as.POSIXct("2004-07-01 UTC")
   com.env$reg_end_date <- as.POSIXct("2011-12-30 UTC")
   com.env$reg_date_range <- paste(com.env$reg_start_date,com.env$reg_end_date,sep="/")
-  
+  cmd_string <- paste0("com.env$reg_date_index <- index(data.env$",com.env$stx_list[1],"[com.env$reg_date_range])")   #hard coded to first stock
+  #print(cmd_string)
+  eval(parse(text=cmd_string))
+  com.env$sim_start_date <- as.POSIXct("2012-01-01 UTC")
+  com.env$sim_end_date <- as.POSIXct("2012-12-31 UTC")
+  com.env$sim_date_range <- paste(com.env$sim_start_date,com.env$sim_end_date,sep="/")
+  cmd_string <- paste0("com.env$sim_date_index <- index(data.env$",com.env$stx_list[1],"[com.env$sim_date_range])")   #hard coded to first stock
+  #print(cmd_string)
+  eval(parse(text=cmd_string))
+  com.env$total_date_range <- paste(com.env$reg_start_date,com.env$sim_end_date,sep="/")
+  cmd_string <- paste0("com.env$total_date_index <- index(data.env$",com.env$stx_list[1],"[com.env$total_date_range])")   #hard coded to first stock
+  #print(cmd_string)
+  eval(parse(text=cmd_string))  #reg_date_index used for final regression run [not same reg_date_range for single_oos]
+  com.env$date_decay = 0.9998
+  com.env$date_wts <- xts(x=rep(1,length(com.env$total_date_index)),order.by=com.env$total_date_index)
+  for (i in (length(com.env$reg_date_index)-1):1) com.env$date_wts[i] = com.env$date_wts[i+1]*com.env$date_decay
   switch(com.env$opt_type,
          "adjr2_is" = {
            com.env$sig <- 0.001
@@ -169,13 +184,6 @@ set_opt_type_settings <- function() {
           source("close_session.R")}
   )
   #if (com.env$run_sim) {
-    com.env$sim_start_date <- as.POSIXct("2012-01-01 UTC")
-    com.env$sim_end_date <- as.POSIXct("2012-12-31 UTC")
-    com.env$sim_date_range <- paste(com.env$sim_start_date,com.env$sim_end_date,sep="/")
-    #print(com.env$sim_date_range)
-    cmd_string <- paste0("com.env$sim_date_index <- index(data.env$",com.env$stx_list[1],"[com.env$sim_date_range])")   #hard coded to first stock
-    #print(cmd_string)
-    eval(parse(text=cmd_string))
     #print(com.env$sim_date_index)
   #}
 }

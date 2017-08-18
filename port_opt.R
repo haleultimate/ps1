@@ -2,12 +2,20 @@
 #then reverses expectations and reruns portfolio optimization
 run_sim <- function() {
   print("run_sim")
+  print(com.env$clu_names)
   make_mu()       #calc MU,VLTY,ADJRET for each var.env xts object
   print(paste("Total equity:",com.env$init_equity))
   for (alpha_wt in c(16000)) {
     com.env$alpha_wt <- alpha_wt
     print(paste("alpha_wt:",com.env$alpha_wt))
-    lp_sim("MU",com.env$stx.symbols,com.env$sim_date_index,com.env$port_size_mult*length(com.env$stx.symbols),plot_profit=TRUE)      #source("blotter_sim.R") #run sim, plot daily profit
+    lp_sim("MU",com.env$stx.symbols,com.env$sim_date_index,com.env$port_size_mult*length(com.env$stx.symbols),plot_profit=TRUE)      #run sim, plot daily profit
+  }
+  if (com.env$liqx) {
+    make_mu_liqx()
+    lp_sim("MU_liqx",com.env$stx.symbols,com.env$sim_date_index,com.env$port_size_mult*length(com.env$stx.symbols),plot_profit=TRUE)      #run sim, plot daily profit
+    sim_stats <- calc.r2(com.env$model.current,var.env$sim_data.df)
+    cat("r2",sim_stats$rsq,"r20",sim_stats$rsq0,"cor",sim_stats$cor,"\n")
+    cat("mse",sim_stats$mse,"mean",sim_stats$mean,"wpct",sim_stats$winpct,"\n")
   }
   #var.env$MU <- -var.env$MU
   #print("reversing MU")
