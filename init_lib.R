@@ -3,14 +3,14 @@
 set_control_parms <- function() {
   com.env$model_loops <- 3
   
-  com.env$add_var_levels <- c(5,10)#,15,20,30)
-  com.env$opt_model <- TRUE
-  com.env$load_vars <- TRUE
-  com.env$load_model <- FALSE
+  com.env$add_var_levels <- c(10,15,20,30)
+  com.env$opt_model <- FALSE
+  com.env$load_vars <- FALSE
+  com.env$load_model <- TRUE
   com.env$save_model <- FALSE
   com.env$save_var_n <- 0
   com.env$look_forward <- 5
-  com.env$model_filename <- "lf5_soos715.vcom"
+  com.env$model_filename <- "lf5_soos821.vcom"
   com.env$mod_var_loops <- 20
   com.env$opt_type <- "single_oos"  #{adjr2_is,single_oos,rolling_oos}
   com.env$run_sim <- TRUE
@@ -113,6 +113,16 @@ load_data_files <- function() {
   shout_file <- paste0(com.env$datadir,"/shout.dat")
   #if (!exists("data.env$shout_table")) 
     load(file=shout_file,envir = data.env)
+  #create fake pca array
+  #com.env$stx.symbols X pca vectors
+  sim.env$pca <- matrix(data=1,nrow=length(com.env$stx.symbols),ncol=(length(com.env$cmn.symbols)+1))
+  rownames(sim.env$pca) <- com.env$stx.symbols
+  for (i in 2:(length(com.env$cmn.symbols)+1)) { #set all stocks with same cmn to 1, all others 0
+     for (ticker in com.env$stx.symbols) {
+       #print(paste(i,ticker,com.env$cmn_lookup[[ticker]],com.env$cmn.symbols[i-1],data.env$pca[ticker,i]))
+       if (com.env$cmn_lookup[[ticker]] != com.env$cmn.symbols[i-1]) sim.env$pca[ticker,i] <- 0
+     }     
+  }
 }
 
 set_opt_type_settings <- function() {  
@@ -237,6 +247,7 @@ remove_problem_stocks <- function() {
   com.env$port_size <- com.env$init_equity <- com.env$port_size_mult*com.env$stx
   com.env$alpha_wt <- 16000
   com.env$retvlty_not_calced <- TRUE
+  sim.env$pca <- sim.env$pca[com.env$stx.symbols,]
   #print(com.env$stx_list)
 }
 
