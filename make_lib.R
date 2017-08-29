@@ -501,7 +501,7 @@ modify_scale_var <- function(V1) {
   }
   if (mod_or_delete_cap) {
     while (orig_cap==V1$math[cap_idx]) {
-      print("modify_scale_var while loop")
+      #print("modify_scale_var while loop")
       V1 <- modify_scale_var(V1)  #keep trying until a different cap is found
     }
   }

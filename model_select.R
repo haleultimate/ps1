@@ -108,13 +108,9 @@ model.select <- function(model,keep,sig=0.05,verbose=F){
 }
 
 #out of sample r2 calculation, returns test (contains $rsq,$cor)
-calc.r2 <- function(model,data.df,reverse=FALSE) {
+calc.r2 <- function(model,data.df) {
   data.df[is.na(data.df)] <- 0
-  if (reverse) {
-    predicted.model <- -predict.lm(model,newdata=data.df)
-  } else {
-    predicted.model <- predict.lm(model,newdata=data.df)
-  }
+  predicted.model <- predict.lm(model,newdata=data.df)
   test.y <- data.df[,com.env$predict.clu]
   mean.test.y <- mean(test.y)
   SS.total      <- sum((test.y - mean.test.y)^2)
@@ -277,8 +273,8 @@ drop_var_oos <- function(model,data.df) {
   names(var_r2) <- names(save_coefs)
   names(var_r2)[1] <- "none"
   sort_var_r2 <- sort(var_r2,decreasing=TRUE)
-  print(sort_var_r2)
-  cat("Var to drop:",names(sort_var_r2)[1],"\n")
+  #print(sort_var_r2)
+  #cat("Var to drop:",names(sort_var_r2)[1],"\n")
   return(names(sort_var_r2[1]))
 }
 
@@ -393,9 +389,9 @@ opt_oos_r2 <- function(recalc_vars=FALSE,recollect_data=FALSE) {
     com.env$best_vcom <- NULL
   } else {
     #check sim data stats
-    sim_r2 <- calc.r2(best_model,var.env$sim_data.df)
-    cat("r2",sim_r2$rsq,"r20",sim_r2$rsq0,"cor",sim_r2$cor,"\n")
-    cat("mse",sim_r2$mse,"mean",sim_r2$mean,"wpct",sim_r2$winpct,"\n")
+    #sim_r2 <- calc.r2(best_model,var.env$sim_data.df)
+    #cat("r2",sim_r2$rsq,"r20",sim_r2$rsq0,"cor",sim_r2$cor,"\n")
+    #cat("mse",sim_r2$mse,"mean",sim_r2$mean,"wpct",sim_r2$winpct,"\n")
     #update best_vars
     com.env$best_adj_r2 <- summary(best_model)$adj.r.squared
     com.env$best_clu_names <- reg_vars

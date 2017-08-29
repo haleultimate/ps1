@@ -914,7 +914,7 @@ calc_vd <- function(vd) { #for use in computing MU,ADJRET,VLTY  #appended to eac
 }
 
 stk_matrix <- function(env_name,type,index=0) {
-  print(paste("stk_oos_matrix",env_name,type,index))
+  print(paste("stk_matrix",env_name,type,index))
   col_lu <- type
   orig_col_lu <- col_lu
   if (index != 0) {type = paste0(type,index)}
@@ -1017,6 +1017,59 @@ make_mu <- function() {
     }
   }
 }  
+
+mu_liqx_calc <- function(mu_col_name,index=0) {
+  print(paste("In mu_liqx_calc",mu_col_name))
+  V1 <- NULL
+  V1$col <- 1
+  V1$bins <- 1
+  V1$name <- mu_col_name
+  V1$clu <- mu_col_name
+  V1$calc_cmn <- FALSE
+  if (mu_col_name == "MU_ll") {
+    V1$math[1] <- "calc_prediction,'com.env$model.ll'"
+  } else if (mu_col_name == "MU_hl") {
+    V1$math[1] <- "calc_prediction,'com.env$model.hl'"
+  } else {
+    print(paste("Error in mu_liqx_calc, mu_col_name unknown:",mu_col_name))
+    source("close_session.R")
+  }    
+  calc_vd(V1)
+  #stk_matrix("var.env",mu_col_name,index)
+}
+
+make_mu_liqx <- function() {
+  print("In make_mu_liqx")
+  #check_vcom(com.env$v.com,"In make_mu_liqx")
+  print("run weighted regression with liquidity cross")
+  run_wt_regression(com.env$clu_names)
+  #if (com.env$save_var_n == 0) {  #if saving vars model evaluation has already been done
+  #  print(paste("Evaluating 1st model in make_mu",Sys.time()))
+  #  eval_adj_r2(sim_data=TRUE)
+  #}
+  mu_liqx_calc("MU_ll")
+  mu_liqx_calc("MU_hl")
+  #stk_matrix("data.env","ADJRET")
+  #stk_matrix("data.env","VLTY")
+  first_pass <- FALSE
+  for (ticker in com.env$stx_list) {
+    is.cmn <- (com.env$cmn_lookup[[ticker]] == 'cmn')
+    if (is.cmn) next                           #nothing to compute in cmn
+    array_str <- paste0("var.env$",ticker)
+    cmd_str <- paste0("MU_liqx <- ",array_str,"[,'ll_wts']*",array_str,"[,'MU_ll'] + ",array_str,"[,'hl_wts']*",array_str,"[,'MU_hl']")
+    if (first_pass) print(cmd_str)
+    eval(parse(text=cmd_str))
+    cmd_str <- paste(array_str," <- cbind(",array_str,",MU_liqx)")
+    if (first_pass) print(cmd_str)
+    eval(parse(text=cmd_str))
+    cmd_str <- paste0("colnames(",array_str,")[ncol(",array_str,")] <- 'MU_liqx'")
+    if (first_pass) print(cmd_str)
+    eval(parse(text=cmd_str))
+    first_pass <- FALSE
+  }
+  stk_matrix("var.env","MU_liqx",0)
+}
+  
   
 #function pre-calculates adjusted prices and dollars in data environment, used once per data load
 calc_adjusted_HLOJRlD <- function(symbol_list) {

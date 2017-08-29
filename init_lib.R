@@ -1,7 +1,11 @@
 #init_lib.R
 #parms that should be changed by user manually to control run_ps.R behavior
 set_control_parms <- function() {
+<<<<<<< HEAD
   com.env$model_loops <- 50
+=======
+  com.env$model_loops <- 3
+>>>>>>> 258de89668b2134fa33f6a8498a4bfaafebb120e
   
   com.env$add_var_levels <- c(10,15,20,30)
   com.env$opt_model <- FALSE
@@ -10,7 +14,7 @@ set_control_parms <- function() {
   com.env$save_model <- FALSE
   com.env$save_var_n <- 0
   com.env$look_forward <- 5
-  com.env$model_filename <- "lf5_soos715.vcom"
+  com.env$model_filename <- "lf5_soos821.vcom"
   com.env$mod_var_loops <- 20
   com.env$opt_type <- "single_oos"  #{adjr2_is,single_oos,rolling_oos}
   com.env$run_sim <- TRUE
@@ -47,7 +51,7 @@ set_control_parms <- function() {
   }
   com.env$ll_bin <- -2.
   com.env$hl_bin <- 2.
-  com.env$liqx <- FALSE
+  com.env$liqx <- TRUE
   com.env$verbose <- FALSE
   com.env$vlty_window <- 250
   #com.env$var_names <- NULL
@@ -113,13 +117,38 @@ load_data_files <- function() {
   shout_file <- paste0(com.env$datadir,"/shout.dat")
   #if (!exists("data.env$shout_table")) 
     load(file=shout_file,envir = data.env)
+  #create fake pca array
+  #com.env$stx.symbols X pca vectors
+  sim.env$pca <- matrix(data=1,nrow=length(com.env$stx.symbols),ncol=(length(com.env$cmn.symbols)+1))
+  rownames(sim.env$pca) <- com.env$stx.symbols
+  for (i in 2:(length(com.env$cmn.symbols)+1)) { #set all stocks with same cmn to 1, all others 0
+     for (ticker in com.env$stx.symbols) {
+       #print(paste(i,ticker,com.env$cmn_lookup[[ticker]],com.env$cmn.symbols[i-1],data.env$pca[ticker,i]))
+       if (com.env$cmn_lookup[[ticker]] != com.env$cmn.symbols[i-1]) sim.env$pca[ticker,i] <- 0
+     }     
+  }
 }
 
 set_opt_type_settings <- function() {  
   com.env$reg_start_date <- as.POSIXct("2004-07-01 UTC")
   com.env$reg_end_date <- as.POSIXct("2011-12-30 UTC")
   com.env$reg_date_range <- paste(com.env$reg_start_date,com.env$reg_end_date,sep="/")
-  
+  cmd_string <- paste0("com.env$reg_date_index <- index(data.env$",com.env$stx_list[1],"[com.env$reg_date_range])")   #hard coded to first stock
+  #print(cmd_string)
+  eval(parse(text=cmd_string))
+  com.env$sim_start_date <- as.POSIXct("2012-01-01 UTC")
+  com.env$sim_end_date <- as.POSIXct("2012-12-31 UTC")
+  com.env$sim_date_range <- paste(com.env$sim_start_date,com.env$sim_end_date,sep="/")
+  cmd_string <- paste0("com.env$sim_date_index <- index(data.env$",com.env$stx_list[1],"[com.env$sim_date_range])")   #hard coded to first stock
+  #print(cmd_string)
+  eval(parse(text=cmd_string))
+  com.env$total_date_range <- paste(com.env$reg_start_date,com.env$sim_end_date,sep="/")
+  cmd_string <- paste0("com.env$total_date_index <- index(data.env$",com.env$stx_list[1],"[com.env$total_date_range])")   #hard coded to first stock
+  #print(cmd_string)
+  eval(parse(text=cmd_string))  #reg_date_index used for final regression run [not same reg_date_range for single_oos]
+  com.env$date_decay = 0.9998
+  com.env$date_wts <- xts(x=rep(1,length(com.env$total_date_index)),order.by=com.env$total_date_index)
+  for (i in (length(com.env$reg_date_index)-1):1) com.env$date_wts[i] = com.env$date_wts[i+1]*com.env$date_decay
   switch(com.env$opt_type,
          "adjr2_is" = {
            com.env$sig <- 0.001
@@ -169,13 +198,6 @@ set_opt_type_settings <- function() {
           source("close_session.R")}
   )
   #if (com.env$run_sim) {
-    com.env$sim_start_date <- as.POSIXct("2012-01-01 UTC")
-    com.env$sim_end_date <- as.POSIXct("2012-12-31 UTC")
-    com.env$sim_date_range <- paste(com.env$sim_start_date,com.env$sim_end_date,sep="/")
-    #print(com.env$sim_date_range)
-    cmd_string <- paste0("com.env$sim_date_index <- index(data.env$",com.env$stx_list[1],"[com.env$sim_date_range])")   #hard coded to first stock
-    #print(cmd_string)
-    eval(parse(text=cmd_string))
     #print(com.env$sim_date_index)
   #}
 }
@@ -229,6 +251,7 @@ remove_problem_stocks <- function() {
   com.env$port_size <- com.env$init_equity <- com.env$port_size_mult*com.env$stx
   com.env$alpha_wt <- 16000
   com.env$retvlty_not_calced <- TRUE
+  sim.env$pca <- sim.env$pca[com.env$stx.symbols,]
   #print(com.env$stx_list)
 }
 

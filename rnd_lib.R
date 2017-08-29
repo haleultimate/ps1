@@ -29,7 +29,7 @@ set_name = function(V1,vdlist=NULL) {
                V1$var_name <- "uC"
                IDPart <- "4703"
              } else {
-               if (parms=="'Adjusted'") {
+               if (parms=="'Adjusted'" | parms=="'.Adjusted") {
                  V1$var_name <- "C"
                } else {
                  V1$var_name <- gsub("'","",parms)
