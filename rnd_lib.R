@@ -820,7 +820,7 @@ sample_vars <- function() {
   cmd_string <- paste0("rnd.env$vs.com$",V1$var_name," <- V1")   
   eval(parse(text=cmd_string))
 
-  #yesterday's shout
+  #yesterday's div
   V1 <- NULL
   V1$type <- "sdata"
   V1$requires <- NULL
@@ -833,7 +833,7 @@ sample_vars <- function() {
   cmd_string <- paste0("rnd.env$vs.com$",V1$var_name," <- V1")   
   eval(parse(text=cmd_string))
 
-  #yesterday's shout
+  #yesterday's price
   V1 <- NULL
   V1$type <- "sdata"
   V1$requires <- c("B")

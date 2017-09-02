@@ -499,7 +499,7 @@ run_wt_regression <- function(reg_vars) {
 #takes data from each stock in var.env and places into a single data frame [var.env$reg_data.df]
 #if oos_data == TRUE include out-of-sample data in var.env$reg_data.df
 collect_data <- function (oos_data = FALSE, sim_data = FALSE, reg_names = NULL) {
-  #print(paste("in_collect data",oos_data,sim_data))
+  print(paste("in_collect data",oos_data,sim_data))
   #print(reg_names)
   if (is.null(reg_names)) {
     vvars <- NULL
@@ -514,25 +514,6 @@ collect_data <- function (oos_data = FALSE, sim_data = FALSE, reg_names = NULL) 
         }
       }
     }
-    #for (i in 1:length(com.env$v.com)) {
-    #  vvars[i] <- (com.env$v.com[[i]]$use == "model")
-    #  if (vvars[i]) {
-    #    if (length(com.env$v.com[[i]]$name) == 1) {
-    #      com.env$name2vcomnum <- c(com.env$name2vcomnum,i)
-    #      names(com.env$name2vcomnum)[length(com.env$name2vcomnum)] <- com.env$v.com[[i]]$name 
-    #    } else {
-    #      for (nam in com.env$v.com[[i]]$name) {
-    #        com.env$name2vcomnum <- c(com.env$name2vcomnum,i)
-    #        names(com.env$name2vcomnum)[length(com.env$name2vcomnum)] <- nam 
-    #      }
-    #    }
-    #  }
-    #vvars <- which(vvars)
-    #for (i in vvars) {
-    #  cn <- com.env$v.com[[i]]$col
-    #  clist <- c(cn:(cn-1+length(com.env$v.com[[i]]$name)))
-    #  allmodelvars <- append(allmodelvars,clist)
-    #}
   } else {
     allmodelvars <- c(com.env$predict.clu,reg_names)
   }
@@ -574,11 +555,14 @@ collect_data <- function (oos_data = FALSE, sim_data = FALSE, reg_names = NULL) 
     # cmd_string <- paste("stk_start_date <- index(data.env$",ticker,"[",com.env$days2remove,",])",sep="")
     # eval(parse(text=cmd_string))
     max_start_date <- max(c(as.Date(com.env$start_date[ticker]),as.Date(com.env$reg_start_date)))
+    max_start_date2 <- paste0(max_start_date," UTC")
     #print(paste(max_start_date,com.env$start_date[ticker],com.env$reg_start_date))
-    cmd_string <- paste("start_idx <- which(max_start_date == index(var.env$",ticker,"))",sep="")
+    cmd_string <- paste("start_idx <- which(max_start_date2 == index(var.env$",ticker,"))",sep="")
     eval(parse(text=cmd_string))
     if (max_start_date > as.Date(com.env$reg_end_date)) next()
-    cmd_string <- paste("end_idx <- which(as.Date(com.env$reg_end_date) == index(var.env$",ticker,"))",sep="")
+    reg_end_date2 <- paste0(com.env$reg_end_date," UTC")
+    #cmd_string <- paste("end_idx <- which(as.Date(com.env$reg_end_date) == index(var.env$",ticker,"))",sep="")
+    cmd_string <- paste("end_idx <- which(reg_end_date2 == index(var.env$",ticker,"))",sep="")
     eval(parse(text=cmd_string))
     subset_string <- paste0("var.env$",ticker,"[",start_idx,":",end_idx,",",df_list,"]")
     cmd_string <- paste0("var.env$reg_data.df <- bind_rows(var.env$reg_data.df,as.data.frame(",subset_string,"))")

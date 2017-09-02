@@ -47,7 +47,11 @@ rnd.env$sdata_list <- c('shout','mcap','div','log_price')
 #set up var creation probabilities
 
 #raws
-rnd.env$p$raw <- c(0,0.3,0.2,0.3,0.2,0.1)
+if (com.env$sdata_available) {
+  rnd.env$p$raw <- c(0.05,0.3,0.2,0.3,0.2,0.1)
+} else {
+  rnd.env$p$raw <- c(0,0.3,0.2,0.3,0.2,0.1)
+}
 names(rnd.env$p$raw) <- rnd.env$raws    #("sdata","ret","BC","V","C2C","TI")
 
 rnd.env$p$sdata_type <- c(0.1,0.1,0,0.05)

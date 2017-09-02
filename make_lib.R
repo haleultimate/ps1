@@ -307,7 +307,7 @@ get_raw_list <- function(raw_type = NULL) {
   }
   V1$use <- "raw"
   #print(paste("call raw set_name",V1$math))
-  if (raw_type == "V") { #check to convert dollars to turn-over
+  if ((raw_type == "V") & com.env$sdata_available) { #check to convert dollars to turn-over
     if (rnd_choice("to")) {
       print("converting volume raw to turn-over raw")
       to_var <- FALSE  #for debug purposes
