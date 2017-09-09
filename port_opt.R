@@ -5,12 +5,14 @@ run_sim <- function() {
   print(com.env$clu_names)
   make_mu()       #calc MU,VLTY,ADJRET for each var.env xts object
   print(paste("Total equity:",com.env$init_equity))
-  for (alpha_wt in c(16000)) {
-    com.env$alpha_wt <- alpha_wt
+#  for (alpha_wt in c(16000)) {
+    com.env$alpha_wt <- 1.
     com.env$pca_wt <- 1.              #adjust when relative magnitudes are known
+    com.env$vlty_wt <- 0.0001
+    com.env$opt_oc <- FALSE
     print(paste("alpha_wt:",com.env$alpha_wt))
     lp_sim("MU",com.env$stx.symbols,com.env$sim_date_index,com.env$port_size_mult*length(com.env$stx.symbols),plot_profit=TRUE)      #run sim, plot daily profit
-  }
+#  }
   if (com.env$liqx) {
     make_mu_liqx()
     lp_sim("MU_liqx",com.env$stx.symbols,com.env$sim_date_index,com.env$port_size_mult*length(com.env$stx.symbols),plot_profit=TRUE)      #run sim, plot daily profit
@@ -69,7 +71,7 @@ lp_sim <- function(mu_col_name,stx,sim_date_index,equity,plot_profit=FALSE) {
   }
   
   sim.env$shares[abs(sim.env$shares)<share_min] <- 0
-  ADJRET.matrix <- as.matrix(var.env$ADJRET[sim_date_index,stx])
+  ADJRET.matrix <- as.matrix(var.env$ADJRET[sim_date_index,stx]) - 1
   MU.matrix <- as.matrix(var.env$MU[sim_date_index,stx])
   VLTY.matrix <- as.matrix(var.env$VLTY[sim_date_index,stx])
 
@@ -104,7 +106,7 @@ port_opt_lp <- function (lp.mu, lp.vlty, lp.port_size, lp.port, lp.tc, lp.pca, f
     lp.stx <- length(lp.mu)
     if (lp.stx != length(lp.vlty)) print (paste("ERROR: MU and VLTY must have same number of stocks, mu_n:",lp.stx,"vlty_n:",length(lp.vlty)))
     
-    lp.vlty_bounds <- c(0,15000,30000,45000)
+    lp.vlty_bounds <- c(0,40000,80000,160000)
     vb_n <- length(lp.vlty_bounds)    #number of vlty bounds
     pc_n <- ncol(lp.pca)              #number of principal components to maintain in balance
     lp.vbs <- vb_n - 2                #number of vlty bound segments needing variables
@@ -117,7 +119,7 @@ port_opt_lp <- function (lp.mu, lp.vlty, lp.port_size, lp.port, lp.tc, lp.pca, f
     
     lp.alpha_wt <- com.env$alpha_wt
     lp.pca_wt <- com.env$pca_wt
-    lp.vlty_wt <- rep(-1.,vb_n-1)
+    lp.vlty_wt <- com.env$vlty_wt     #rep(-1.,vb_n-1)
     
     pos_vars <- lp.stx                #position (only var allowed to go negative)
     long_short_vars <- 2*lp.stx       #long, short (abs of position)
@@ -251,10 +253,12 @@ port_opt_lp <- function (lp.mu, lp.vlty, lp.port_size, lp.port, lp.tc, lp.pca, f
   lp.obj.fun[(lp.stx+1):(2*lp.stx)]   <- lp.vlty_wt[1]*lp.vlty_bounds[2]*lp.vlty
   lp.obj.fun[(2*lp.stx+1):(3*lp.stx)] <- lp.obj.fun[(lp.stx+1):(2*lp.stx)]
   lp.obj.fun[(3*lp.stx+1):(5*lp.stx)] <- rep(-lp.tc$bp,2*lp.stx)  #basis point costs per dollar ordered, SB/SS vars
-  lp.obj.fun[(5*lp.stx+1):(6*lp.stx)] <- rep(-lp.tc$oc,lp.stx)    #order cost per order, O vars
+  if (com.env$opt_oc) {  #else order costs = 0, not part of objective function
+    lp.obj.fun[(5*lp.stx+1):(6*lp.stx)] <- rep(-lp.tc$oc,lp.stx)    #order cost per order, O vars
+  }
   #subsequent vlty segments
   for (vb_i in 1:lp.vbs) { #piecwise linear component for segment (portion added to all previous segments)
-    lp.obj.fun[(6*lp.stx+(vb_i-1)*lp.stx+1):(6*lp.stx+vb_i*lp.stx)] <- lp.vlty_wt[vb_i+1]*lp.vlty_bounds[vb_i+2]*lp.vlty
+    lp.obj.fun[(6*lp.stx+(vb_i-1)*lp.stx+1):(6*lp.stx+vb_i*lp.stx)] <- -lp.vlty_wt*lp.vlty_bounds[vb_i+2]*lp.vlty
   }
   lp.obj.fun[((6+vb_i)*lp.stx+1):((6+vb_i)*lp.stx + 2*pc_n)] <- rep(-lp.pca_wt,2*pc_n)    #out of balance pca vector penalty
   set.objfn(lp.port.model,lp.obj.fun)

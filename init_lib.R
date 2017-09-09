@@ -3,9 +3,9 @@
 set_control_parms <- function() {
   com.env$model_loops <- 3
   com.env$add_var_levels <- c(3,5)#,20,30)
-  com.env$opt_model <- TRUE
-  com.env$load_vars <- TRUE
-  com.env$load_model <- FALSE
+  com.env$opt_model <- FALSE
+  com.env$load_vars <- FALSE
+  com.env$load_model <- TRUE
   com.env$save_model <- FALSE
   com.env$save_var_n <- 0
   com.env$look_forward <- 5
@@ -48,7 +48,7 @@ set_control_parms <- function() {
   }
   com.env$ll_bin <- -2.
   com.env$hl_bin <- 2.
-  com.env$liqx <- TRUE
+  com.env$liqx <- FALSE
   com.env$verbose <- FALSE
   com.env$vlty_window <- 250
   #com.env$var_names <- NULL
