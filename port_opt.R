@@ -25,13 +25,27 @@ run_sim <- function() {
   #lp_sim("MU",com.env$stx.symbols,com.env$sim_date_index,plot_profit=TRUE)  #source("blotter_sim.R")
 }
 
+calc_order_costs <- function(shares,tc) {
+  stocks <- ncol(shares)
+  days <- nrow(shares)
+  order_costs <- matrix(data=0,nrow=days,ncol=stocks)
+  for (j in 1:stocks) {
+    if (shares[1,j] != 0) order_costs[1,j] <- tc$oc + tc$bp*shares[1,j]
+  }
+  for (i in 2:days) {
+    for (j in 1:stocks) {
+      if (abs(shares[i-1,j]-shares[i,j])>100) order_costs[i,j] <- tc$oc + tc$bp*(abs(shares[i,j]-shares[i-1,j]))
+    }
+  }
+  return(order_costs)
+}
+
 #lp_sim sim calls port_opt_lp [optimizes portfolio position daily; below]
 #calculates profit by multiplying daily (cc_return)*(position in dollars [aka shares])
 #add in ordering logic
 #return profit
 lp_sim <- function(mu_col_name,stx,sim_date_index,equity,plot_profit=FALSE) {
   print (paste("Running Sim",Sys.time()))
-  share_min <- 100
   #shares <- matrix(nrow=length(sim_date_index),ncol=length(com.env$stx.symbols))
   sim.env$shares <- matrix(nrow=length(sim_date_index),ncol=length(stx))
   first_pass <- TRUE
@@ -49,7 +63,7 @@ lp_sim <- function(mu_col_name,stx,sim_date_index,equity,plot_profit=FALSE) {
     }
     
     #equity <- com.env$init_equity 
-    #print(paste("DATE:",SimDate,"Equity:",equity))
+    if (i %% 50 == 0) print(paste(i,"DATE:",SimDate,Sys.time()))
     if (first_pass) {
       cmd_string <- paste0("port.pos <- port_opt_lp(as.vector(var.env$",mu_col_name,
                            "[SimDate,stx]),as.vector(var.env$VLTY[SimDate,stx]),equity,",
@@ -70,11 +84,12 @@ lp_sim <- function(mu_col_name,stx,sim_date_index,equity,plot_profit=FALSE) {
     #print(port.pos)
   }
   
-  sim.env$shares[abs(sim.env$shares)<share_min] <- 0
+  #sim.env$shares[abs(sim.env$shares)<share_min] <- 0
   ADJRET.matrix <- as.matrix(var.env$ADJRET[sim_date_index,stx]) - 1
   MU.matrix <- as.matrix(var.env$MU[sim_date_index,stx])
   VLTY.matrix <- as.matrix(var.env$VLTY[sim_date_index,stx])
 
+  sim.env$order_costs <- calc_order_costs(sim.env$shares,sim.env$tc)
   sim.env$MU_shares <- MU.matrix*sim.env$shares
   sim.env$day_MU <- rowSums(sim.env$MU_shares)
   sim.env$VLTY_shares <- VLTY.matrix*sim.env$shares*sim.env$shares
@@ -85,12 +100,22 @@ lp_sim <- function(mu_col_name,stx,sim_date_index,equity,plot_profit=FALSE) {
   sim.env$dayprofit <- rowSums(sim.env$ADJRET_shares)
   sim.env$stockprofit <- colSums(sim.env$ADJRET_shares)
   sim.env$totalprofit <- cumsum(sim.env$dayprofit)
-  print(paste("total profit:",sim.env$totalprofit[length(sim.env$totalprofit)]))
+  sim.env$daytc <- rowSums(sim.env$order_costs)
+  sim.env$stocktc <- colSums(sim.env$order_costs)
+  sim.env$totaltc <- cumsum(sim.env$daytc)
+  sim.env$net.day.profit <- sim.env$dayprofit - sim.env$daytc
+  sim.env$net.total.profit <- sim.env$totalprofit - sim.env$totaltc
+  total.profit <- sim.env$totalprofit[length(sim.env$totalprofit)]
+  total.tc <- sim.env$totaltc[length(sim.env$totaltc)]
+  total.net.profit <- total.profit - total.tc
+  print(paste("total profit:",total.profit))
+  print(paste("total tc:",total.tc))
+  print(paste("net profit:",total.net.profit))
   if (plot_profit) {
-    plot(sim_date_index,sim.env$totalprofit)
-    points(sim_date_index,sim.env$dayprofit,col="red")
+    plot(sim_date_index,sim.env$net.total.profit)
+    points(sim_date_index,sim.env$net.day.profit,col="red")
   }
-  return(sim.env$totalprofit[length(sim.env$totalprofit)])
+  return(total.net.profit)
 }
 
 #pass in mu, vlty, port_size
@@ -149,7 +174,8 @@ port_opt_lp <- function (lp.mu, lp.vlty, lp.port_size, lp.port, lp.tc, lp.pca, f
     lp.control(lp.port.model,sense="max")
 
     set.type(lp.port.model, columns=1:(5*lp.stx), type = "real")              #set all vars to real
-    set.type(lp.port.model, columns=(5*lp.stx+1):(6*lp.stx), type = "binary") #Order vars to binary
+    otype <- ifelse(lp.tc$oc==0,"real","binary")
+    set.type(lp.port.model, columns=(5*lp.stx+1):(6*lp.stx), type = otype) #Order vars to binary
     set.type(lp.port.model, columns=(6*lp.stx+1):lp.vars, type = "real")      #set all vars to real
     
     #all vars except pos vars must be positive
@@ -273,14 +299,16 @@ port_opt_lp <- function (lp.mu, lp.vlty, lp.port_size, lp.port, lp.tc, lp.pca, f
     write.lp(lp.port.model,filename="test_lp",type="lp")
   }
   
+  lp.control(lprec=lp.port.model,presolve=c("rows","cols","lindep","bounds"),scaling=c("geometric","equilibrate","intergers"))
   solve(lp.port.model)
   lp.positions <- get.variables(lp.port.model)[1:lp.stx]
+  lp.positions[abs(lp.positions)<100] <- 0
 
   if(first_pass) {
     pos_sqr <- lp.positions*lp.positions
   
     calc_mu <- lp.positions*lp.mu
-    calc_vlty <- pos_sqr*lp.vlty*(1/lp.alpha_wt)
+    calc_vlty <- pos_sqr*lp.vlty*(lp.vlty_wt)
     
     order <- 0
     shares_BS <- 0
@@ -300,10 +328,13 @@ port_opt_lp <- function (lp.mu, lp.vlty, lp.port_size, lp.port, lp.tc, lp.pca, f
   
     total_mu <- sum(calc_mu)
     total_vlty <- sum(calc_vlty)
-  
+
+    print("positions")  
     print(lp.positions)
-    print(lp.mu)
-    print(lp.vlty)
+    print("Mu")
+    print(calc_mu)
+    print("Vlty")
+    print(calc_vlty)
     print(paste("order_costs:",order_costs," bp_costs:",bp_costs))
     print("PCA out of balance:")
     print(pca_oob)
