@@ -770,7 +770,7 @@ stock_list <- function() {
     "JCI",
     "JCP",
     "JWN",
-    "KATE",
+    #"KATE",
     "KBH",
     "KMX",
     "KSS",
