@@ -6,11 +6,21 @@ run_sim <- function() {
   make_mu()       #calc MU,VLTY,ADJRET for each var.env xts object
   print(paste("Total equity:",com.env$init_equity))
   sim.env$alpha_wt <- 1.
-  sim.env$pca_wt <- 1.              #adjust when relative magnitudes are known
+  sim.env$pca_mult <- 1              #adjust when relative magnitudes are known
   sim.env$vlty_wt <- 0.00005
   sim.env$opt_oc <- FALSE
   sim.env$scale_bp <- 1.
   sim.env$mean_adjust_mu <- TRUE
+  sim.env$pca_type <- 70      #{"PCA_ETF", #loaded PCA vectors to balance}
+  if (sim.env$pca_type == "PCA_ETF") {
+    sim.env$pca <- sim.env$pca_etf
+  } else if (is.numeric(sim.env$pca_type)) {
+    sim.env$pca <- sim.env$PCA.array[,1:sim.env$pca_type]
+    sim.env$pca_wt[1:sim.env$pca_type] <- data.env$pca.pve[1:sim.env$pca_type]
+  } else {
+    print(paste("error in pca_type",sim.env$pca_type))
+    source("close_session.R")
+  }
   lp_sim("MU",com.env$stx.symbols,com.env$sim_date_index,com.env$port_size_mult*length(com.env$stx.symbols),plot_profit=TRUE)      #run sim, plot daily profit
   if (com.env$liqx) {
     make_mu_liqx()
@@ -136,7 +146,7 @@ port_opt_lp <- function (lp.mu, lp.vlty, lp.port_size, lp.port, lp.pca, first_pa
     lp <- NULL
     lp$stx <- length(lp.mu)
     if (lp$stx != length(lp.vlty)) print (paste("ERROR: MU and VLTY must have same number of stocks, mu_n:",lp$stx,"vlty_n:",length(lp.vlty)))
-    lp$vlty_bounds <- c(0,10000,40000,160000)
+    lp$vlty_bounds <- c(0,30000,80000,210000)
     lp$vb_n <- length(lp$vlty_bounds)    #number of vlty bounds
     if (lp$vb_n < 2) {
       print("Must have more than 1 vlty bound")
@@ -164,7 +174,7 @@ port_opt_lp <- function (lp.mu, lp.vlty, lp.port_size, lp.port, lp.pca, first_pa
     lp$vars <- lp$pos_vars + lp$long_short_vars + lp$sb_ss_vars + lp$vb_vars + lp$pop_pon_vars + lp$order_vars
     lp$real.vars <- lp$pos_vars + lp$long_short_vars + lp$sb_ss_vars + lp$vb_vars + lp$pop_pon_vars
     
-    lp$unique_cons <- 1                    #port_size (1), long_short balance (2)
+    lp$unique_cons <- 3                    #port_size (1), long_short balance (2)
     lp$long_short_cons <- lp$long_short_vars  #definition constraint for each long and short variable
     lp$sb_ss_cons <- lp$stx                #shares bought/sold constraints for each stock [port_pos+sb-ss=pos]
     lp$vb_cons <- 2*lp$vb_vars                #volatility cost for each variable defined long/short
@@ -207,8 +217,8 @@ port_opt_lp <- function (lp.mu, lp.vlty, lp.port_size, lp.port, lp.pca, first_pa
     }
 
     add.constraint(lp.port.model,c(rep(0,lp$stx),rep(1,2*lp$stx),rep(0,(lp$vars-3*lp$stx))),"<=",lp.port_size)
-    #add.constraint(lp.port.model,c(rep(1,lp$stx),rep(0,(lp$vars-lp$stx))),"=",0)
-    #add.constraint(lp.port.model,c(rep(0,lp$stx),rep(1,lp$stx),rep(-1,lp$stx),rep(0,lp$vars-3*lp$stx)),"=",0)
+    add.constraint(lp.port.model,c(rep(1,lp$stx),rep(0,(lp$vars-lp$stx))),"=",0)
+    add.constraint(lp.port.model,c(rep(0,lp$stx),rep(1,lp$stx),rep(-1,lp$stx),rep(0,lp$vars-3*lp$stx)),"=",0)
     #L[1:lp.stx]
     for (var_i in 1:lp$stx) {
       add.constraint(lp.port.model,xt=c(1,-1),type="<=",rhs=0,indices=c(var_i,lp$stx+var_i))
@@ -272,7 +282,7 @@ port_opt_lp <- function (lp.mu, lp.vlty, lp.port_size, lp.port, lp.pca, first_pa
     }
     
     #name first three constraints
-    con_names <- c("port_size") #,"ls_balance1","ls_balance2")
+    con_names <- c("port_size","ls_balance1","ls_balance2")
     #name long/short var constraints
     con_chars <- c("L","S")
     for (char in 1:length(con_chars)) {
@@ -307,6 +317,7 @@ port_opt_lp <- function (lp.mu, lp.vlty, lp.port_size, lp.port, lp.pca, first_pa
   
   #in case optimization wts change, set every time  
   lp$alpha_wt <- sim.env$alpha_wt
+  lp$pca_mult <- sim.env$pca_mult
   lp$pca_wt <- sim.env$pca_wt
   lp$vlty_wt <- sim.env$vlty_wt     #rep(-1.,vb_n-1)
   lp$tc <- sim.env$tc  
@@ -331,7 +342,15 @@ port_opt_lp <- function (lp.mu, lp.vlty, lp.port_size, lp.port, lp.pca, first_pa
       lp.obj.fun[(5*lp$stx+(vb_i-1)*lp$stx+1):(5*lp$stx+vb_i*lp$stx)] <- -lp$vlty_wt*lp$vlty_bounds[vb_i+2]*lp.vlty
     }
   }
-  lp.obj.fun[((5+lp$vbs)*lp$stx+1):((5+lp$vbs)*lp$stx + 2*lp$pc_n)] <- rep(-lp$pca_wt,2*lp$pc_n)    #out of balance pca vector penalty
+  start_idx <- (5+lp$vbs)*lp$stx
+  # if (first_pass) {
+  #   print(paste("setting pca wts in obj function:",start_idx,lp$pc_n,lp$pca_mult))
+  #   print(lp$pca_wt)
+  # }
+  for (i in 1:lp$pc_n) {
+    #if (first_pass) print(paste("idx:",start_idx+(i-1)*2+2))
+    lp.obj.fun[(start_idx+(i-1)*2+1):(start_idx+(i-1)*2+2)] <- (-lp$pca_mult*lp$pca_wt[i])    #out of balance pca vector penalty
+  }
   if (sim.env$opt_oc) {  #else order costs not part of objective function
     lp.obj.fun[(lp$real.vars+1):lp$vars] <- rep(-lp$tc$oc,lp$stx)    #order cost per order, O vars
   }
@@ -375,7 +394,10 @@ port_opt_lp <- function (lp.mu, lp.vlty, lp.port_size, lp.port, lp.pca, first_pa
         lp.obj.fun[(5*lp$stx+(vb_i-1)*lp$stx+1):(5*lp$stx+vb_i*lp$stx)] <- -lp$vlty_wt*lp$vlty_bounds[vb_i+2]*lp.vlty
       }
     }
-    lp.obj.fun[((5+lp$vbs)*lp$stx+1):((5+lp$vbs)*lp$stx + 2*lp$pc_n)] <- rep(-lp$pca_wt,2*lp$pc_n)    #out of balance pca vector penalty
+    start_idx <- (5+lp$vbs)*lp$stx
+    for (i in 1:lp$pc_n) {
+      lp.obj.fun[(start_idx+(i-1)*2+1):start_idx+(i-1)*2+2] <- (-lp$pca_mult*lp$pca_wt[i])    #out of balance pca vector penalty
+    }
     #if (sim.env$opt_oc) {  #else order costs not part of objective function
     #  lp.obj.fun[(lp$real.vars+1):lp$vars] <- rep(-lp$tc$oc,lp$stx)    #order cost per order, O vars
     #}
@@ -415,6 +437,11 @@ port_opt_lp <- function (lp.mu, lp.vlty, lp.port_size, lp.port, lp.pca, first_pa
       pca_oob[i] <- sum(lp.positions * as.vector(lp.pca[,i]))
       pca_oob[abs(pca_oob)<100] <- 0
     }
+    etf_oob <- NULL
+    for (i in 1:ncol(sim.env$pca_etf)) {
+      etf_oob[i] <- sum(lp.positions * as.vector(sim.env$pca_etf[,i]))
+      etf_oob[abs(etf_oob)<100] <- 0
+    }
   
     total_mu <- sum(calc_mu)
     total_vlty <- sum(calc_vlty)
@@ -428,6 +455,8 @@ port_opt_lp <- function (lp.mu, lp.vlty, lp.port_size, lp.port, lp.pca, first_pa
     print(paste("order_costs:",order_costs," bp_costs:",bp_costs))
     print("PCA out of balance:")
     print(pca_oob)
+    print("ETF out of balance:")
+    print(etf_oob)
   
     print(paste("total mu=",total_mu,"total vlty=",total_vlty))
     print(total_mu-total_vlty)

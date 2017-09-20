@@ -113,16 +113,24 @@ load_data_files <- function() {
   print("This is where we load shout, div, pca vectors, mkt_forecast info")
   shout_file <- paste0(com.env$datadir,"/shout.dat")
   #if (!exists("data.env$shout_table")) 
-    load(file=shout_file,envir = data.env)
+  load(file=shout_file,envir = data.env)
   #create fake pca array
   #com.env$stx.symbols X pca vectors
-  sim.env$pca <- matrix(data=1,nrow=length(com.env$stx.symbols),ncol=(length(com.env$cmn.symbols)+1))
-  rownames(sim.env$pca) <- com.env$stx.symbols
+  #com.env$pca_type <- "LOAD"
+  data.env$pca_etf <- matrix(data=1,nrow=length(com.env$stx.symbols),ncol=(length(com.env$cmn.symbols)+1))
+  rownames(data.env$pca_etf) <- com.env$stx.symbols
   for (i in 2:(length(com.env$cmn.symbols)+1)) { #set all stocks with same cmn to 1, all others 0
-     for (ticker in com.env$stx.symbols) {
-       #print(paste(i,ticker,com.env$cmn_lookup[[ticker]],com.env$cmn.symbols[i-1],data.env$pca[ticker,i]))
-       if (com.env$cmn_lookup[[ticker]] != com.env$cmn.symbols[i-1]) sim.env$pca[ticker,i] <- 0
-     }     
+    for (ticker in com.env$stx.symbols) {
+      #print(paste(i,ticker,com.env$cmn_lookup[[ticker]],com.env$cmn.symbols[i-1],data.env$pca[ticker,i]))
+      if (com.env$cmn_lookup[[ticker]] != com.env$cmn.symbols[i-1]) data.env$pca_etf[ticker,i] <- 0
+    }     
+  }
+  if (com.env$data_str != "large") {
+    print("Can't load PCA for any data set other than large")
+  }  else {
+    PCA_file <- paste0(com.env$datadir,"/PCA.dat")
+    load(file=PCA_file,envir = data.env)
+    #sim.env$pca <- data.env$PCA.array
   }
 }
 
@@ -243,7 +251,8 @@ remove_problem_stocks <- function() {
   com.env$port_size <- com.env$init_equity <- com.env$port_size_mult*com.env$stx
   com.env$alpha_wt <- 16000
   com.env$retvlty_not_calced <- TRUE
-  sim.env$pca <- sim.env$pca[com.env$stx.symbols,]
+  sim.env$PCA.array <- data.env$PCA.array[com.env$stx.symbols,]
+  sim.env$pca_etf <- data.env$pca_etf[com.env$stx.symbols,]
   #print(com.env$stx_list)
 }
 
