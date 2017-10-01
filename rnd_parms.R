@@ -8,7 +8,7 @@ rnd.env$nameID <- c(53,54,55,56,57,58,59,60,61,62,63)
 names(rnd.env$nameID) <- c('ld','tr','di','pmf','nmf','fi','ti','pdm','ndm','dv','lp')
 
 rnd.env$fun_id <- c(1:6)  #any undefined function will be mapped to zero
-names(rnd.env$fun_id) <- c('calc_cap','calc_z','calc_res','calc_decay','calc_vlty','calc_bin')
+names(rnd.env$fun_id) <- c('calc_cap','calc_z','calc_stk','calc_decay','calc_vlty','calc_bin')
 rnd.env$known_mod_fun <- c(1:5)
 names(rnd.env$known_mod_fun) <- c('calc_cap','calc_z','calc_decay','calc_lag','calc_bin')
 
@@ -186,7 +186,7 @@ rnd.env$prob$raw_var.wts <- c(0.4,0.2,0.2,0.2)
 rnd.env$prob$raw_var.c2c.lags <- c(3,5,8,13,21,34,55,89,144)
 rnd.env$prob$raw_var.ti.type <- c('adx','mf','fi')
 rnd.env$prob$raw_var.ti.wts <- c(0.3,0.5,0.2)
-rnd.env$prob$type <- c('ret','res','cmn','vlt','vol','vrs','file') #keep 'file' hard coded as last entry
+rnd.env$prob$type <- c('ret','stk','etf','vlt','vol','vrs','file') #keep 'file' hard coded as last entry
 rnd.env$prob$type.wts <- c(0.9,0.9,0.1,0.3,0.3,0.1,0.9)
 rnd.env$prob$type.bv <- rnd.env$prob$type
 rnd.env$prob$type.bv.wts <- c(0.1,0.1,0.1,0.1,0.1,0.1,0)

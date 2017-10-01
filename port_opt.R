@@ -3,35 +3,39 @@
 run_sim <- function() {
   print("run_sim")
   print(com.env$clu_names)
-  make_mu()       #calc MU,VLTY,ADJRET for each var.env xts object
-  print(paste("Total equity:",com.env$init_equity))
+  make_mu()       #calc mu,VLTY,ADJRET for each var.env xts object
   sim.env$alpha_wt <- 1.
-  sim.env$pca_mult <- 1              #adjust when relative magnitudes are known
-  sim.env$vlty_wt <- 0.00005
+  sim.env$pca_mult <- .001              #adjust when relative magnitudes are known
+  sim.env$vlty_wt <- 0.00001
   sim.env$opt_oc <- FALSE
   sim.env$scale_bp <- 1.
   sim.env$mean_adjust_mu <- TRUE
   sim.env$pca_type <- 70      #{"PCA_ETF", #loaded PCA vectors to balance}
-  if (sim.env$pca_type == "PCA_ETF") {
+  sim.env$port_size_mult <- 10000
+  sim.env$port_size <- sim.env$init_equity <- sim.env$port_size_mult*com.env$stx
+  if ((sim.env$pca_type == "PCA_ETF") | (com.env$data_str != "large")) {
     sim.env$pca <- sim.env$pca_etf
+    sim.env$pca_wt[1] <- 1.
+    sim.env$pca_wt[2:ncol(sim.env$pca_etf)] <- 0.1 
   } else if (is.numeric(sim.env$pca_type)) {
     sim.env$pca <- sim.env$PCA.array[,1:sim.env$pca_type]
-    sim.env$pca_wt[1:sim.env$pca_type] <- data.env$pca.pve[1:sim.env$pca_type]
+    sim.env$pca_wt[1:sim.env$pca_type] <- load.env$pca.pve[1:sim.env$pca_type]
   } else {
     print(paste("error in pca_type",sim.env$pca_type))
     source("close_session.R")
   }
-  lp_sim("MU",com.env$stx.symbols,com.env$sim_date_index,com.env$port_size_mult*length(com.env$stx.symbols),plot_profit=TRUE)      #run sim, plot daily profit
+  print(paste("Total equity:",sim.env$init_equity))
+  lp_sim("mu",com.env$stx.symbols,com.env$sim_date_index,sim.env$port_size_mult*length(com.env$stx.symbols),plot_profit=TRUE)      #run sim, plot daily profit
   if (com.env$liqx) {
     make_mu_liqx()
-    lp_sim("MU_liqx",com.env$stx.symbols,com.env$sim_date_index,com.env$port_size_mult*length(com.env$stx.symbols),plot_profit=TRUE)      #run sim, plot daily profit
+    lp_sim("mu_liqx",com.env$stx.symbols,com.env$sim_date_index,sim.env$port_size_mult*length(com.env$stx.symbols),plot_profit=TRUE)      #run sim, plot daily profit
     sim_stats <- calc.r2(com.env$model.current,var.env$sim_data.df)
     cat("r2",sim_stats$rsq,"r20",sim_stats$rsq0,"cor",sim_stats$cor,"\n")
     cat("mse",sim_stats$mse,"mean",sim_stats$mean,"wpct",sim_stats$winpct,"\n")
   }
-  #var.env$MU <- -var.env$MU
-  #print("reversing MU")
-  #lp_sim("MU",com.env$stx.symbols,com.env$sim_date_index,plot_profit=TRUE)  #source("blotter_sim.R")
+  #var.env$mu <- -var.env$mu
+  #print("reversing mu")
+  #lp_sim("mu",com.env$stx.symbols,com.env$sim_date_index,plot_profit=TRUE)  #source("blotter_sim.R")
 }
 
 calc_order_costs <- function(shares,tc) {
@@ -72,7 +76,6 @@ lp_sim <- function(mu_col_name,stx,sim_date_index,equity,plot_profit=FALSE) {
       port_str <- "as.vector(sim.env$shares[i-1,1:length(stx)])"
     }
     
-    #equity <- com.env$init_equity 
     if (i %% 50 == 0) print(paste(i,"DATE:",SimDate,Sys.time()))
     if (first_pass) {
       cmd_string <- paste0("port.pos <- port_opt_lp(as.vector(var.env$",mu_col_name,
@@ -89,19 +92,19 @@ lp_sim <- function(mu_col_name,stx,sim_date_index,equity,plot_profit=FALSE) {
       print(cmd_string)
       first_pass <- FALSE
     }
-    #port.pos <- port_opt_lp(as.vector(var.env$MU[SimDate]),as.vector(var.env$VLTY[SimDate]),equity)
+    #port.pos <- port_opt_lp(as.vector(var.env$mu[SimDate]),as.vector(var.env$VLTY[SimDate]),equity)
     sim.env$shares[i,] <- port.pos
     #print(port.pos)
   }
   
   #sim.env$shares[abs(sim.env$shares)<share_min] <- 0
   ADJRET.matrix <- as.matrix(var.env$ADJRET[sim_date_index,stx]) - 1
-  MU.matrix <- as.matrix(var.env$MU[sim_date_index,stx])
+  mu.matrix <- as.matrix(var.env$mu[sim_date_index,stx])
   VLTY.matrix <- as.matrix(var.env$VLTY[sim_date_index,stx])
 
   sim.env$order_costs <- calc_order_costs(sim.env$shares,sim.env$tc)
-  sim.env$MU_shares <- MU.matrix*sim.env$shares
-  sim.env$day_MU <- rowSums(sim.env$MU_shares)
+  sim.env$mu_shares <- mu.matrix*sim.env$shares
+  sim.env$day_mu <- rowSums(sim.env$mu_shares)
   sim.env$VLTY_shares <- VLTY.matrix*sim.env$shares*sim.env$shares
   sim.env$day_VLTY <- rowSums(sim.env$VLTY_shares)
 
@@ -145,7 +148,7 @@ port_opt_lp <- function (lp.mu, lp.vlty, lp.port_size, lp.port, lp.pca, first_pa
   if (!exists("lp",envir=sim.env)) {
     lp <- NULL
     lp$stx <- length(lp.mu)
-    if (lp$stx != length(lp.vlty)) print (paste("ERROR: MU and VLTY must have same number of stocks, mu_n:",lp$stx,"vlty_n:",length(lp.vlty)))
+    if (lp$stx != length(lp.vlty)) print (paste("ERROR: mu and VLTY must have same number of stocks, mu_n:",lp$stx,"vlty_n:",length(lp.vlty)))
     lp$vlty_bounds <- c(0,30000,80000,210000)
     lp$vb_n <- length(lp$vlty_bounds)    #number of vlty bounds
     if (lp$vb_n < 2) {
@@ -321,14 +324,14 @@ port_opt_lp <- function (lp.mu, lp.vlty, lp.port_size, lp.port, lp.pca, first_pa
   lp$pca_wt <- sim.env$pca_wt
   lp$vlty_wt <- sim.env$vlty_wt     #rep(-1.,vb_n-1)
   lp$tc <- sim.env$tc  
-  if (sim.env$scale_bp != 1) lp$tc$bp <- sim.env$scale_bp*lp$tc$bp  #scale it with respect to MU
+  if (sim.env$scale_bp != 1) lp$tc$bp <- sim.env$scale_bp*lp$tc$bp  #scale it with respect to mu
   
   #update buy_stocks, sell_stocks constraint with new port position
   for (var_i in 1:lp$stx) {
     set.constr.value(lp.port.model,rhs=lp.port[var_i],constraints=(lp$unique_cons + lp$long_short_cons + var_i))
   }
   
-  #set objective function, needed for every new MU, VLTY
+  #set objective function, needed for every new mu, VLTY
   lp.obj.fun <- rep(0,lp$vars)
   #mu component
   lp.obj.fun[1:lp$stx] <- lp$alpha_wt*lp.mu
@@ -380,7 +383,7 @@ port_opt_lp <- function (lp.mu, lp.vlty, lp.port_size, lp.port, lp.pca, first_pa
     print("Writing out lp to file 'error_lp_1'")
     write.lp(lp.port.model,filename="error_lp_1",type="lp")
     print("Retrying after removing trading costs from objective function")
-    #set objective function, needed for every new MU, VLTY
+    #set objective function, needed for every new mu, VLTY
     lp.obj.fun <- rep(0,lp$vars)
     #mu component
     lp.obj.fun[1:lp$stx] <- lp$alpha_wt*lp.mu
@@ -396,7 +399,7 @@ port_opt_lp <- function (lp.mu, lp.vlty, lp.port_size, lp.port, lp.pca, first_pa
     }
     start_idx <- (5+lp$vbs)*lp$stx
     for (i in 1:lp$pc_n) {
-      lp.obj.fun[(start_idx+(i-1)*2+1):start_idx+(i-1)*2+2] <- (-lp$pca_mult*lp$pca_wt[i])    #out of balance pca vector penalty
+      lp.obj.fun[(start_idx+(i-1)*2+1):(start_idx+(i-1)*2+2)] <- (-lp$pca_mult*lp$pca_wt[i])    #out of balance pca vector penalty
     }
     #if (sim.env$opt_oc) {  #else order costs not part of objective function
     #  lp.obj.fun[(lp$real.vars+1):lp$vars] <- rep(-lp$tc$oc,lp$stx)    #order cost per order, O vars

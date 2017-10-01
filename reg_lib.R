@@ -198,7 +198,7 @@ eval_adj_r2 <- function(mod_pair=NULL,oos_data=FALSE,sim_data=FALSE,verbose=FALS
   if (!is.null(mod_pair)) {  #only calc modified vars and vars dependent on them
     #print(paste("make_vars with modvar_list",Sys.time()))
     V1 <- mod_pair[[1]]
-    V2 <- make_vars(mod_pair[[2]])                   #make modified variable & update columns in vd (for all stock in var.env)
+    V2 <- calc_one_var(mod_pair[[2]])                   #make modified variable & update columns in vd (for all stock in var.env)
     old.v.com <- com.env$v.com
     com.env$v.com[[V2$vcom_num]] <- V2
     names(com.env$v.com)[V2$vcom_num] <- V2$var_name
@@ -227,7 +227,7 @@ eval_adj_r2 <- function(mod_pair=NULL,oos_data=FALSE,sim_data=FALSE,verbose=FALS
       source("close_session.R")
     }
   } else {
-    make_vars()  #eval_adj_r2 normally by calculating all vars in com.env$v.com
+    calc_all_vars()  #eval_adj_r2 normally by calculating all vars in com.env$v.com
   }
   if (is.null(mod_pair)) {     #eval_adj_r2 normally
     collect_data(oos_data=oos_data,sim_data=sim_data)  #populate reg_data.df with model vars
@@ -303,7 +303,7 @@ get_mod_list_req_mod_pair <- function(mod_pair) {
       for (i in 1:length(V2$requires)) if (V2$requires[i] == orig_var_name) V2$requires[i] <- mod_var_name
       for (i in 1:length(V2$math)) V2$math[i] <- gsub(orig_var_name,mod_var_name,V2$math[i])
       V2 <- set_name(V2)                        
-      V2 <- make_vars(V2)
+      V2 <- calc_one_var(V2)
       com.env$v.com[[V2$vcom_num]] <- V2
       names(com.env$v.com)[V2$vcom_num] <- V2$var_name
       com.env$var_names[V2$vcom_num] <- V2$var_name
@@ -549,8 +549,8 @@ collect_data <- function (oos_data = FALSE, sim_data = FALSE, reg_names = NULL) 
       if (first_pass) print(cmd_string)
       eval(parse(text=cmd_string))
     }
-    # cmn_ticker <- com.env$cmn_lookup[ticker]
-    # cmd_string <- paste("cmn_start_date <- index(data.env$",cmn_ticker,"[",com.env$days2remove,",])",sep="")
+    # etf_ticker <- com.env$etf_lookup[ticker]
+    # cmd_string <- paste("etf_start_date <- index(data.env$",etf_ticker,"[",com.env$days2remove,",])",sep="")
     # eval(parse(text=cmd_string))
     # cmd_string <- paste("stk_start_date <- index(data.env$",ticker,"[",com.env$days2remove,",])",sep="")
     # eval(parse(text=cmd_string))

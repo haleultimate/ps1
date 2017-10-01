@@ -1,7 +1,9 @@
 # run_ps.R
 print(paste("Start time:",Sys.time()))
-if (!exists("stx_list.loaded")) stx_list.loaded <- NULL 
-rm(list = ls(all=TRUE)[!ls(all=TRUE) %in% c("data.env","stx_list.loaded")]) #clean workspace except for (data.env, stx.list.old) so we don't have to reload data
+
+if (!exists("stx_list.loaded")) stx_list.loaded <- NULL
+keep_list <- c("data.env","load.env","etf.env","stx_list.loaded")
+rm(list = ls(all=TRUE)[!ls(all=TRUE) %in% keep_list]) #clean workspace except for keep_list so we don't have to reload data
 
 source("init_lib.R")            #library needed to load other libraries 
 

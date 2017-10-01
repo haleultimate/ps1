@@ -577,7 +577,7 @@ define_predict_ret <- function() {
   V1$requires <- NULL
   V1$type <- "ret"
   V1$use <- "model"
-  V1$calc_cmn <- TRUE
+  V1$calc_etf <- TRUE
   V1$math[1] <- paste0("calc_look_forward,-",com.env$look_forward)  #only calc function that can handle empty data.env
   V1$math[2] <- "calc_cap,abscap=0.05"
   V1 <- set_name(V1)
@@ -601,7 +601,7 @@ sample_vars <- function() {
   #FUTURE: TI
   V1 <- NULL
   V1$use <- "def"
-  V1$calc_cmn <- TRUE
+  V1$calc_etf <- TRUE
   V1$type <- "prc"
   V1$math[1] <- "from.data.env,'Adjusted'"
   V1 <- set_name(V1)
@@ -612,7 +612,7 @@ sample_vars <- function() {
   V1$type <- "prc"
   V1$requires <- NULL
   V1$use <- "def"
-  V1$calc_cmn <- TRUE
+  V1$calc_etf <- TRUE
   V1$math[1] <- "from.data.env,'H'"
   V1 <- set_name(V1)
   cmd_string <- paste0("rnd.env$vs.com$",V1$var_name," <- V1")   
@@ -622,7 +622,7 @@ sample_vars <- function() {
   V1$type <- "prc"
   V1$requires <- NULL
   V1$use <- "def"
-  V1$calc_cmn <- TRUE
+  V1$calc_etf <- TRUE
   V1$math[1] <- "from.data.env,'L'"
   V1 <- set_name(V1)
   cmd_string <- paste0("rnd.env$vs.com$",V1$var_name," <- V1")   
@@ -632,7 +632,7 @@ sample_vars <- function() {
   V1$type <- "prc"
   V1$requires <- NULL
   V1$use <- "def"
-  V1$calc_cmn <- TRUE
+  V1$calc_etf <- TRUE
   V1$math[1] <- "from.data.env,'R'"
   #V1$math[1] <- "calc_math,c('H','L','C'),'XX0N <- (XX1*XX2*XX3)^(1/3)'"
   V1 <- set_name(V1)
@@ -643,7 +643,7 @@ sample_vars <- function() {
   V1$type <- "prc"
   V1$requires <- NULL
   V1$use <- "def"
-  V1$calc_cmn <- TRUE
+  V1$calc_etf <- TRUE
   V1$math[1] <- "from.data.env,'J'"
   #V1$math[1] <- "calc_math,c('H','L'),'XX0N <- sqrt(XX1*XX2)'"
   V1 <- set_name(V1)
@@ -654,7 +654,7 @@ sample_vars <- function() {
   V1$type <- "prc"
   V1$requires <- NULL
   V1$use <- "def"
-  V1$calc_cmn <- TRUE
+  V1$calc_etf <- TRUE
   V1$math[1] <- "from.data.env,'O'"
   V1 <- set_name(V1)
   cmd_string <- paste0("rnd.env$vs.com$",V1$var_name," <- V1")   
@@ -664,7 +664,7 @@ sample_vars <- function() {
   V1$type <- "prc"
   V1$requires <- NULL
   V1$use <- "def"
-  V1$calc_cmn <- TRUE
+  V1$calc_etf <- TRUE
   V1$math[1] <- "from.data.env,'Adjusted'"
   V1$math[2] <- "calc_lag,1"
   V1 <- set_name(V1)
@@ -675,7 +675,7 @@ sample_vars <- function() {
   V1$type <- "prc"
   V1$requires <- NULL
   V1$use <- "def"
-  V1$calc_cmn <- TRUE
+  V1$calc_etf <- TRUE
   V1$math[1] <- "from.data.env,'H'"
   V1$math[2] <- "calc_lag,1"
   V1 <- set_name(V1)
@@ -686,7 +686,7 @@ sample_vars <- function() {
   V1$type <- "prc"
   V1$requires <- NULL
   V1$use <- "def"
-  V1$calc_cmn <- TRUE
+  V1$calc_etf <- TRUE
   V1$math[1] <- "from.data.env,'L'"
   V1$math[2] <- "calc_lag,1"
   V1 <- set_name(V1)
@@ -697,7 +697,7 @@ sample_vars <- function() {
   V1$type <- "prc"
   V1$requires <- NULL
   V1$use <- "def"
-  V1$calc_cmn <- TRUE
+  V1$calc_etf <- TRUE
   V1$math[1] <- "from.data.env,'R'"
   V1$math[2] <- "calc_lag,1"
   V1 <- set_name(V1)
@@ -708,7 +708,7 @@ sample_vars <- function() {
   V1$type <- "prc"
   V1$requires <- NULL
   V1$use <- "def"
-  V1$calc_cmn <- TRUE
+  V1$calc_etf <- TRUE
   V1$math[1] <- "from.data.env,'J'"
   V1$math[2] <- "calc_lag,1"
   V1 <- set_name(V1)
@@ -719,7 +719,7 @@ sample_vars <- function() {
   V1$type <- "prc"
   V1$requires <- NULL
   V1$use <- "def"
-  V1$calc_cmn <- TRUE
+  V1$calc_etf <- TRUE
   V1$math[1] <- "from.data.env,'O'"
   V1$math[2] <- "calc_lag,1"
   V1 <- set_name(V1)
@@ -730,7 +730,7 @@ sample_vars <- function() {
   V1$type <- "prc"
   V1$requires <- NULL
   V1$use <- "def"
-  V1$calc_cmn <- TRUE
+  V1$calc_etf <- TRUE
   V1$math[1] <- "from.data.env,'Adjusted'"
   V1$math[2] <- "calc_lag,2"
   V1 <- set_name(V1)
@@ -744,7 +744,7 @@ sample_vars <- function() {
     for (j in (i+1):max_j) {
       V1 <- NULL
       V1$use <- "def"
-      V1$calc_cmn <- TRUE
+      V1$calc_etf <- TRUE
       vd_start_price <- rnd.env$vs.com[[j]]
       V1$type <- "ret"
       V1$requires <- unique(c(vd_end_price$requires,vd_start_price$requires,vd_start_price$name,vd_end_price$name))
@@ -763,7 +763,7 @@ sample_vars <- function() {
   V1$type <- "prc"
   V1$requires <- NULL
   V1$use <- "def"
-  V1$calc_cmn <- TRUE
+  V1$calc_etf <- TRUE
   V1$math[1] <- "from.data.env,'Close'"
   V1$math[2] <- "calc_lag,1"
   #V1$var_name <- "uB"
@@ -776,7 +776,7 @@ sample_vars <- function() {
   V1$requires <- NULL
   V1$type <- "vol"
   V1$use <- "def"
-  V1$calc_cmn <- TRUE
+  V1$calc_etf <- TRUE
   V1$math[1] <- "from.data.env,'D'"
   V1$math[2] <- "calc_cap,cap_pct=0.005"       #hardcoded, may wish to revisit
   V1 <- set_name(V1)
@@ -787,7 +787,7 @@ sample_vars <- function() {
   V1$requires <- NULL
   V1$type <- "vol"
   V1$use <- "def"
-  V1$calc_cmn <- TRUE
+  V1$calc_etf <- TRUE
   V1$math[1] <- "from.data.env,'V'"
   #V1$math[1] <- "calc_math,c('D'),math_str='XX0N <- log(XX1) - 18.5'"
   V1$math[2] <- "calc_cap,cap_pct=0.005"       #hardcoded, may wish to revisit
@@ -800,7 +800,7 @@ sample_vars <- function() {
   V1$type <- "sdata"
   V1$requires <- NULL
   V1$use <- "def"
-  V1$calc_cmn <- TRUE
+  V1$calc_etf <- TRUE
   V1$math[1] <- "from.data.env,'shout'"
   V1$math[2] <- "calc_lag,1"
   #V1$var_name <- "o"
@@ -813,7 +813,7 @@ sample_vars <- function() {
   V1$type <- "sdata"
   V1$requires <- c("ol1","uB")
   V1$use <- "def"
-  V1$calc_cmn <- TRUE
+  V1$calc_etf <- TRUE
   V1$math[1] <- "calc_math,c('ol1','uB'),math_str='XX0 <- XX1*XX2'"
   #V1$var_name <- "M"
   V1 <- set_name(V1)
@@ -825,7 +825,7 @@ sample_vars <- function() {
   V1$type <- "sdata"
   V1$requires <- NULL
   V1$use <- "def"
-  V1$calc_cmn <- TRUE
+  V1$calc_etf <- TRUE
   V1$math[1] <- "from.data.env,'div'"
   V1$math[2] <- "calc_lag,1"
   #V1$var_name <- "dv"
@@ -838,7 +838,7 @@ sample_vars <- function() {
   V1$type <- "sdata"
   V1$requires <- c("B")
   V1$use <- "def"
-  V1$calc_cmn <- TRUE
+  V1$calc_etf <- TRUE
   V1$math[1] <- "calc_math,c('B'),math_str='XX0 <- log(XX1)'"
   #V1$var_name <- "lp"
   V1 <- set_name(V1)
@@ -851,7 +851,7 @@ sample_vars <- function() {
   V1$requires <- NULL
   V1$type <- "ret"
   V1$use <- "def"
-  V1$calc_cmn <- TRUE
+  V1$calc_etf <- TRUE
   V1$math[1] <- "calc_look_forward,3"  #3 used as place holder, when choosing 3 is randomly chosen
   V1 <- set_name(V1)
   cmd_string <- paste0("rnd.env$vs.com$",V1$var_name," <- V1")   
@@ -862,7 +862,7 @@ sample_vars <- function() {
   V1$type <- "rng"
   V1$requires <- c('H','L','C','B')
   V1$use <- "raw"
-  V1$calc_cmn <- TRUE
+  V1$calc_etf <- TRUE
   V1$math[1] <- "calc_math,c('H','L','B'),'XX0N <- pmax(log(XX1/XX2),abs(log(XX1/XX3)),abs(log(XX2/XX3)))'"
   #V1 <- set_name(V1)
   V1$var_name <- "tr"
@@ -875,7 +875,7 @@ sample_vars <- function() {
   V1$type <- "ti"
   V1$requires <- c('H','G','GH','L','K','KL')
   V1$use <- "raw"
-  V1$calc_cmn <- TRUE
+  V1$calc_etf <- TRUE
   V1$math[1] <- "calc_dm,'GH','KL'"
   V1 <- set_name(V1)
   cmd_string <- paste0("rnd.env$vs.com$",V1$var_name," <- V1")   
@@ -886,7 +886,7 @@ sample_vars <- function() {
   V1$type <- "ti"
   V1$requires <- c('H','G','GH','L','K','KL','C','B')
   V1$use <- "raw"
-  V1$calc_cmn <- TRUE
+  V1$calc_etf <- TRUE
   V1$math[1] <- "calc_math,c('DMd','TRd'),'XX0N <- XX1/XX2'" #DMd and TRd likely not correct. COME BACK
   V1 <- set_name(V1)
   cmd_string <- paste0("rnd.env$vs.com$",V1$var_name," <- V1")   
@@ -897,7 +897,7 @@ sample_vars <- function() {
   V1$type <- "ti"
   V1$requires <- c('H','L','C','R','Q','QR','D')
   V1$use <- "raw"
-  V1$calc_cmn <- TRUE
+  V1$calc_etf <- TRUE
   V1$math[1] <- "calc_math,c('QR','D'),math_str='XX0N <- ifelse(XX1>0,XX2,0)'"
   #V1 <- set_name(V1)
   V1$var_name <- "mf"
@@ -907,7 +907,7 @@ sample_vars <- function() {
   V1 <- NULL
   V1$type <- "constant"
   V1$use <- "data"
-  V1$calc_cmn <- TRUE
+  V1$calc_etf <- TRUE
   V1$math[1] <- "calc_constant,1"
   V1$scale_type <- "constant"
   V1 <- set_name(V1)
@@ -919,7 +919,7 @@ sample_vars <- function() {
   V1$type <- "ti"
   V1$requires <- c('C','B','BC','D')
   V1$use <- "raw"
-  V1$calc_cmn <- TRUE
+  V1$calc_etf <- TRUE
   V1$math[1] <- "calc_math,c('BC','D'),math_str='XX0N <- XX1*XX2'"
   #V1 <- set_name(V1)
   V1$var_name <- "fi"

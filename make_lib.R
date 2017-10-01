@@ -338,7 +338,7 @@ get_scale_list <- function() {
   V1 <- vdlist[[length(vdlist)]]
   #print(paste("Create new scale var",V1$var_name)) 
   V1$requires <- c(V1$requires,V1$var_name)
-  V1$calc_cmn <- FALSE
+  V1$calc_etf <- FALSE
   
   resid_type <- ifelse(grepl("T",V1$var_name),"W",rnd_choice(paste0(raw_type,".resid"))) #vlty raws shouldn't use S/E
   if (resid_type == "W") {
@@ -548,8 +548,8 @@ mod_scale_var <- function(V1=NULL,i=NULL) {
              #print(new_var_name)
              V1$math[i] <- sub_scale_name_in_math(V1$math[i],new_var_name)
              #print(V1$math[i])
-             #over restricts calc_cmn, changing scale var may allow cmn to be calculated (but model cmns can't be used yet anyway)
-             V1$calc_cmn <- (V1$calc_cmn & com.env$v.com[[new_var_name]]$calc_cmn) 
+             #over restricts calc_etf, changing scale var may allow etf to be calculated (but model etfs can't be used yet anyway)
+             V1$calc_etf <- (V1$calc_etf & com.env$v.com[[new_var_name]]$calc_etf) 
              return(V1)
            },
            "modify_scale_var" = {  #longer name for modifying scale var
@@ -813,7 +813,7 @@ get_model_list <- function() {
     V2 <- vdlist[[length(vdlist)]]
     V1$requires <- unique(c(V1$requires,V2$requires,V2$var_name))
     V1$math[2] <- paste0("calc_ia,'",ia,"','",V2$var_name,"'")
-    V1$calc_cmn <- (V1$calc_cmn & V2$calc_cmn)
+    V1$calc_etf <- (V1$calc_etf & V2$calc_etf)
     if (is.null(V1$scale_type) | is.null(V2$scale_type)) {
       print(paste("ERROR in get_model_list, in ia either V1 or V2 does not have a scale type"))
       print(V1)
@@ -834,7 +834,7 @@ get_model_list <- function() {
     V2 <- vdlist[[length(vdlist)]]
     V1$requires <- unique(c(V1$requires,V2$requires,V2$var_name))
     V1$scale_type <- V2$scale_type
-    V1$calc_cmn <- (V1$calc_cmn & V2$calc_cmn)
+    V1$calc_etf <- (V1$calc_etf & V2$calc_etf)
     V1$math[next_math] <- paste0("calc_bin,bin_field='",V2$var_name,"'")
     V1 <- mod_model_bin(V1)  #append random bin points 
     #bp_pair <- get_bp_from_math(V1$math[next_math])

@@ -2,10 +2,10 @@
 #parms that should be changed by user manually to control run_ps.R behavior
 set_control_parms <- function() {
   com.env$model_loops <- 3
-  com.env$add_var_levels <- c(3,5)#,20,30)
-  com.env$opt_model <- FALSE
+  com.env$add_var_levels <- c(3,5) #10,20,30)
+  com.env$opt_model <- TRUE
   com.env$load_vars <- FALSE
-  com.env$load_model <- TRUE
+  com.env$load_model <- FALSE
   com.env$save_model <- FALSE
   com.env$save_var_n <- 0
   com.env$look_forward <- 5
@@ -46,8 +46,8 @@ set_control_parms <- function() {
     print(paste("Available saved_var_files:",length(com.env$saved_var_files)))
     #print(com.env$saved_var_files)
   }
-  com.env$ll_bin <- -2.
-  com.env$hl_bin <- 2.
+  com.env$ll_bin <- -1.
+  com.env$hl_bin <- 3.
   com.env$liqx <- FALSE
   com.env$verbose <- FALSE
   com.env$vlty_window <- 250
@@ -63,7 +63,7 @@ init_session <- function(stx_list.loaded) {
   set_directories()    
   set_control_parms()                  #at top of this file, manually adjusted  
   #if (com.env$log_file) set_log_file()      #not working 
-  stock_list()                         #setup stock symbols and com.env$cmn_lookup
+  stock_list()                         #setup stock symbols and com.env$etf_lookup
   stx_list.loaded <- load_stock_history(stx_list.loaded)     #only needed after first run if stock list changes
   load_data_files()
   set_opt_type_settings()
@@ -94,6 +94,8 @@ load_packages <- function() {
 
 set_up_environments <- function() {
   if (!exists("data.env")) data.env <<- new.env(parent=globalenv())
+  if (!exists("load.env")) load.env <<- new.env(parent=globalenv())
+  if (!exists("etf.env")) etf.env <<- new.env(parent=globalenv())
   var.env <<- new.env(parent=globalenv())
   rnd.env <<- new.env(parent=globalenv())
   com.env <<- new.env(parent=globalenv())
@@ -112,25 +114,36 @@ set_directories <- function() {
 load_data_files <- function() {
   print("This is where we load shout, div, pca vectors, mkt_forecast info")
   shout_file <- paste0(com.env$datadir,"/shout.dat")
-  #if (!exists("data.env$shout_table")) 
-  load(file=shout_file,envir = data.env)
+  if (exists(shout_file,envir = load.env)) return() 
+    #if (!exists("data.env$shout_table")) 
+  load(file=shout_file,envir = load.env)
   #create fake pca array
   #com.env$stx.symbols X pca vectors
   #com.env$pca_type <- "LOAD"
-  data.env$pca_etf <- matrix(data=1,nrow=length(com.env$stx.symbols),ncol=(length(com.env$cmn.symbols)+1))
-  rownames(data.env$pca_etf) <- com.env$stx.symbols
-  for (i in 2:(length(com.env$cmn.symbols)+1)) { #set all stocks with same cmn to 1, all others 0
+  #set up ETF PCA vectors
+  load.env$pca_etf <- matrix(data=1,nrow=length(com.env$stx.symbols),ncol=(length(com.env$etf.symbols)+1))
+  rownames(load.env$pca_etf) <- com.env$stx.symbols
+  for (i in 2:(length(com.env$etf.symbols)+1)) { #set all stocks with same etf to 1, all others 0
     for (ticker in com.env$stx.symbols) {
-      #print(paste(i,ticker,com.env$cmn_lookup[[ticker]],com.env$cmn.symbols[i-1],data.env$pca[ticker,i]))
-      if (com.env$cmn_lookup[[ticker]] != com.env$cmn.symbols[i-1]) data.env$pca_etf[ticker,i] <- 0
+      #print(paste(i,ticker,com.env$etf_lookup[[ticker]],com.env$etf.symbols[i-1],data.env$pca[ticker,i]))
+      if (com.env$etf_lookup[[ticker]] != com.env$etf.symbols[i-1]) load.env$pca_etf[ticker,i] <- 0
     }     
   }
+  #load PCA data from Kim's program
   if (com.env$data_str != "large") {
     print("Can't load PCA for any data set other than large")
   }  else {
     PCA_file <- paste0(com.env$datadir,"/PCA.dat")
-    load(file=PCA_file,envir = data.env)
+    load(file=PCA_file,envir = load.env)
     #sim.env$pca <- data.env$PCA.array
+  }
+  #load stock models from Kim's program
+  if (com.env$data_str != "large") {
+    print("Can't load stk models for any data set other than large")
+  }  else {
+    models_file <- paste0(com.env$datadir,"/models.dat")
+    load(file=models_file,envir = load.env)
+    com.env$stkmod_name <- "one_res"
   }
 }
 
@@ -205,55 +218,80 @@ set_opt_type_settings <- function() {
 }
 
 #used below in remove_problem_stocks
+#start date currently uses stock and etf data to determine start date (want to remove etf dependency in future)
 get_start_date <- function(ticker) {
-  cmn_ticker <- com.env$cmn_lookup[ticker]
+  etf_ticker <- com.env$etf_lookup[ticker]
   cmd_string <- paste0("stk_start_date <- as.Date(index(data.env$",ticker,"[",com.env$days2remove,",]))")
   eval(parse(text=cmd_string))
-  cmd_string <- paste0("cmn_start_date <- as.Date(index(data.env$",cmn_ticker,"[",com.env$days2remove,",]))")
-  eval(parse(text=cmd_string))
-  start_date <- max(stk_start_date,cmn_start_date)
-  if ((start_date != stk_start_date) & (start_date != cmn_start_date)) {
-    print(paste("Problem in get_start_date",ticker,cmn_ticker,stk_start_date,cmn_start_date,start_date))
+  if (etf_ticker != "etf") {
+    cmd_string <- paste0("etf_start_date <- as.Date(index(data.env$",etf_ticker,"[",com.env$days2remove,",]))")
+    eval(parse(text=cmd_string))
+    start_date <- max(stk_start_date,etf_start_date)
+    if ((start_date != stk_start_date) & (start_date != etf_start_date)) {
+      print(paste("Problem in get_start_date",ticker,etf_ticker,stk_start_date,etf_start_date,start_date))
+    }
+  } else {
+    start_date <- stk_start_date
   }
   return(start_date)
 }
 
+get_end_date <- function(ticker) {
+  cmd_string <- paste0("stk_end_date <- as.Date(index(data.env$",ticker,"[length(data.env$",ticker,"],]))")
+  eval(parse(text=cmd_string))
+  end_date <- min(com.env$sim_end_date,stk_end_date)
+  if ((end_date != stk_end_date) & (end_date != stk_end_date)) {
+    print(paste("Problem in get_end_date",ticker,stk_end_date,end_date))
+  }
+  return(end_date)
+}
+
 remove_problem_stocks <- function() {
+  print(paste("in remove_problem_stocks",length(com.env$stx.symbols)))
+  if (com.env$data_str == "large") {  #remove stx not in Kim's PCA and models data
+    cmd_string <- paste0("com.env$stx.symbols <- com.env$stx.symbols[com.env$stx.symbols %in% names(load.env$",com.env$stkmod_name,")]")
+    print(cmd_string)
+    eval(parse(text=cmd_string))
+  }
+  print(length(com.env$stx.symbols))
   static.stx.symbols <- com.env$stx.symbols
-  com.env$corr.threshold <- 0.6
+  com.env$corr.threshold <- 0.3
   com.env$days2remove <- 60
-  for (i in 1:com.env$stx) {
+  load.env$etf_corr <- NULL
+  for (i in 1:length(static.stx.symbols)) {
     ticker <- static.stx.symbols[i]
     if (make.names(ticker) != ticker) {
       if (com.env$verbose) print(paste("remove",ticker,"from list, not valid name",make.names(ticker)))
       com.env$stx.symbols <- com.env$stx.symbols[-which(com.env$stx.symbols == ticker)] #remove from stx list
       com.env$stx_list <- com.env$stx_list[-which(com.env$stx_list == ticker)]
     }
-    cmn <- com.env$cmn_lookup[ticker]
-    cmd_string <- paste("corr.data <- cbind(data.env$",cmn,"[,'",cmn,".Adjusted'],data.env$",ticker,"[,'",ticker,".Adjusted'])",sep="")
+    etf <- com.env$etf_lookup[ticker]
+    cmd_string <- paste("corr.data <- cbind(data.env$",etf,"[,'",etf,".Adjusted'],data.env$",ticker,"[,'",ticker,".Adjusted'])",sep="")
     #if (verbose) print(cmd_string)
     eval(parse(text=cmd_string))
     cmd_string <- paste("enough_history <- nrow(data.env$",ticker,"[com.env$reg_date_range]) > 320",sep="")
     eval(parse(text=cmd_string))
-    if (enough_history) corr.val <- cor(corr.data[com.env$reg_date_range],use="complete.obs")[1,2]
-    if ( (!enough_history) | (corr.val < com.env$corr.threshold) ) {
-      #print(paste("remove",ticker,"from stx list, not correlated with cmn",corr.val))
+    if ( (!enough_history) ) {      #| (corr.val < com.env$corr.threshold) ) {
+      #print(paste("remove",ticker,"from stx list, not correlated with etf",corr.val))
       com.env$stx.symbols <- com.env$stx.symbols[-which(com.env$stx.symbols == ticker)] #stx.symbols - only stocks
       com.env$stx_list <- com.env$stx_list[-which(com.env$stx_list == ticker)]          #stx_list - contains etfs
-    } #else print(corr.val)
+    } else {
+      load.env$etf_corr[[i]] <- cor(corr.data[com.env$reg_date_range],use="complete.obs")[1,2]
+    }
   }
-  rm(static.stx.symbols,corr.val,corr.data)
+  #rm(static.stx.symbols,corr.val,corr.data)
+  names(load.env$etf_corr) <- com.env$stx.symbols
   com.env$stx <- length(com.env$stx.symbols)
-  com.env$start_date <- lapply(com.env$stx.symbols,get_start_date)
-  names(com.env$start_date) <- com.env$stx.symbols
-  #print(com.env$start_date)
-  com.env$port_size_mult <- 10000
-  com.env$port_size <- com.env$init_equity <- com.env$port_size_mult*com.env$stx
-  com.env$alpha_wt <- 16000
-  com.env$retvlty_not_calced <- TRUE
-  sim.env$PCA.array <- data.env$PCA.array[com.env$stx.symbols,]
-  sim.env$pca_etf <- data.env$pca_etf[com.env$stx.symbols,]
+  com.env$stx_list <- c(com.env$etf.symbols,com.env$stx.symbols)
   #print(com.env$stx_list)
+  com.env$start_date <- lapply(com.env$stx_list,get_start_date)
+  com.env$end_date <- lapply(com.env$stx_list,get_start_date)
+  names(com.env$start_date) <- com.env$stx_list
+  names(com.env$end_date) <- com.env$stx_list
+  #print(com.env$start_date)
+  if (com.env$data_str == "large") sim.env$PCA.array <- load.env$PCA.array[com.env$stx.symbols,]
+  sim.env$pca_etf <- load.env$pca_etf[com.env$stx.symbols,]
+  com.env$retvlty_not_calced <- TRUE
 }
 
 #loads all stock in com.env$stx_list not in stx_list.old (returns loaded list)
@@ -637,7 +675,7 @@ stock_list <- function() {
     "PEP",
     "PG",
     "PM",
-    "RAI",
+    #"RAI",
     "SJM",
     "STZ",
     "SVU",
@@ -956,38 +994,38 @@ stock_list <- function() {
     'RIG'
   )
   
-  small_dataset_cmns <- c('XLF','GDX','XLE')
-  large_dataset_cmns <- c('IYZ','XLB','XLE','XLF','XLI','XLK','XLP','XLU','XLV','XLY')
+  small_dataset_etfs <- c('XLF','GDX','XLE')
+  large_dataset_etfs <- c('IYZ','XLB','XLE','XLF','XLI','XLK','XLP','XLU','XLV','XLY')
   
-  cmn_dataset_str <- paste0(com.env$data_str,"_dataset_cmns")
+  etf_dataset_str <- paste0(com.env$data_str,"_dataset_etfs")
   dataset_str <- paste0(com.env$data_str,"_dataset_symbols")
   
-  #create cmn lookup (stock contains etf used as cmn, cmn contains the word 'cmn')
-  #com.env$cmn.symbols <- c('XLF',
+  #create etf lookup (stock contains etf used as etf, etf contains the word 'etf')
+  #com.env$etf.symbols <- c('XLF',
   #                         'GDX',
   #                         'XLE'
   #)
-  cmd_str <- paste0("com.env$cmn.symbols <- ",cmn_dataset_str)
+  cmd_str <- paste0("com.env$etf.symbols <- ",etf_dataset_str)
   eval(parse(text=cmd_str))
   cmd_str <- paste0("symbols <- ",dataset_str)
   eval(parse(text=cmd_str))
   
   num_symbols <- length(symbols)
-  com.env$cmns <- length(com.env$cmn.symbols)
-  com.env$stx <- num_symbols - com.env$cmns
-  cmn_num <- which(symbols %in% com.env$cmn.symbols)
-  if (length(cmn_num) != com.env$cmns) stop()        #bug in ticker or cmn list
+  com.env$etfs <- length(com.env$etf.symbols)
+  com.env$stx <- num_symbols - com.env$etfs
+  etf_num <- which(symbols %in% com.env$etf.symbols)
+  if (length(etf_num) != com.env$etfs) stop()        #bug in ticker or etf list
   
-  com.env$cmn_lookup <- rep('cmn',num_symbols)
-  for (i in 1:com.env$cmns) {
-    start_idx <- cmn_num[i] + 1
-    end_idx <- ifelse(i < com.env$cmns,cmn_num[i+1]-1,num_symbols)
-    com.env$cmn_lookup[start_idx:end_idx] <- com.env$cmn.symbols[i]
+  com.env$etf_lookup <- rep('etf',num_symbols)
+  for (i in 1:com.env$etfs) {
+    start_idx <- etf_num[i] + 1
+    end_idx <- ifelse(i < com.env$etfs,etf_num[i+1]-1,num_symbols)
+    com.env$etf_lookup[start_idx:end_idx] <- com.env$etf.symbols[i]
   }
-  names(com.env$cmn_lookup) <- symbols
+  names(com.env$etf_lookup) <- symbols
   
-  com.env$stx.symbols <- symbols[!(symbols %in% com.env$cmn.symbols)]
-  com.env$stx_list <- symbols
+  com.env$stx.symbols <- symbols[!(symbols %in% com.env$etf.symbols)]  #tradable stocks
+  com.env$stx_list <- symbols                                          #all symbols (stocks + ETFs)
   
   #print(ls(com.env))
 }

@@ -280,7 +280,12 @@ drop_var_oos <- function(model,data.df) {
 
 #returns lm model for set of reg_vars and data.df
 get_new_reg_model <- function(reg_vars,data.df) {
+  #print("In get_new_reg_model")
+  #print(colnames(data.df))
+  #print(reg_vars)
+  if (length(reg_vars)==0) return(NULL)
   f <- as.formula(paste(colnames(data.df)[1],paste(reg_vars,collapse=" + "),sep=" ~ "))
+  #print(f)
   new_model <- lm(formula=f,data=data.df)
   return(new_model)
 }
@@ -309,7 +314,7 @@ opt_rolling_oos <- function(recalc_vars=FALSE) {
   check_vcom(com.env$v.com,"In opt_rolling_oos")
   if (recalc_vars) {  #pass in FALSE if data already calculated in var.env
     #clean_var_env()  #remove all vars not in current vcom
-    make_vars()  #eval_adj_r2 normally by calculating all vars in com.env$v.com
+    calc_all_vars()  #eval_adj_r2 normally by calculating all vars in com.env$v.com
   }
   #collect data, get regression model, evaluate r2
   #if (com.env$retvlty_not_calced) {
@@ -342,10 +347,10 @@ opt_rolling_oos <- function(recalc_vars=FALSE) {
     mu_calc(paste0("mu",i))
     stx_oos <- com.env$stx.symbols[com.env$start_date<com.env$start_oos]
     print(paste("stx count for sim:",length(stx_oos)))
-    sum_profit <- sum_profit + lp_sim(paste0("mu",i),stx_oos,com.env$oos_date_range,com.env$port_size_mult*length(stx_oos),plot_profit=FALSE)
+    sum_profit <- sum_profit + lp_sim(paste0("mu",i),stx_oos,com.env$oos_date_range,sim.env$port_size_mult*length(stx_oos),plot_profit=FALSE)
   }
   ave_r2 <- sum_r2/com.env$rolling_periods
-  ave_profit <- sum_profit/(com.env$rolling_periods*com.env$port_size)
+  ave_profit <- sum_profit/(com.env$rolling_periods*sim.env$port_size)
   if (com.env$r2_wt*ave_r2 + ave_profit > com.env$rolling_best_score) {
     cat("Model improved!!!  Updating rolling best_vars, OOS_R2:",ave_r2,"profit:",ave_profit,"\n")
     com.env$rolling_best_score <- com.env$r2_wt*ave_r2 + ave_profit
@@ -368,21 +373,23 @@ opt_rolling_oos <- function(recalc_vars=FALSE) {
 opt_oos_r2 <- function(recalc_vars=FALSE,recollect_data=FALSE) {
   if (recalc_vars) {  #pass in FALSE if data already calculated in var.env
     #clean_var_env()  #remove all vars not in current vcom
-    make_vars()  #eval_adj_r2 normally by calculating all vars in com.env$v.com
+    calc_all_vars()  #eval_adj_r2 normally by calculating all vars in com.env$v.com
   }
   if (recollect_data) collect_data(oos_data=TRUE,sim_data=TRUE)  #populate var.env(reg_data.df,oos_data.df,sim_data.df) with model vars
   reg_vars <- com.env$best_clu_names
   drop_var <- "any"
   loop <- 0
-  while ((drop_var != "none") | is.null(reg_vars)) {
+  while ((drop_var != "none") | is.null(reg_vars) | (length(reg_vars) == 0)) {
     loop <- loop + 1
     if (loop > 100) break
     best_model <- get_new_reg_model(reg_vars,var.env$reg_data.df)
-    drop_var <- drop_var_oos(best_model,var.env$oos_data.df)
-    reg_vars <- reg_vars[!reg_vars %in% drop_var]
+    if (!is.null(best_model)) {
+      drop_var <- drop_var_oos(best_model,var.env$oos_data.df)
+      reg_vars <- reg_vars[!reg_vars %in% drop_var]
+    }
   }
   #update best vars
-  if ((length(best_model) == 0) | (is.null(reg_vars))) {
+  if ((length(best_model) == 0) | (is.null(reg_vars)) | (length(reg_vars) == 0)) {
     print("All variables left model")
     com.env$best_adj_r2 <- 0
     com.env$best_clu_names <- NULL
