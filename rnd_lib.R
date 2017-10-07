@@ -96,9 +96,17 @@ set_name = function(V1,vdlist=NULL) {
                       namePart <- "e"
                       IDPart <- "31"
                     },
+                    "'rsx'" = {
+                      namePart <- "e"
+                      IDPart <- "30"
+                    },
                     "'fth'" = {
                       namePart <- "f"
                       IDPart <- "32"
+                    },
+                    "'ftx'" = {
+                      namePart <- "f"
+                      IDPart <- "33"
                     }
              )
              if (length(parm_list)==3) {
@@ -215,6 +223,19 @@ set_name = function(V1,vdlist=NULL) {
                     "cap_pct" = { IDPart <- paste0("1",which(as.numeric(rnd.env$cap_pct_list)==as.numeric(parm_split[2]))) },
                     "zcap" = { IDPart <- paste0("2",which(as.numeric(rnd.env$zcap_list)==as.numeric(parm_split[2]))) },
                     "abscap" = { IDPart <- "308"})
+             if (nchar(IDPart)<2) print(paste(rnd.env$zcap_list,parm_split,IDPart))
+             IDPart <- paste0("29",IDPart)
+             #print(rnd.env$zcap_list)
+             #print(parm_split[2])
+             #print(which(as.numeric(rnd.env$zcap_list)==as.numeric(parm_split[2])))
+             #print(paste(V1$vcom_num,"calc_cap ID:",IDPart))
+           },
+           "calc_cap_x" = {
+             parm_split <- strsplit(parms,"=")[[1]]
+             switch(parm_split[1],
+                    "cap_pct" = { IDPart <- paste0("4",which(as.numeric(rnd.env$cap_pct_list)==as.numeric(parm_split[2]))) },
+                    "zcap" = { IDPart <- paste0("5",which(as.numeric(rnd.env$zcap_list)==as.numeric(parm_split[2]))) },
+                    "abscap" = { IDPart <- "608"})
              if (nchar(IDPart)<2) print(paste(rnd.env$zcap_list,parm_split,IDPart))
              IDPart <- paste0("29",IDPart)
              #print(rnd.env$zcap_list)
@@ -368,6 +389,19 @@ set_name = function(V1,vdlist=NULL) {
              }
            },
            "calc_rank" = {
+             namePart <- "r"
+             IDPart <- "8"               #rank "r"
+           },
+           "calc_z_x" = {
+             if (grepl("TRUE",parms)) {  #Zscore "Z"  ID's for Z,z,r chosen so they don't sum to same thing
+               namePart <- "Z"
+               IDPart <- "2"
+             } else {                    #Zscale "z"
+               namePart <- "z"
+               IDPart <- "6"
+             }
+           },
+           "calc_rank_x" = {
              namePart <- "r"
              IDPart <- "9"               #rank "r"
            },

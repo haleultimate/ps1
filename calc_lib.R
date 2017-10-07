@@ -6,18 +6,25 @@ name.var <- function(ve.xts,col_num,new_name,bins,first_pass=FALSE) { #always na
     print(paste("2name.var",ve.xts,col_num,new_name,bins))
     print("problem in name_var no name given")
   }
-  for (n in 1:bins) {
-    nn <- ifelse(bins>1,paste0(new_name,"_",n),new_name)
-    cn <- col_num + n - 1
-    cmd_string <- paste("colnames(",ve.xts,")[",cn,"] <- '",nn,"'",sep="")
-    # if (first_pass) print(cmd_string)
-    # if (ve.xts == "var.env$BAC") {
-    #   if (any(colnames(var.env$BAC) == paste0("'",nn,"'"))) {
-    #     print("problem in name.var, duplicate colnames")
-    #     source("close_session.R")
-    #   }
-    # }
+  cmd_string <- paste("ve.ncol <- ncol(",ve.xts,")")
+  eval(parse(text=cmd_string))
+  # if (ve.xts == "var.env$BAC") {
+  #   if (any(colnames(var.env$BAC) == paste0("'",nn,"'"))) {
+  #     print("problem in name.var, duplicate colnames")
+  #     source("close_session.R")
+  #   }
+  # }
+  if ((ve.ncol == col_num) | (bins == 1)) {
+    cmd_string <- paste0("colnames(",ve.xts,")[",col_num,"] <- '",new_name,"'")
     eval(parse(text=cmd_string))
+  } else {
+    for (n in 1:bins) {
+      nn <- paste0(new_name,"_",n)
+      cn <- col_num + n - 1
+      cmd_string <- paste("colnames(",ve.xts,")[",cn,"] <- '",nn,"'",sep="")
+      # if (first_pass) print(cmd_string)
+      eval(parse(text=cmd_string))
+    }
   }
   #print(paste("finished with name.var",cmd_string))
 } 
@@ -277,6 +284,97 @@ calc_cap <- function(ve.xts,coln,abscap=NULL,lcap=NULL,hcap=NULL,
   eval(parse(text=cmd_string))
   cmd_string <- paste(out_string,"[",out_string," > ",hcap,"] <- ",hcap,sep="")
   eval(parse(text=cmd_string))
+}
+
+#doesn't handle coln==0 [function applied to var.env$col.xts]
+calc_cap_x <- function(coln,etf_coln,abscap=NULL,lcap=NULL,hcap=NULL,
+                     cap_pct=NULL,lcp=NULL,hcp=NULL,zcap=NULL,lz=NULL,hz=NULL,first_pass=FALSE) {  #always cap coln
+  if (first_pass) print(paste("calc_cap_x:","coln=",coln,"abscap=",abscap,"cap_pct=",cap_pct,"zcap=",zcap))
+  # if (coln == 0) {
+  #   data_string <- "var.env$col.xts[com.env$reg_date_range]"
+  #   out_string <- "var.env$col.xts"
+  # } else {
+  #   data_string <- paste(ve.xts,"[com.env$reg_date_range,",coln,"]",sep="")
+  #   out_string <- paste(ve.xts,"[,",coln,"]",sep="")
+  # }
+  if (!is.null(abscap) | !is.null(hcap)) {  #compute abs caps and return
+    if (!is.null(abscap)) {
+      lcap <- -abscap
+      hcap <- abscap
+    } else if (is.null(lcap)) {
+      lcap <- -hcap
+    }
+    for (ticker in com.env$stx_list) {
+      is.etf <- (com.env$etf_lookup[[ticker]] == 'etf')
+      if (is.etf & (etf_coln == -1)) next          #nothing to compute in etf
+      col_num <- ifelse(is.etf,coln,etf_coln)
+      ve.xts <- paste0("var.env$",ticker,"[,",col_num,"]")
+      cmd_string <- paste0(ve.xts,"var.env$",ticker,"<",lcap,"] <- ",lcap)
+      eval(parse(text=cmd_string))
+      cmd_string <- paste0(ve.xts,"var.env$",ticker,">",hcap,"] <- ",hcap)
+      eval(parse(text=cmd_string))
+    }
+    return()
+  }
+  x.xts <- make_x_xts(coln,etf_coln)
+  #print(colnames(x.xts))
+  if (!is.null(cap_pct)) {
+    lcp <- cap_pct
+    hcp <- 1-cap_pct
+  }
+  if (!is.null(zcap)) {
+    lz <- -zcap
+    hz <- zcap
+  }
+  if (!is.null(lcp)) {
+    caps <- apply(x.xts,1,quantile,prob=c(lcp,hcp),na.rm=TRUE)
+    lcap <- caps[1,]
+    hcap <- caps[2,]
+  }
+  if (!is.null(lz)) {
+    sd_val <- apply(x.xts,1,sd,na.rm=TRUE)
+    mean_val <- apply(x.xts,1,mean,na.rm=TRUE)
+    lcap <- mean_val + lz*sd_val
+    hcap <- mean_val + hz*sd_val
+  }
+  x.matrix <- pmax(pmin(as.matrix(x.xts),as.vector(hcap)),as.vector(lcap))
+  sdate <- rownames(x.matrix)[1]
+  edate <- rownames(x.matrix)[nrow(var.env$x.matrix)]
+  cmd_string <- paste0("x.index <- index(var.env$",com.env$stx_list[1],"['",sdate,"/",edate,"'])")
+  #print(cmd_string)
+  eval(parse(text=cmd_string))
+  x.xts <- xts(x.matrix,order.by=x.index)
+  split_x_xts(x.xts,coln,etf_coln)
+}
+
+make_x_xts <- function(coln,etf_coln) { #create a cross-sectional matrix by day for columns provided over all stx and etfs
+  #print(paste("make_x_xts",coln,etf_coln))
+  x.xts <- NULL
+  for (ticker in com.env$stx_list) {
+    is.etf <- (com.env$etf_lookup[[ticker]] == 'etf')
+    if (is.etf & (etf_coln == -1)) next          #nothing to compute in etf
+    col_num <- ifelse(is.etf,etf_coln,coln)
+    ve.xts <- paste0("var.env$",ticker,"[,",col_num,"]")
+    cmd_string <- paste0("x.xts <- cbind(x.xts,",ve.xts,")")
+    #print(cmd_string)
+    eval(parse(text=cmd_string))
+    colnames(x.xts)[ncol(x.xts)] <- ticker
+  }
+  return(x.xts)
+}
+
+split_x_xts <- function(x.xts,coln,etf_coln) {
+  #print(paste("split_x_xts",coln,etf_coln))
+  for (ticker in colnames(x.xts)) {
+    #print(ticker)
+    is.etf <- (com.env$etf_lookup[[ticker]] == 'etf')
+    if (is.etf & (etf_coln == -1)) next          #nothing to compute in etf
+    col_num <- ifelse(is.etf,etf_coln,coln)
+    #ve.xts <- paste0("var.env$",ticker,"[,",col_num,"]")
+    cmd_string <- paste0("var.env$",ticker,"[,",col_num,"] <- x.xts[index(var.env$",ticker,"),'",ticker,"']")
+    #print(cmd_string)
+    eval(parse(text=cmd_string))
+  }
 }
 
 #doesn't handle coln==0  
@@ -811,12 +909,12 @@ make_vars <- function(vd = NULL) {
   first_pass <- TRUE
   #if (com.env$verbose) 
   #print(paste("make_vars",make_vcom))
-  if (make_vcom) {
-    col.calc <- NULL
-    col.etf.calc <- NULL
-    col.calc[1:length(com.env$v.com)] <- FALSE
-    col.etf.calc[1:length(com.env$v.com)] <- FALSE         #boolean array to indicate if column has been found for each var in v.com
-  } 
+  # if (make_vcom) {
+  #   col.calc <- NULL
+  #   col.etf.calc <- NULL
+  #   col.calc[1:length(com.env$v.com)] <- FALSE
+  #   col.etf.calc[1:length(com.env$v.com)] <- FALSE         #boolean array to indicate if column has been found for each var in v.com
+  # } 
   for (stk in 1:(com.env$stx + com.env$etfs)) {
     ticker <- com.env$stx_list[stk]
     first_pass <- (ticker == "FTR")
@@ -827,7 +925,7 @@ make_vars <- function(vd = NULL) {
       for (v in 1:length(com.env$v.com)) {
         if (com.env$v.com[[v]]$use == "def") next                #nothing to store in var.env
         if (is.etf & !com.env$v.com[[v]]$calc_etf) next          #nothing to compute in etf
-        if ((is.etf & !col.etf.calc[v]) | (!is.etf & !col.calc[v])) {  #calculate new column num and insert it into v.com
+        #if ((is.etf & !col.etf.calc[v]) | (!is.etf & !col.calc[v])) {  #calculate new column num and insert it into v.com
           if (!exists(ticker,envir=var.env,inherits=FALSE)) {
             coln <- 1
           } else {
@@ -836,13 +934,13 @@ make_vars <- function(vd = NULL) {
           }
           if (is.etf) {
             com.env$v.com[[v]]$etf_col <- coln 
-            col.etf.calc[v] <- TRUE
+            #col.etf.calc[v] <- TRUE
           } else {
             com.env$v.com[[v]]$col <- coln
-            col.calc[v] <- TRUE
+            #col.calc[v] <- TRUE
           }
           #if (first_pass) print(paste("finding col",coln," for v",v,is.etf))
-        } 
+        #} 
         vd <- com.env$v.com[[v]]
         if (coln != 1) {  #var.env exists
           if (vd$bins > 1) {
@@ -855,10 +953,10 @@ make_vars <- function(vd = NULL) {
           if (length(col_num) > 0) {  #already calculated, update col field
             if (is.etf) {
               com.env$v.com[[v]]$etf_col <- col_num 
-              col.etf.calc[v] <- TRUE
+              #col.etf.calc[v] <- TRUE
             } else {
               com.env$v.com[[v]]$col <- col_num
-              col.calc[v] <- TRUE
+              #col.calc[v] <- TRUE
             }
             next
           }
@@ -1304,7 +1402,7 @@ calc_one_var <- function(vd) {
     eval(parse(text=cmd_string))
   }
   eval(parse(text=cmd_string))
-  if ((length(etf_col_num) > 0) & (length(stx_col_num)>0)) {
+  if ((length(etf_col_num) > 0) | (length(stx_col_num)>0)) {
     vd$etf_col <- etf_col_num
     vd$col <- stx_col_num
     print("mod_var already calculated, returning from calc_one_var with no calculation")
@@ -1314,8 +1412,12 @@ calc_one_var <- function(vd) {
     vd$etf_col <- 1
     vd$col <- 1
   } else {
-    cmd_string <- paste0("vd$etf_col <- ncol(",etf_ve.xts,") + 1")
-    eval(parse(text=cmd_string))
+    if (!vd$calc_etf) {
+      vd$etf_col <- -1
+    } else {
+      cmd_string <- paste0("vd$etf_col <- ncol(",etf_ve.xts,") + 1")
+      eval(parse(text=cmd_string))
+    }
     cmd_string <- paste0("vd$col <- ncol(",stx_ve.xts,") + 1")
     eval(parse(text=cmd_string))
   }
@@ -1323,29 +1425,51 @@ calc_one_var <- function(vd) {
   num_m <- length(vd$math)  
   for (m in 1:num_m) {  #loop over all math functions 
     math <- strsplit(vd$math[m],split=",")[[1]]
-    parms <- gsub("^[^,]*,","",vd$math[m])
-    
+    parms <- gsub("^[^,]*,","",vd$math[m])  #delete math[1] and first ','
     first_pass <- FALSE
     if (first_pass) print(paste('mod_var',vd$vcom_num,vd$col,vd$etf_col))
-    for (ticker in com.env$stx_list) {  #loop over all etfs and stx
-      #if (first_pass) print(paste("Getting data for:",ticker))
-      is.etf <- (com.env$etf_lookup[[ticker]] == 'etf')
-      if (is.etf & !vd$calc_etf) next          #nothing to compute in etf
-      coln <- ifelse(is.etf,vd$etf_col,vd$col)
-      # if (is.na(coln)) {
-      #   print(paste(is.etf,vd$etf_col,vd$col,exists(ticker,envir=var.env,inherits=FALSE)))
-      # } else {
-      #   print(paste("coln=",coln))
-      # }
-      ve.xts <- paste0("var.env$",ticker)
-      fun_call <- paste0(math[1],"('",ve.xts,"',",coln,",",parms,",first_pass=first_pass)")
+    
+    if ((substr(math[1],nchar(math[1])-1,nchar(math[1]))=="_x") | grepl("rsx",parms) | grepl("ftx",parms)) {  
+      #cross-sectional calc, need to calc all stocks and etfs in one call      
+      fun_call <- paste0(math[1],"(",vd$col,",",vd$etf_col,",",parms,",first_pass=first_pass)")
       if (first_pass) print(paste(fun_call,"m=",m,"v=",vd$vcom_num))
       eval(parse(text=fun_call))
-      if ((m==1) & (num_m>1))       name.var(ve.xts,coln,vd$clu,      1,first_pass)
-      if ((m==num_m) & (vd$bins>1)) name.var(ve.xts,coln,vd$clu,vd$bins,first_pass)
-      first_pass <- FALSE
+      if ((m==1) | ((m==num_m) & (vd$bins>1))) {  #loop over etfs and stx and name columns
+        bin_parm <- ifelse(((m==1) & (num_m>1)),1,vd$bins)
+        for (ticker in com.env$stx_list) { 
+          is.etf <- (com.env$etf_lookup[[ticker]] == 'etf')
+          if (is.etf & !vd$calc_etf) next          #nothing to compute in etf
+          coln <- ifelse(is.etf,vd$etf_col,vd$col)
+          ve.xts <- paste0("var.env$",ticker)
+          name.var(ve.xts,coln,vd$clu,bin_parm,fist_pass)
+        }
+      }
+    } else {
+      for (ticker in com.env$stx_list) {  #loop over all etfs and stx
+        #if (first_pass) print(paste("Getting data for:",ticker))
+        is.etf <- (com.env$etf_lookup[[ticker]] == 'etf')
+        if (is.etf & !vd$calc_etf) next          #nothing to compute in etf
+        coln <- ifelse(is.etf,vd$etf_col,vd$col)
+        # if (is.na(coln)) {
+        #   print(paste(is.etf,vd$etf_col,vd$col,exists(ticker,envir=var.env,inherits=FALSE)))
+        # } else {
+        #   print(paste("coln=",coln))
+        # }
+        ve.xts <- paste0("var.env$",ticker)
+        fun_call <- paste0(math[1],"('",ve.xts,"',",coln,",",parms,",first_pass=first_pass)")
+        if (first_pass) print(paste(fun_call,"m=",m,"v=",vd$vcom_num))
+        eval(parse(text=fun_call))
+        #if ((m==1) & (num_m>1))       name.var(ve.xts,coln,vd$clu,      1,first_pass)
+        #if ((m==num_m) & (vd$bins>1)) name.var(ve.xts,coln,vd$clu,vd$bins,first_pass)
+        name.var(ve.xts,coln,vd$clu,vd$bins,first_pass)
+        first_pass <- FALSE
+      }
     }
   }
+  if (any(grepl("\\.",colnames(var.env$BAC)))) {
+    print(colnames(var.env$BAC))
+    print("in calc_one_var")
+    source("close_session.R")
+  }
   return(vd)
-  
 }

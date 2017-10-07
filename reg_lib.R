@@ -58,11 +58,11 @@ opt_model <- function(model_loops,mod_var_loops) {
       if (finish_mod_loop(mod_var("model"))) break  #try a random model var mod
     }
     print(paste("Mod Loops attempted:",current_mod_loop,"/",mod_var_loops,",",length(com.env$best_clu_names),com.env$best_adj_r2,Sys.time()))
-    # if (any(grepl("\\.",colnames(var.env$BAC)))) {
-    #   print(colnames(var.env$BAC))
-    #   print("after mod_loop")
-    #   source("close_session.R")
-    # }
+    if (any(grepl("\\.",colnames(var.env$BAC)))) {
+      print(colnames(var.env$BAC))
+      print("after mod_loop")
+      source("close_session.R")
+    }
     
     opt_var_selection()
 

@@ -364,7 +364,8 @@ get_scale_list <- function() {
   cap_type <- rnd_choice("cap_type")
   if (cap_type != "none") {
     cap <- rnd_choice(cap_type)
-    V1$math[next_math] <- paste0("calc_cap,",cap_type,"=",cap)
+    calc_cap_str <- rnd_choice("cap_dim")
+    V1$math[next_math] <- paste0(calc_cap_str,",",cap_type,"=",cap)
     next_math <- next_math + 1
   } 
   #select scale
@@ -487,14 +488,16 @@ modify_scale_var <- function(V1) {
     while (cap_type=="none") cap_type <- rnd_choice("cap_type")
     mod_or_delete_cap <- FALSE  #adding cap      
     cap <- rnd_choice(cap_type)
-    V1$math <- append(V1$math,paste0("calc_cap,",cap_type,"=",cap),length(V1$math)-1) #calc_cap comes right before scale
+    calc_cap_str <- rnd_choice("cap_dim")
+    V1$math <- append(V1$math,paste0(calc_cap_str,",",cap_type,"=",cap),length(V1$math)-1) #calc_cap comes right before scale
   } else {
     orig_cap <- V1$math[cap_idx]
     mod_or_delete_cap <- TRUE
     cap_type <- rnd_choice("cap_type")
     if (cap_type != "none") {
       cap <- rnd_choice(cap_type)
-      V1$math[cap_idx] <- paste0("calc_cap,",cap_type,"=",cap)
+      calc_cap_str <- rnd_choice("cap_dim")
+      V1$math[cap_idx] <- paste0(calc_cap_str,",",cap_type,"=",cap)
     } else {                     #delete cap
       V1$math <- V1$math[-cap_idx]
     }
@@ -1098,11 +1101,22 @@ opt_decay <- function(math_pair,try_num) {
 #  tries as given in cap_pct
 #IF abscap:
 #  return "opt"
-#Assumes math form: "calc_cap,CAP_TYPE=parm"  where CAP_TYPE in (cap_pct,zcap,abscap)
+#Assumes math form: "calc_cap[_x],CAP_TYPE=parm"  where CAP_TYPE in (cap_pct,zcap,abscap)
 opt_cap <- function(math_pair,try_num) {
   #print(paste("opt_cap",math_pair[1],math_pair[2],try_num))
   orig_math <- math_pair[[1]]
   mod_math <- math_pair[[2]]
+  orig_fun <- strsplit(orig_math,split=",")[[1]][1] #get element to first comma (function call)
+  mod_fun <- strsplit(mod_math,split=",")[[1]][1] #get element to first comma (function call)
+  if (orig_fun == mod_fun) {
+    fun_str <- orig_fun
+  } else if (orig_fun == "none") {
+    fun_str <- mod_fun
+  } else if (mod_fun == "none") {
+    fun_str <- orig_fun 
+  } else {
+    return("opt")   #mod was to toggle calc_cap, calc_cap_x
+  }
   
   if (mod_math == "none") {
     mod_cap_type <- strsplit(strsplit(orig_math,split=",")[[1]][2],split="=")[[1]][1] #inherit from orig_math
@@ -1155,7 +1169,7 @@ opt_cap <- function(math_pair,try_num) {
     return("opt")
   }
   new_cap <- mod_cap_index_list[new_index]  #from mod_cap_type
-  opt_math <- paste0("calc_cap,",mod_cap_type,"=",new_cap)
+  opt_math <- paste0(fun_str,",",mod_cap_type,"=",new_cap)
   #print(opt_math)
   return(opt_math)
 }
@@ -1322,12 +1336,13 @@ get_vd_diff <- function(vd_pair) {
   mod_idx <- 1
   loops <- 0
   math_pair <- NULL
-  while ((orig_idx <= length(orig_math_list)) | (mod_idx <= length(mod_math_list)) & (is.null(math_pair))) {
+  while (((orig_idx <= length(orig_math_list)) | (mod_idx <= length(mod_math_list))) & (is.null(math_pair))) {
     #print(paste(loops,orig_idx,mod_idx,length(orig_math_list),length(mod_math_list)))
     loops <- loops + 1
     if (loops > 1000) {
       print("infinite loop in get vd_diff")
       print(vd_pair)
+      print(math_pair)
       source("close_session.R")
     }
     if (mod_idx > length(mod_math_list)) {              #mod math ran out 
@@ -1360,20 +1375,20 @@ get_vd_diff <- function(vd_pair) {
         } else if (((cmc[2]=="calc_ia") & ((cmc[3]=="calc_bin") | (cmc[3]=="calc_decay"))) |
             ((cmc[2]=="calc_bin") & (cmc[3]=="calc_decay")) |
             (cmc[2]=="calc_calc") |
-            (cmc[2]=="calc_cap") & ((cmc[3]=="calc_z") | (cmc[3]=="calc_rank"))) {                #no match in mod_math
+            (grepl("calc_cap",cmc[2]) & (grepl("calc_z",cmc[3]) | grepl("calc_rank",cmc[3])))) {                #no match in mod_math
           math_pair <- c(orig_math_list[orig_idx],"none")
           return(math_pair)
         } else if ((((cmc[2]=="calc_bin") | (cmc[2]=="calc_decay")) & (cmc[3]=="calc_ia")) | 
                    ((cmc[2]=="calc_decay") & (cmc[3]=="calc_bin")) |
                    (cmc[3]=="calc_calc") |
-                   ((cmc[2]=="calc_z") | (cmc[2]=="calc_rank")) & (cmc[3]=="calc_cap")) {         #no match in orig_math
+                   ((grepl("calc_z",cmc[2]) | grepl("calc_rank",cmc[2])) & grepl("calc_cap",cmc[3]))) {         #no match in orig_math
           math_pair <- c("none",mod_math_list[mod_idx])
           return(math_pair)
         }
       } else {
         #mod_idx <- mod_idx + 1
         #orig_idx <- mod_idx + 1
-        if ((orig_vd$use == "scale") & (cmc[1] != "calc_cap")) {
+        if ((orig_vd$use == "scale") & !grepl("calc_cap",cmc[1])) {
           print("ERROR in get_vd_diff, only calc_cap should be different in scale vars")  #currently
           source("close_session.R")
         }
@@ -1418,6 +1433,9 @@ get_opt_vd <- function(vd_pair,try_num) {
   switch(cmc,
          "calc_decay" = {
            opt_math <- opt_decay(math_pair,try_num)
+         },
+         "calc_cap_x" = {
+           opt_math <- opt_cap(math_pair,try_num)
          },
          "calc_cap" = {
            opt_math <- opt_cap(math_pair,try_num)

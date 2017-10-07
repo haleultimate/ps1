@@ -7,10 +7,10 @@ rnd.env$vs.com <- NULL
 rnd.env$nameID <- c(53,54,55,56,57,58,59,60,61,62,63)
 names(rnd.env$nameID) <- c('ld','tr','di','pmf','nmf','fi','ti','pdm','ndm','dv','lp')
 
-rnd.env$fun_id <- c(1:6)  #any undefined function will be mapped to zero
-names(rnd.env$fun_id) <- c('calc_cap','calc_z','calc_stk','calc_decay','calc_vlty','calc_bin')
-rnd.env$known_mod_fun <- c(1:5)
-names(rnd.env$known_mod_fun) <- c('calc_cap','calc_z','calc_decay','calc_lag','calc_bin')
+# rnd.env$fun_id <- c(1:10)  #any undefined function will be mapped to zero
+# names(rnd.env$fun_id) <- c('calc_cap','calc_cap_x','calc_z','calc_z_x','calc_rank','calc_rank_x','calc_stk','calc_decay','calc_vlty','calc_bin')
+# rnd.env$known_mod_fun <- c(1:9)
+# names(rnd.env$known_mod_fun) <- c('calc_cap','calc_cap_x','calc_z','calc_z_x','calc_rank','calc_rank_x','calc_decay','calc_lag','calc_bin')
 
 #set up constants  #no leading zeros on numeric parameters (lengthens IDs)
 rnd.env$mod.model <- c("fve","ia","bin","decay","constant")
@@ -34,6 +34,7 @@ if (length(rnd.env$bin_point.zlist) != length(rnd.env$bin_point.rlist)) {
 rnd.env$decay_list <- c(.89,.55,.34,.21,.13,.08,.05,.03,.02,.01)
 rnd.env$vlty_list <- c("v30","v60","v90","v120")
 
+rnd.env$cap_dim_list <- c('calc_cap','calc_cap_x')  #historic or cross-sectional
 rnd.env$cap_type_list <- c('cap_pct','zcap','abscap','none')
 rnd.env$cap_pct_list <- c(.001,.005,.01,.02,.03,.05,.08,.13,.21,.34)
 rnd.env$zcap_list <- c(.5,1,1.5,2,2.5,3,3.5,4,4.5,5.)
@@ -108,6 +109,8 @@ rnd.env$p$to <- c(0.5,0.5)
 names(rnd.env$p$to) <- c(TRUE,FALSE)
 
 #caps ('cap_pct','zcap','abscap','none')
+rnd.env$p$cap_dim <- c(0.5,0.5)
+names(rnd.env$p$cap_dim) <- rnd.env$cap_dim_list  #calc_cap or calc_cap_x
 rnd.env$p$cap_type <- c(0.4,0.2,0.,0.3)
 names(rnd.env$p$cap_type) <- rnd.env$cap_type_list
 

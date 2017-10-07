@@ -2,7 +2,7 @@
 #parms that should be changed by user manually to control run_ps.R behavior
 set_control_parms <- function() {
   com.env$model_loops <- 3
-  com.env$add_var_levels <- c(3,5) #10,20,30)
+  com.env$add_var_levels <- c(5,10,20,30)
   com.env$opt_model <- TRUE
   com.env$load_vars <- FALSE
   com.env$load_model <- FALSE
@@ -13,7 +13,7 @@ set_control_parms <- function() {
   com.env$mod_var_loops <- 20
   com.env$opt_type <- "single_oos"  #{adjr2_is,single_oos,rolling_oos}
   com.env$run_sim <- TRUE
-  com.env$data_str <- "large"       #{small,large}
+  com.env$data_str <- "small"       #{small,large}
   com.env$sdata_available <- FALSE
   
   com.env$load_multi_model <- FALSE
@@ -684,7 +684,7 @@ stock_list <- function() {
     "TGT",
     "TSN",
     "WBA",
-    "WFM",
+    #"WFM",
     "WMT",
     "XLU",
     "AEE",
@@ -951,7 +951,7 @@ stock_list <- function() {
     "CDE",
     #"SBGL",   #too recent
     "AG",
-    "SSRI",
+    #"SSRI",
     #"OR",    #problem loading data from YHOO
     "HMY",
     "MUX",
