@@ -42,7 +42,7 @@ rnd.env$zcap_list <- c(.5,1,1.5,2,2.5,3,3.5,4,4.5,5.)
 rnd.env$calc_list <- c('log','exp','pow','none')
 rnd.env$pow_list <- c(.25,.33,.5,.75,1.25,1.5,2,2.5,3)
 
-rnd.env$scale_list <- c('Z','z','r','none') # [Zscore,zscale,rank]
+rnd.env$scale_list <- c('Z','z','r','Zx','zx','rx','none') # [Zscore,zscale,rank]
 rnd.env$sdata_list <- c('shout','mcap','div','log_price')
 
 #set up var creation probabilities
@@ -128,7 +128,7 @@ rnd.env$p$pow <- rep(0.1,times=length(rnd.env$pow_list))
 names(rnd.env$p$pow) <- rnd.env$pow_list
 
 #scale
-rnd.env$p$scale <- c(0.1,0.1,0.1,0) # must scale
+rnd.env$p$scale <- c(0.1,0.1,0.1,0.4,0.4,0.4,0) # must scale, cross-sectional scaling preferred
 names(rnd.env$p$scale) <- rnd.env$scale_list
 
 #calc var mod, used in mod_fve, mod_ia, mod_bin

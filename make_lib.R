@@ -380,6 +380,15 @@ get_scale_list <- function() {
   } else if (scale == "r") {
     V1$math[next_math] <- "calc_rank,10"  #use deciles to approx rank
     V1$scale_type <- "rank"
+  } else if (scale == "zx") {
+    V1$math[next_math] <- "calc_z_x,ma=FALSE"
+    V1$scale_type <- "zscore"
+  } else if (scale == "Zx") {
+    V1$math[next_math] <- "calc_z_x,ma=TRUE"
+    V1$scale_type <- "zscore"
+  } else if (scale == "rx") {
+    V1$math[next_math] <- "calc_rank_x,10"  #use deciles to approx rank
+    V1$scale_type <- "rank"
   }
   V1$use <- "scale"  #only after scaling can a variable be considered "scale" type
   #print(paste("call calc set_name",V1$math))
@@ -475,6 +484,7 @@ sub_scale_name_in_math <- function(math,var_name) {
 }
 
 #takes in scale vd (raw/stk/etf:calc:cap:scale) modifies cap and returns it
+#FUTURE: modify scale or calc
 modify_scale_var <- function(V1) {
   #print("modify_scale_var")
   cap_idx <- NULL

@@ -355,7 +355,60 @@ calc_cap_x <- function(coln,etf_coln,abscap=NULL,lcap=NULL,hcap=NULL,
     #var.env$x.index <- x.index
   }
   x.xts <- xts(x.matrix,order.by=x.index)
+  var.env$x.xts <- x.xts
   split_x_xts(x.xts,coln,etf_coln)
+}
+
+#doesn't handle coln==0
+calc_z_x <- function(coln,etf_coln,ma=TRUE,scale_val=TRUE,first_pass=FALSE) { #compute zscore/zscale on coln
+  #ve.xts <- paste("var.env$",ticker,sep="")
+  #cmd_string <- paste("col <- ncol(",ve.xts,")",sep="")
+  #eval(parse(text=cmd_string))
+  x.xts <- make_x_xts(coln,etf_coln)
+  x.matrix <- t(as.matrix(x.xts))
+  x.out <- scale(x.matrix,center=ma,scale=scale_val)
+  x.matrix <- t(x.out)
+  sdate <- rownames(x.matrix)[1]
+  edate <- rownames(x.matrix)[nrow(x.matrix)]
+  cmd_string <- paste0("x.index <- index(var.env$",com.env$stx_list[1],"['",sdate,"/",edate,"'])")
+  eval(parse(text=cmd_string))
+  x.xts <- xts(x.matrix,order.by=x.index)
+  split_x_xts(x.xts,coln,etf_coln)
+}  
+
+#doesn't handle coln==0
+#mean adjust cross-sectionally (using calc_z_x function with scale_val set to FALSE)
+ma_x <- function(coln,etf_coln,first_pass=FALSE) {
+  calc_z_x(coln,etf_coln,ma=TRUE,scale_val=FALSE,first_pass)
+}
+
+#doesn't handle coln==0
+#splits data into quantiles(# from qcount) and approximates a rank from 0-1.0 from these quantiles (in reg_date_range)
+calc_rank_x <- function(coln,etf_coln,qcount,first_pass=FALSE) {
+  #print(paste("calc_rank",ve.xts,coln,first_pass))
+  x.xts <- make_x_xts(coln,etf_coln)
+  for (i in 1:nrow(x.xts)) {
+    data.row <- x.xts[i,]
+    new_data.row <- row_rank_x(data.row,qcount=qcount)
+    x.xts[i,] <- new_data.row
+  }
+  #apply(x.xts,2,row_rank_x,qcount=qcount)
+  split_x_xts(x.xts,coln,etf_coln)
+}
+
+
+row_rank_x <- function(row.vector,qcount) {
+  #print(str(row.vector))
+  a <- max(row.vector,na.rm=TRUE)
+  b <- min(row.vector,na.rm=TRUE)
+  if ((a==b) | (a==-Inf)) { #a==-Inf when all row.vector == NA
+    row.vector <- 1
+  } else {
+    deciles <- quantile(row.vector,probs=seq(0,1,(1/qcount)),na.rm=TRUE)
+    var.env$row.vector <- row.vector
+    var.env$deciles <- deciles
+    row.vector <- approx(deciles,(as.numeric(sub('%','',names(deciles)))/100),row.vector,yleft=0,yright=1)$y
+  }
 }
 
 make_x_xts <- function(coln,etf_coln) { #create a cross-sectional matrix by day for columns provided over all stx and etfs

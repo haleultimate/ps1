@@ -9,7 +9,7 @@ set_control_parms <- function() {
   com.env$save_model <- FALSE
   com.env$save_var_n <- 0
   com.env$look_forward <- 5
-  com.env$model_filename <- "lf5_500_91.vcom"
+  com.env$model_filename <- "lf5_500_1012.vcom"
   com.env$mod_var_loops <- 20
   com.env$opt_type <- "single_oos"  #{adjr2_is,single_oos,rolling_oos}
   com.env$run_sim <- TRUE
@@ -227,9 +227,9 @@ get_start_date <- function(ticker) {
     cmd_string <- paste0("etf_start_date <- as.Date(index(data.env$",etf_ticker,"[",com.env$days2remove,",]))")
     eval(parse(text=cmd_string))
     start_date <- max(stk_start_date,etf_start_date)
-    if ((start_date != stk_start_date) & (start_date != etf_start_date)) {
-      print(paste("Problem in get_start_date",ticker,etf_ticker,stk_start_date,etf_start_date,start_date))
-    }
+    # if ((start_date != stk_start_date) & (start_date != etf_start_date)) {
+    #   print(paste("Problem in get_start_date",ticker,etf_ticker,stk_start_date,etf_start_date,start_date))
+    # }
   } else {
     start_date <- stk_start_date
   }
@@ -240,9 +240,9 @@ get_end_date <- function(ticker) {
   cmd_string <- paste0("stk_end_date <- as.Date(index(data.env$",ticker,")[nrow(data.env$",ticker,")])")
   eval(parse(text=cmd_string))
   end_date <- min(com.env$sim_end_date,stk_end_date)
-  if ((end_date != stk_end_date) & (end_date != stk_end_date)) {
-    print(paste("Problem in get_end_date",ticker,stk_end_date,end_date))
-  }
+  # if ((end_date != stk_end_date) & (end_date != stk_end_date)) {
+  #   print(paste("Problem in get_end_date",ticker,stk_end_date,end_date))
+  # }
   return(end_date)
 }
 

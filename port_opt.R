@@ -61,8 +61,8 @@ lp_sim <- function(mu_col_name,stx,sim_date_index,equity,plot_profit=FALSE) {
   print (paste("Running Sim",Sys.time()))
   #shares <- matrix(nrow=length(sim_date_index),ncol=length(com.env$stx.symbols))
   sim.env$shares <- matrix(nrow=length(sim_date_index),ncol=length(stx))
-  first_pass <- TRUE
-  sim.env$tc$oc <- 10      #transaction cost per order
+  first_pass <- FALSE
+  sim.env$tc$oc <- 1      #transaction cost per order
   sim.env$tc$bp <- 0.0007  #transaction cost per dollar
   
   for (i in 1:(length(sim_date_index))) {
@@ -367,10 +367,12 @@ port_opt_lp <- function (lp.mu, lp.vlty, lp.port_size, lp.port, lp.pca, first_pa
   
   if (first_pass) {
     print("Writing out lp to file 'test_lp'")
-    write.lp(lp.port.model,filename="test_lp",type="lp")
+    lp_error_file <- paste(com.env$logfile,"test_lp",sep="/")
+    write.lp(lp.port.model,filename=lp_error_file,type="lp")
   }
   
-  lp.control(lprec=lp.port.model,verbose="important",presolve=c("rows","cols","lindep","bounds"),scaling=c("geometric","equilibrate","intergers"),timeout=5)
+  lp.control(lprec=lp.port.model,verbose="important",presolve=c("rows","cols","lindep","bounds"),scaling=c("none","equilibrate","intergers"),timeout=5)
+  #lp.control(lprec=lp.port.model,verbose="important",presolve=c("rows","cols","lindep","bounds"),timeout=5)
   #print(get.bounds(lp.port.model,columns=1))
   v1.bounds <- get.bounds(lp.port.model,columns=1)
   if (v1.bounds$lower != -lp$max_pos) {  #bug in code, this is a workaround (should find bug and delete this code)
@@ -380,8 +382,9 @@ port_opt_lp <- function (lp.mu, lp.vlty, lp.port_size, lp.port, lp.pca, first_pa
   t <- system.time({screen_out <- capture.output(lp.status <- solve(lp.port.model))})
   if (lp.status != 0) {  #Difficulty solving LP, remove trading costs from objective function
     print(paste("LP Model status code on try 1:",solve(lp.port.model)))
-    print("Writing out lp to file 'error_lp_1'")
-    write.lp(lp.port.model,filename="error_lp_1",type="lp")
+    # print("Writing out lp to file 'error_lp_1'")
+    # lp_error_file <- paste(com.env$logfile,"error_lp_1",sep="/")
+    # write.lp(lp.port.model,filename=lp_error_file,type="lp")
     print("Retrying after removing trading costs from objective function")
     #set objective function, needed for every new mu, VLTY
     lp.obj.fun <- rep(0,lp$vars)
@@ -410,8 +413,28 @@ port_opt_lp <- function (lp.mu, lp.vlty, lp.port_size, lp.port, lp.pca, first_pa
     if (lp.status != 0) {
       print(paste("LP Model status code try 2:",solve(lp.port.model)))
       print("Writing out lp to file 'error_lp_2'")
-      write.lp(lp.port.model,filename="error_lp_2",type="lp")
-      stop()
+      lp_error_file <- paste(com.env$logfile,"error_lp_2",sep="/")
+      #write.lp(lp.port.model,filename=lp_error_file,type="lp")
+      
+      print("Removing piecewise linear components, retrying")
+      #set objective function, needed for every new mu, VLTY
+      lp.obj.fun <- rep(0,lp$vars)
+      #mu component
+      lp.obj.fun[1:lp$stx] <- lp$alpha_wt*lp.mu
+      #pca component
+      start_idx <- (5+lp$vbs)*lp$stx
+      for (i in 1:lp$pc_n) {
+        lp.obj.fun[(start_idx+(i-1)*2+1):(start_idx+(i-1)*2+2)] <- (-lp$pca_mult*lp$pca_wt[i])    #out of balance pca vector penalty
+      }
+      set.objfn(lp.port.model,lp.obj.fun)
+      lp.status <- solve(lp.port.model)
+      if (lp.status != 0) {
+        print("Unable to solve LP, writing lp to error_lp_3")
+        lp_error_file <- paste(com.env$logfile,"error_lp_3",sep="/")
+        write.lp(lp.port.model,filename=lp_error_file,type="lp")
+        stop()        
+      }
+      
     }
   }
   
