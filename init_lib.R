@@ -13,7 +13,7 @@ set_control_parms <- function() {
   com.env$mod_var_loops <- 20
   com.env$opt_type <- "single_oos"  #{adjr2_is,single_oos,rolling_oos}
   com.env$run_sim <- TRUE
-  com.env$data_str <- "small"       #{small,large}
+  com.env$data_str <- "large"       #{small,large}
   com.env$sdata_available <- FALSE
   
   com.env$load_multi_model <- FALSE
@@ -237,7 +237,7 @@ get_start_date <- function(ticker) {
 }
 
 get_end_date <- function(ticker) {
-  cmd_string <- paste0("stk_end_date <- as.Date(index(data.env$",ticker,"[length(data.env$",ticker,"],]))")
+  cmd_string <- paste0("stk_end_date <- as.Date(index(data.env$",ticker,")[nrow(data.env$",ticker,")])")
   eval(parse(text=cmd_string))
   end_date <- min(com.env$sim_end_date,stk_end_date)
   if ((end_date != stk_end_date) & (end_date != stk_end_date)) {
@@ -260,18 +260,29 @@ remove_problem_stocks <- function() {
   load.env$etf_corr <- NULL
   for (i in 1:length(static.stx.symbols)) {
     ticker <- static.stx.symbols[i]
-    if (make.names(ticker) != ticker) {
-      if (com.env$verbose) print(paste("remove",ticker,"from list, not valid name",make.names(ticker)))
+    if (make.names(ticker) != ticker) {  #ticker not valid variable name in R
+      print(paste("remove",ticker,"from list, not valid name",make.names(ticker)))
       com.env$stx.symbols <- com.env$stx.symbols[-which(com.env$stx.symbols == ticker)] #remove from stx list
       com.env$stx_list <- com.env$stx_list[-which(com.env$stx_list == ticker)]
+      next()
+    }
+    cmd_string <- paste0("missing_data <- any(grepl('NA',summary(data.env$",ticker,"[,'",ticker,".Open'])))")
+    eval(parse(text=cmd_string))
+    if (missing_data) {  #remove stocks that have missing days (by checking Open)
+      print(paste("remove",ticker,"from list, missing_data"))
+      #cmd_string <- paste0("print(summary(data.env$",ticker,"[,'",ticker,".Open']))")
+      #eval(parse(text=cmd_string))
+      com.env$stx.symbols <- com.env$stx.symbols[-which(com.env$stx.symbols == ticker)] #remove from stx list
+      com.env$stx_list <- com.env$stx_list[-which(com.env$stx_list == ticker)]
+      next()
     }
     etf <- com.env$etf_lookup[ticker]
     cmd_string <- paste("corr.data <- cbind(data.env$",etf,"[,'",etf,".Adjusted'],data.env$",ticker,"[,'",ticker,".Adjusted'])",sep="")
-    #if (verbose) print(cmd_string)
     eval(parse(text=cmd_string))
     cmd_string <- paste("enough_history <- nrow(data.env$",ticker,"[com.env$reg_date_range]) > 320",sep="")
     eval(parse(text=cmd_string))
     if ( (!enough_history) ) {      #| (corr.val < com.env$corr.threshold) ) {
+      print(paste("remove",ticker,"from list, not enough history"))
       #print(paste("remove",ticker,"from stx list, not correlated with etf",corr.val))
       com.env$stx.symbols <- com.env$stx.symbols[-which(com.env$stx.symbols == ticker)] #stx.symbols - only stocks
       com.env$stx_list <- com.env$stx_list[-which(com.env$stx_list == ticker)]          #stx_list - contains etfs
@@ -285,7 +296,7 @@ remove_problem_stocks <- function() {
   com.env$stx_list <- c(com.env$etf.symbols,com.env$stx.symbols)
   #print(com.env$stx_list)
   com.env$start_date <- lapply(com.env$stx_list,get_start_date)
-  com.env$end_date <- lapply(com.env$stx_list,get_start_date)
+  com.env$end_date <- lapply(com.env$stx_list,get_end_date)
   names(com.env$start_date) <- com.env$stx_list
   names(com.env$end_date) <- com.env$stx_list
   #print(com.env$start_date)
@@ -300,13 +311,13 @@ load_stock_history <- function(stx_list.old) {
   Sys.setenv(TZ = "UTC")
   print("load_stock_history")
   adjustment <- TRUE
-  com.env$start_date <- "2004-01-01" 
-  com.env$end_date <- "2013-03-31"
-  com.env$data_date_range <- paste(com.env$start_date, com.env$end_date,sep="/")
+  com.env$load_start_date <- "2004-01-01" 
+  com.env$load_end_date <- "2013-03-31"
+  com.env$data_date_range <- paste(com.env$load_start_date, com.env$load_end_date,sep="/")
   if(free_data == FALSE){
     if(is.null(stx_list.old)){
       for(ticker in com.env$stx_list){
-        cmd_line <- paste0("data.env$",ticker," <- Quandl('EOD/",ticker,"', type = 'xts',start_date = '",com.env$start_date,"',end_date = '",com.env$end_date,"')")
+        cmd_line <- paste0("data.env$",ticker," <- Quandl('EOD/",ticker,"', type = 'xts',start_date = '",com.env$load_start_date,"',end_date = '",com.env$load_end_date,"')")
         eval(parse(text = cmd_line))
         names <- c(paste0(ticker,".Open"),paste0(ticker,".High"),paste0(ticker,".Low"),paste0(ticker,".Close"),paste0(ticker,".Volume"),"Dividend","Split",paste0(ticker,".Adjusted"),"Adj_High","Adj_Low","Adj_Close","Adj_Volume")
         cmd_line <- paste0("names(data.env$",ticker,") <- names")
@@ -320,8 +331,8 @@ load_stock_history <- function(stx_list.old) {
                  env=data.env,
                  src = "yahoo",
                  index.class = "POSIXct",
-                 from = com.env$start_date,
-                 to = com.env$end_date,
+                 from = com.env$load_start_date,
+                 to = com.env$load_end_date,
                  adjust = adjustment)
   
     } else if (!identical(com.env$stx_list,stx_list.old)) {
@@ -332,13 +343,26 @@ load_stock_history <- function(stx_list.old) {
                  env=data.env,
                  src = "yahoo",
                  index.class = "POSIXct",
-                 from = com.env$start_date,
-                 to = com.env$end_date,
+                 from = com.env$load_start_date,
+                 to = com.env$load_end_date,
                  adjust = adjustment)
+    }
+  }
+  #remove extra rows from loaded data
+  for (ticker in com.env$stx_list) {
+    de.xts <- paste0("data.env$",ticker)
+    chk_string <- paste0("date2late <- (as.Date(com.env$load_end_date) < as.Date(index(",de.xts,")[nrow(",de.xts,")]))")
+    eval(parse(text=chk_string))
+    if (date2late) rmv_string <- paste0(de.xts," <- ",de.xts,"[-nrow(",de.xts,")]")
+    while (date2late) {
+      print(paste("Removing row from",de.xts))
+      eval(parse(text=rmv_string))
+      eval(parse(text=chk_string))
     }
   }
   print("successfully loaded stx")
   print(com.env$stx_list)
+  print(paste("rows of data.env$CBE",nrow(data.env$CBE),"last index",index(data.env$CBE)[nrow(data.env$CBE)]))
   return(com.env$stx_list)
 }
 
@@ -372,7 +396,7 @@ stock_list <- function() {
     "DD",
     "DNR",
     "DO",
-    "DOW",
+    #"DOW",
     "DTE",
     "ECL",
     "EMN",
@@ -521,7 +545,7 @@ stock_list <- function() {
     "TMK",
     "TROW",
     "TRV",
-    "TSO",
+    #"TSO",
     "UNM",
     "USB",
     "VNO",
@@ -976,7 +1000,7 @@ stock_list <- function() {
     'CXO',
     'APA',
     'DVN',
-    'TSO',
+    #'TSO',
     'FTI',
     'NBL',
     'NOV',

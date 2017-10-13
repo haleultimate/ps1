@@ -5,8 +5,8 @@ run_sim <- function() {
   print(com.env$clu_names)
   make_mu()       #calc mu,VLTY,ADJRET for each var.env xts object
   sim.env$alpha_wt <- 1.
-  sim.env$pca_mult <- .001              #adjust when relative magnitudes are known
-  sim.env$vlty_wt <- 0.00001
+  sim.env$pca_mult <- .01              #adjust when relative magnitudes are known
+  sim.env$vlty_wt <- 0.0001
   sim.env$opt_oc <- FALSE
   sim.env$scale_bp <- 1.
   sim.env$mean_adjust_mu <- TRUE
@@ -76,7 +76,7 @@ lp_sim <- function(mu_col_name,stx,sim_date_index,equity,plot_profit=FALSE) {
       port_str <- "as.vector(sim.env$shares[i-1,1:length(stx)])"
     }
     
-    if (i %% 50 == 0) print(paste(i,"DATE:",SimDate,Sys.time()))
+    if (i %% 5 == 0) print(paste(i,"DATE:",SimDate,Sys.time()))
     if (first_pass) {
       cmd_string <- paste0("port.pos <- port_opt_lp(as.vector(var.env$",mu_col_name,
                            "[SimDate,stx]),as.vector(var.env$VLTY[SimDate,stx]),equity,",
@@ -370,14 +370,14 @@ port_opt_lp <- function (lp.mu, lp.vlty, lp.port_size, lp.port, lp.pca, first_pa
     write.lp(lp.port.model,filename="test_lp",type="lp")
   }
   
-  lp.control(lprec=lp.port.model,presolve=c("rows","cols","lindep","bounds"),scaling=c("geometric","equilibrate","intergers"))
+  lp.control(lprec=lp.port.model,verbose="important",presolve=c("rows","cols","lindep","bounds"),scaling=c("geometric","equilibrate","intergers"),timeout=5)
   #print(get.bounds(lp.port.model,columns=1))
   v1.bounds <- get.bounds(lp.port.model,columns=1)
-  if (v1.bounds$lower != -lp$max_pos) {
+  if (v1.bounds$lower != -lp$max_pos) {  #bug in code, this is a workaround (should find bug and delete this code)
     print(paste("lower bounds on var1:",v1.bounds$lower))
     set.bounds(lp.port.model,lower=-lp$max_pos,upper=lp$max_pos,columns=1)
   }
-  lp.status <- solve(lp.port.model)
+  t <- system.time({screen_out <- capture.output(lp.status <- solve(lp.port.model))})
   if (lp.status != 0) {  #Difficulty solving LP, remove trading costs from objective function
     print(paste("LP Model status code on try 1:",solve(lp.port.model)))
     print("Writing out lp to file 'error_lp_1'")

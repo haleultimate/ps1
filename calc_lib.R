@@ -16,6 +16,7 @@ name.var <- function(ve.xts,col_num,new_name,bins,first_pass=FALSE) { #always na
   # }
   if ((ve.ncol == col_num) | (bins == 1)) {
     cmd_string <- paste0("colnames(",ve.xts,")[",col_num,"] <- '",new_name,"'")
+    #print(cmd_string)
     eval(parse(text=cmd_string))
   } else {
     for (n in 1:bins) {
@@ -26,7 +27,7 @@ name.var <- function(ve.xts,col_num,new_name,bins,first_pass=FALSE) { #always na
       eval(parse(text=cmd_string))
     }
   }
-  #print(paste("finished with name.var",cmd_string))
+  #if (first_pass) print(paste("finished with name.var",cmd_string))
 } 
 
 #takes in ticker and vd and returns column containing vd values (stored temporarily in var.env$col.xts)
@@ -338,11 +339,21 @@ calc_cap_x <- function(coln,etf_coln,abscap=NULL,lcap=NULL,hcap=NULL,
     hcap <- mean_val + hz*sd_val
   }
   x.matrix <- pmax(pmin(as.matrix(x.xts),as.vector(hcap)),as.vector(lcap))
+  #print(str(x.matrix))
   sdate <- rownames(x.matrix)[1]
-  edate <- rownames(x.matrix)[nrow(var.env$x.matrix)]
+  edate <- rownames(x.matrix)[nrow(x.matrix)]
   cmd_string <- paste0("x.index <- index(var.env$",com.env$stx_list[1],"['",sdate,"/",edate,"'])")
-  #print(cmd_string)
+  if (first_pass) print(cmd_string)
   eval(parse(text=cmd_string))
+  if (length(x.index) != nrow(x.matrix)) {
+    print(paste(length(x.index),nrow(x.matrix)))
+    print(paste(x.index[1],x.index[length(x.index)],rownames(x.matrix)[1],rownames(x.matrix)[nrow(x.matrix)]))
+    for (i in 1:min(length(x.index),nrow(x.matrix))) {
+      if (x.index[i] != rownames(x.matrix)[i]) print(paste(x.index[i],rownames(x.matrix)[i]))
+    }
+    #var.env$x.matrix <- x.matrix
+    #var.env$x.index <- x.index
+  }
   x.xts <- xts(x.matrix,order.by=x.index)
   split_x_xts(x.xts,coln,etf_coln)
 }
@@ -458,7 +469,7 @@ calc_z <- function(ve.xts,coln,ma=TRUE,first_pass=FALSE) { #compute zscore/zscal
     eval(parse(text=cmd_string))
     #df.zscore <- scale(df,center=ma)
   } else {
-    print(paste("WARNING:SD=0 in calc_z,coln=",coln))
+    #print(paste("WARNING:SD=0 in calc_z,coln=",coln))
     cmd_string <- paste(out_string," <- 0",sep="")
     eval(parse(text=cmd_string))
   }
@@ -605,7 +616,10 @@ calc_stk <- function(ve.xts,coln,field,first_pass=FALSE) {
     if (first_pass) print(cmd_string)
     eval(parse(text=cmd_string))
     cmd_string <- paste0(ve.xts," <- cbind(",ve.xts,",new_column)")
-    if (first_pass) print(cmd_string)
+    if (first_pass) {
+      print(cmd_string)
+      print(str(new_column))
+    }
     eval(parse(text=cmd_string))
     # if (first_pass) {
     #   cmd_string <- paste0("print (colnames(",ve.xts,"))")
@@ -1234,6 +1248,7 @@ make_mu_liqx <- function() {
 calc_adjusted_HLOJRlD <- function(symbol_list) {
   print("calc_adjusted_HLOJRlD")
   first_pass <- TRUE
+  #if ("DNB" %in% symbol_list) print("DNB in symbol_list in calc_adjusted_HLOJRlD")
   stkmod <- paste0("data.env$",com.env$stkmod_name)
   for (ticker in symbol_list) {
     df <- paste0("data.env$",ticker)
@@ -1356,8 +1371,8 @@ calc_adjusted_HLOJRlD <- function(symbol_list) {
       sm.xts <- xts(x=matrix(0,nrow=length(dep_index),ncol=length(load.env$one_res[[ticker]])),order.by=dep_index)
       colnames(sm.xts) <- names(load.env$one_res[[ticker]])
       for (ind_ticker in colnames(sm.xts)) {
-        if (!ind_ticker %in% ls(data.env)) {
-          sm.xts <- sm.xts[,-which(ind_ticker %in% colnames(sm.xts))]
+        if (!ind_ticker %in% symbol_list) {
+          sm.xts <- sm.xts[,-which(ind_ticker == colnames(sm.xts))]
         } else {
           cmd_string <- paste("ind_index <- index(data.env$",ind_ticker,"[paste0(start(data.env$",ind_ticker,"),'/',end(data.env$",ind_ticker,"))])")
           if (first_pass) print(cmd_string)
@@ -1372,6 +1387,7 @@ calc_adjusted_HLOJRlD <- function(symbol_list) {
     }
     first_pass <- FALSE
   }
+  print(paste("rows of data.env$CBE",nrow(data.env$CBE),"last index",index(data.env$CBE)[nrow(data.env$CBE)]))
 }
 
 #make_vars.R
@@ -1402,10 +1418,10 @@ calc_one_var <- function(vd) {
     eval(parse(text=cmd_string))
   }
   eval(parse(text=cmd_string))
-  if ((length(etf_col_num) > 0) | (length(stx_col_num)>0)) {
-    vd$etf_col <- etf_col_num
+  if (length(stx_col_num)>0) {
+    #print(paste("var already calculated",vd$clu,vd$col,stx_col_num,vd$etf_col,etf_col_num,vd$var_name))
+    if (length(etf_col_num) > 0) vd$etf_col <- etf_col_num
     vd$col <- stx_col_num
-    print("mod_var already calculated, returning from calc_one_var with no calculation")
     return(vd)
   }
   if (!exists(com.env$stx.symbols[[1]],envir=var.env,inherits=FALSE)) {
