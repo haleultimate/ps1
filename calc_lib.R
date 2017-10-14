@@ -399,8 +399,8 @@ calc_rank_x <- function(coln,etf_coln,qcount,first_pass=FALSE) {
 
 row_rank_x <- function(row.vector,qcount) {
   #print(str(row.vector))
-  a <- max(row.vector,na.rm=TRUE)
-  b <- min(row.vector,na.rm=TRUE)
+  suppressWarnings(a <- max(row.vector,na.rm=TRUE))
+  suppressWarnings(b <- min(row.vector,na.rm=TRUE))
   if ((a==b) | (a==-Inf)) { #a==-Inf when all row.vector == NA
     row.vector <- 1
   } else {
