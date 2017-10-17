@@ -5,11 +5,12 @@ set_control_parms <- function() {
   com.env$add_var_levels <- c(5,10,20,30)
   com.env$opt_model <- TRUE
   com.env$load_vars <- FALSE
-  com.env$load_model <- FALSE
-  com.env$save_model <- FALSE
+  com.env$load_model <- TRUE
+  com.env$load_model_name <- "lf5_500_1012.vcom"
+  com.env$save_model <- TRUE
+  com.env$save_model_name <- "lf5_500_1016.vcom"
   com.env$save_var_n <- 0
   com.env$look_forward <- 5
-  com.env$model_filename <- "lf5_500_1012.vcom"
   com.env$mod_var_loops <- 20
   com.env$opt_type <- "single_oos"  #{adjr2_is,single_oos,rolling_oos}
   com.env$run_sim <- TRUE
@@ -29,7 +30,7 @@ set_control_parms <- function() {
     rm(bad_model_list)                    #only below settings are supported in multi-model
     com.env$load_model <- TRUE
     com.env$save_model <- FALSE
-    com.env$model_filename <- com.env$model_list[1]
+    com.env$load_model_name <- com.env$model_list[1]
     com.env$opt_model <- FALSE
     com.env$run_sim <- TRUE
     com.env$save_var_n <- 0

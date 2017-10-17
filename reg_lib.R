@@ -9,9 +9,9 @@
 run_prediction <- function() {
   if (!com.env$load_model) define_predict_ret()     #source("define_vars.R")  #if not loading model need to define predictor variable
   sample_vars()                                     #set up rnd.env$vs.com and rnd_parms
-  if (com.env$load_model) load_model(com.env$model_filename)
+  if (com.env$load_model) load_model(com.env$load_model_name)
   if (com.env$opt_model) opt_model(com.env$model_loops,com.env$mod_var_loops)
-  if (com.env$save_model) save_model(com.env$model_filename)
+  if (com.env$save_model) save_model(com.env$save_model_name)
   if (com.env$save_var_n > 0) {
     print(paste("Evaluating model to save top",com.env$save_var_n,"/",length(com.env$best_clu_names),"total vars",Sys.time()))
     eval_adj_r2(sim_data=TRUE)
@@ -708,14 +708,14 @@ save_model <- function(filename) {
     print(paste("Saved_model_files:",length(saved_model_files)))
     if (length(saved_model_files)>0) {
       loop <- 1
-      while (com.env$model_filename %in% saved_model_files & loop<5) {
-        print(paste("Warning:",com.env$model_filename,"already in model directory, appending _"))
-        com.env$model_filename <- paste(com.env$model_filename,"_",loop,sep="")
+      while (filename %in% saved_model_files & loop<5) {
+        print(paste("Warning:",filename,"already in model directory, appending _"))
+        filename <- paste(filename,"_",loop,sep="")
         loop <- loop + 1
       }
     }
   }
-  modelfile <- paste(com.env$modeldir,"/",com.env$model_filename,sep="")
+  modelfile <- paste0(com.env$modeldir,"/",filename)
   print(paste("Saving:",modelfile))
   save(list=c("v.com"),file=modelfile,envir=com.env)
 }

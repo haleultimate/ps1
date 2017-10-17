@@ -575,12 +575,15 @@ mod_scale_var <- function(V1=NULL,i=NULL) {
                #print(paste("mod_scale_var:",old_var_name))
                V2 <- com.env$v.com[[old_var_name]]
                if (is.null(V2)) {
-                 print(paste("Error in mod_scale_var",old_var_name,"not found"))
-                 source("close_session.R")
+                 print(paste("********** Error in mod_scale_var",old_var_name,"not found ***********"))
+                 print(V1$math)
+                 #source("close_session.R")
+                 return(V1)
+               } else {
+                 V3 <- modify_scale_var(V2)
+                 #return scale var with original name
+                 return(V3)
                }
-               V3 <- modify_scale_var(V2)
-               #return scale var with original name
-               return(V3)
              }
            },
            "new_scale_var" =,

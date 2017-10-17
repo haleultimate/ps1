@@ -76,7 +76,7 @@ lp_sim <- function(mu_col_name,stx,sim_date_index,equity,plot_profit=FALSE) {
       port_str <- "as.vector(sim.env$shares[i-1,1:length(stx)])"
     }
     
-    if (i %% 5 == 0) print(paste(i,"DATE:",SimDate,Sys.time()))
+    if (i %% 50 == 0) print(paste(i,"DATE:",SimDate,Sys.time()))
     if (first_pass) {
       cmd_string <- paste0("port.pos <- port_opt_lp(as.vector(var.env$",mu_col_name,
                            "[SimDate,stx]),as.vector(var.env$VLTY[SimDate,stx]),equity,",
