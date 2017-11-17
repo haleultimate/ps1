@@ -74,8 +74,13 @@ opt_model <- function(model_loops,mod_var_loops) {
       print("after opt_var_selection / check_vcom")
       source("close_session.R")
     }
+    load(file=paste0(com.env$datadir,"/stop_opt_loop.dat"),envir=com.env)
+    if (com.env$stop_opt_loop) {
+      print("Break in optimization loop via stop_opt_loop file")
+      break
+    }
   }                                               #end model loop
-  print(paste("Start_time:",start_time,"End_time:",Sys.time(),"Elapsed:",round(Sys.time()-start_time),"minutes"))
+  print(paste("Start_time:",start_time,"End_time:",Sys.time()))
   cat("Final adj R2:",com.env$best_adj_r2,'\n')
   cat("Reg vars:",length(com.env$best_clu_names),com.env$best_clu_names,'\n')
 } #end function opt_model
@@ -751,13 +756,21 @@ save_vars <- function(save_var_n) {
     model.subsets <- regsubsets(f1,data=var.env$reg_data.df,nbest=save_var_n,nvmax=1)
   }
   var_names <- NULL
+  save_vcoms <- NULL
   com.env$model.subsets <- model.subsets
   for (i in 1:save_var_n) {
-    var_names <- append(var_names,names(coef(model.subsets,i))[2])
+    vn <- names(coef(model.subsets,i))[2]
+    print(vn)
+    var_names <- append(var_names,vn)
+    vn <- gsub("_.*","",vn)
+    print(vn)
+    for (vd in com.env$v.com) if (!is.null(vd$clu)) if (vn==vd$clu) save_vcoms <- append(save_vcoms,vd$vcom_num)
   }
-  # print(var_names)
-  save_vcoms <- get_reg_names(var_names,return_num=TRUE)
-  # print(save_vcoms)
+  print(var_names)
+  #save_vcoms <- get_reg_names(var_names,return_num=TRUE)
+  save_vcoms <- unique(save_vcoms)
+  
+  print(save_vcoms)
   save_vcom_vars(save_vcoms)
 }
 

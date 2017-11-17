@@ -5,12 +5,12 @@ run_sim <- function() {
   print(com.env$clu_names)
   make_mu()       #calc mu,VLTY,ADJRET for each var.env xts object
   sim.env$alpha_wt <- 1.
-  sim.env$pca_mult <- .01              #adjust when relative magnitudes are known
+  sim.env$pca_mult <- 1.              #adjust when relative magnitudes are known
   sim.env$vlty_wt <- 0.0001
   sim.env$opt_oc <- FALSE
   sim.env$scale_bp <- 1.
   sim.env$mean_adjust_mu <- TRUE
-  sim.env$pca_type <- 70      #{"PCA_ETF", #loaded PCA vectors to balance}
+  sim.env$pca_type <- 40      #{"PCA_ETF", #loaded PCA vectors to balance}
   sim.env$port_size_mult <- 10000
   sim.env$port_size <- sim.env$init_equity <- sim.env$port_size_mult*com.env$stx
   if ((sim.env$pca_type == "PCA_ETF") | (com.env$data_str != "large")) {
@@ -121,6 +121,18 @@ lp_sim <- function(mu_col_name,stx,sim_date_index,equity,plot_profit=FALSE) {
   total.profit <- sim.env$totalprofit[length(sim.env$totalprofit)]
   total.tc <- sim.env$totaltc[length(sim.env$totaltc)]
   total.net.profit <- total.profit - total.tc
+  
+  #print pca out of balance for last day of sim (using positions sitting in port.pos)
+  pca_oob <- NULL
+  pc_n <- ncol(sim.env$pca)
+  for (i in 1:pc_n) {
+    pca_oob[i] <- sum(port.pos * as.vector(sim.env$pca[,i]))
+    pca_oob[abs(pca_oob)<100] <- 0
+  }
+  print("PCA out-of-balance for last day")
+  print(pca_oob)
+  
+  
   print(paste("total profit:",total.profit))
   print(paste("total tc:",total.tc))
   print(paste("net profit:",total.net.profit))

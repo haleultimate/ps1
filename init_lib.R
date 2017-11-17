@@ -1,15 +1,15 @@
 #init_lib.R
 #parms that should be changed by user manually to control run_ps.R behavior
 set_control_parms <- function() {
-  com.env$model_loops <- 3
-  com.env$add_var_levels <- c(5,10,20,30)
+  com.env$model_loops <- 6
+  com.env$add_var_levels <- c(10,20,30,40)
   com.env$opt_model <- TRUE
-  com.env$load_vars <- FALSE
+  com.env$load_vars <- TRUE
   com.env$load_model <- TRUE
-  com.env$load_model_name <- "lf5_500_1012.vcom"
+  com.env$load_model_name <- "lf5_500_1107.vcom"
   com.env$save_model <- TRUE
-  com.env$save_model_name <- "lf5_500_1016.vcom"
-  com.env$save_var_n <- 0
+  com.env$save_model_name <- "lf5_500_1107.vcom"
+  com.env$save_var_n <- 5
   com.env$look_forward <- 5
   com.env$mod_var_loops <- 20
   com.env$opt_type <- "single_oos"  #{adjr2_is,single_oos,rolling_oos}
@@ -114,6 +114,11 @@ set_directories <- function() {
 
 load_data_files <- function() {
   print("This is where we load shout, div, pca vectors, mkt_forecast info")
+  load(file=paste0(com.env$datadir,"/stop_opt_loop.dat"),envir=com.env)
+  if (com.env$stop_opt_loop & com.env$opt_model) {
+    print("Request for optiizing model, but stop_opt_loop is set to true, fix file")
+    source("close_session.R")
+  }
   shout_file <- paste0(com.env$datadir,"/shout.dat")
   if (exists(shout_file,envir = load.env)) return() 
     #if (!exists("data.env$shout_table")) 
@@ -394,7 +399,7 @@ stock_list <- function() {
     "COP",
     "CVX",
     "D",
-    "DD",
+    #"DD",
     "DNR",
     "DO",
     #"DOW",
@@ -875,7 +880,7 @@ stock_list <- function() {
     "SHLD",
     "SIG",
     "SNI",
-    "SPLS",
+    #"SPLS",
     "SSP",
     "TIF",
     "TJX",

@@ -1300,7 +1300,7 @@ make_mu_liqx <- function() {
 #function pre-calculates adjusted prices and dollars in data environment, used once per data load
 calc_adjusted_HLOJRlD <- function(symbol_list) {
   print("calc_adjusted_HLOJRlD")
-  first_pass <- TRUE
+  first_pass <- FALSE
   #if ("DNB" %in% symbol_list) print("DNB in symbol_list in calc_adjusted_HLOJRlD")
   stkmod <- paste0("data.env$",com.env$stkmod_name)
   for (ticker in symbol_list) {
