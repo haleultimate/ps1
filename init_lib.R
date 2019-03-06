@@ -1,20 +1,20 @@
 #init_lib.R
 #parms that should be changed by user manually to control run_ps.R behavior
 set_control_parms <- function() {
-  com.env$model_loops <- 6
+  com.env$model_loops <- 5
   com.env$add_var_levels <- c(10,20,30,40)
   com.env$opt_model <- TRUE
   com.env$load_vars <- TRUE
   com.env$load_model <- TRUE
-  com.env$load_model_name <- "lf5_500_1107.vcom"
+  com.env$load_model_name <- "lf5_500_0305.vcom"
   com.env$save_model <- TRUE
-  com.env$save_model_name <- "lf5_500_1107.vcom"
-  com.env$save_var_n <- 5
-  com.env$look_forward <- 5
+  com.env$save_model_name <- "lf5_500_0305.vcom"
+  com.env$save_var_n <- 2
+  com.env$look_forward <- 1
   com.env$mod_var_loops <- 20
   com.env$opt_type <- "single_oos"  #{adjr2_is,single_oos,rolling_oos}
   com.env$run_sim <- TRUE
-  com.env$data_str <- "large"       #{small,large}
+  com.env$data_str <- "small"       #{small,large}
   com.env$sdata_available <- FALSE
   
   com.env$load_multi_model <- FALSE
@@ -378,7 +378,7 @@ stock_list <- function() {
   large_dataset_symbols <- c(
     "IYZ",
     "FTR",
-    "LVLT",
+    #"LVLT",
     "S",
     "T",
     "TLAB",
@@ -411,14 +411,14 @@ stock_list <- function() {
     "FTI",
     "IP",
     "MLM",
-    "MON",
+    #"MON",
     "MOS",
     "NE",
     "NEM",
     "NUE",
     "OI",
     "PPG",
-    "PX",
+    #"PX",
     "SEE",
     "SHW",
     #"TIE",
@@ -478,7 +478,7 @@ stock_list <- function() {
     "BXP",
     "C",
     "CB",
-    "CBG",
+    #"CBG",
     "CCI",
     "CERN",
     "CIEN",
@@ -490,8 +490,8 @@ stock_list <- function() {
     "CSCO",
     "CTL",
     "CTSH",
-    "CTXS",
-    "DDR",
+    #"CTXS",
+    #"DDR",
     "DFS",
     "DNB",
     "EA",
@@ -504,11 +504,11 @@ stock_list <- function() {
     "FII",
     "FIS",
     "FITB",
-    "GGP",
+    #"GGP",
     "GNW",
     "GS",
     "HBAN",
-    "HCN",
+    #"HCN",
     "HIG",
     "HST",
     "ICE",
@@ -544,7 +544,7 @@ stock_list <- function() {
     "RF",
     "SCHW",
     "SLG",
-    "SLM",
+    #"SLM",
     "SPG",
     #"STI",
     "STT",
@@ -567,7 +567,7 @@ stock_list <- function() {
     #"BHI",
     "CAT",
     "CMI",
-    "COL",
+    #"COL",
     "DE",
     "DHI",
     "DHR",
@@ -636,7 +636,7 @@ stock_list <- function() {
     "AMAT",
     "AMD",
     "AMZN",
-    "CA",
+    #"CA",
     "EQIX",
     "FFIV",
     "FLIR",
@@ -708,7 +708,7 @@ stock_list <- function() {
     #"RAI",
     "SJM",
     "STZ",
-    "SVU",
+    #"SVU",
     "SYY",
     "TAP",
     "TGT",
@@ -735,7 +735,7 @@ stock_list <- function() {
     "PEG",
     "PNW",
     "PPL",
-    "SCG",
+    #"SCG",
     "SO",
     "SRE",
     "WEC",
@@ -743,13 +743,13 @@ stock_list <- function() {
     "XLV",
     "ABC",
     "ABT",
-    "AET",
+    #"AET",
     "AGN",
     "ALXN",
     "AMGN",
     "ANTM",
     "BAX",
-    "BCR",
+    #"BCR",
     "BDX",
     "BIIB",
     "BSX",
@@ -758,7 +758,7 @@ stock_list <- function() {
     "DGX",
     "DVA",
     "ENDP",
-    "ESRX",
+    #"ESRX",
     "EW",
     "GILD",
     "HSIC",
@@ -803,7 +803,7 @@ stock_list <- function() {
     "CAG",
     "CAH",
     "CBS",
-    "CCE",
+    #"CCE",
     "CCL",
     "CHD",
     "CHRW",
@@ -811,12 +811,12 @@ stock_list <- function() {
     "CLX",
     "CMCSA",
     "CMG",
-    "COH",
+    #"COH",
     "COST",
     "CPB",
     "CSX",
     "CTAS",
-    "CVG",
+    #"CVG",
     "CVS",
     "DAL",
     "DDS",
@@ -825,7 +825,7 @@ stock_list <- function() {
     "DIS",
     "DISCA",
     "DLTR",
-    "DPS",
+    #"DPS",
     "DRI",
     "EL",
     "EXPE",
@@ -842,7 +842,7 @@ stock_list <- function() {
     "HD",
     "HOG",
     "IGT",
-    "IHRT",
+    #"IHRT",
     "IPG",
     "JCI",
     "JCP",
